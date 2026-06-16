@@ -5,18 +5,21 @@ mod walker;
 
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 
 use budget::{count_text_tokens, optimize_budget, ProcessedFile};
-use formatter::format_repository_context;
+use formatter::{
+    format_repository_context_json, format_repository_context_xml, RepositoryMetadata,
+};
 use parser::{compress_file, CompressionLevel};
 use walker::collect_code_files;
 
 #[derive(Debug, Parser)]
 #[command(name = "contextshrink")]
-#[command(about = "Shrink repository source context into token-efficient XML")]
+#[command(about = "Shrink repository source context into token-efficient XML or JSON")]
 struct Cli {
     #[arg(default_value = ".")]
     path: PathBuf,
@@ -33,6 +36,9 @@ struct Cli {
     #[arg(long, default_value = "contextshrink.xml")]
     output_file: PathBuf,
 
+    #[arg(long, value_enum, default_value_t = OutputFormat::Xml)]
+    format: OutputFormat,
+
     #[arg(long)]
     stats: bool,
 
@@ -44,6 +50,12 @@ struct Cli {
 enum OutputDestination {
     Clipboard,
     File,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    Json,
+    Xml,
 }
 
 fn main() -> Result<()> {
@@ -68,18 +80,34 @@ fn main() -> Result<()> {
         files.push(ProcessedFile::new(relative_path, requested_level, variants));
     }
 
-    let raw_xml = format_repository_context(&full_context_files(&files));
+    let full_files = full_context_files(&files)?;
     let optimized = optimize_budget(files, cli.max_tokens)?;
-    let xml = format_repository_context(&optimized);
-    let run_stats = RunStats::new(&cli, requested_level, optimized.len(), &raw_xml, &xml)?;
+    let metadata = RepositoryMetadata {
+        generated_at: generated_at_unix()?,
+        repo_root: root.display().to_string(),
+        max_tokens: cli.max_tokens,
+        compression_level: requested_level.as_u8(),
+        file_count: optimized.len(),
+    };
+    let raw_context = format_context(&full_files, &metadata, cli.format);
+    let context = format_context(&optimized, &metadata, cli.format);
+    let run_stats = RunStats::new(
+        &cli,
+        requested_level,
+        optimized.len(),
+        &raw_context,
+        &context,
+    )?;
 
     match cli.output {
         OutputDestination::Clipboard => {
             let mut clipboard = arboard::Clipboard::new().context("cannot access clipboard")?;
-            clipboard.set_text(xml).context("cannot write clipboard")?;
+            clipboard
+                .set_text(context)
+                .context("cannot write clipboard")?;
         }
         OutputDestination::File => {
-            fs::write(&cli.output_file, xml)
+            fs::write(&cli.output_file, context)
                 .with_context(|| format!("cannot write {}", cli.output_file.display()))?;
         }
     }
@@ -137,15 +165,34 @@ impl RunStats {
     }
 }
 
-fn full_context_files(files: &[ProcessedFile]) -> Vec<ProcessedFile> {
+fn full_context_files(files: &[ProcessedFile]) -> Result<Vec<ProcessedFile>> {
     files
         .iter()
         .cloned()
         .map(|mut file| {
             file.level = CompressionLevel::Full;
-            file
+            file.token_count = count_text_tokens(file.content())?;
+            Ok(file)
         })
         .collect()
+}
+
+fn format_context(
+    files: &[ProcessedFile],
+    metadata: &RepositoryMetadata,
+    output_format: OutputFormat,
+) -> String {
+    match output_format {
+        OutputFormat::Json => format_repository_context_json(files, metadata),
+        OutputFormat::Xml => format_repository_context_xml(files, metadata),
+    }
+}
+
+fn generated_at_unix() -> Result<String> {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("system time is before Unix epoch")?;
+    Ok(duration.as_secs().to_string())
 }
 
 fn output_target(cli: &Cli) -> String {

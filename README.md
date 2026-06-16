@@ -44,6 +44,12 @@ Pick another output file:
 target/release/contextshrink . --max-tokens 8000 --level 1 --output file --output-file repo-context.xml
 ```
 
+Write JSON instead of XML:
+
+```sh
+target/release/contextshrink . --max-tokens 12000 --level 2 --format json --output file --output-file /tmp/contextshrink.json
+```
+
 Print a run summary:
 
 ```sh
@@ -88,6 +94,18 @@ ContextShrink compares full XML against shrunk XML with the same tokenizer it us
 ```text
 tokens_saved = raw_tokens - shrunk_tokens
 saving_percent = tokens_saved / raw_tokens * 100
+```
+
+## Output Format
+
+XML is the default output. Use `--format json` for JSON.
+
+Both formats include:
+
+```text
+metadata: generated time, repo root, token budget, compression level, file count
+project map: file paths, selected levels, per-file token counts
+files: compressed file contents with per-file token counts
 ```
 
 ## Supported Files
