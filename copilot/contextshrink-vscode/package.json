@@ -1,0 +1,82 @@
+{
+  "name": "contextshrink-copilot",
+  "displayName": "ContextShrink for Copilot",
+  "description": "Generate token-budgeted ContextShrink XML for GitHub Copilot Chat.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "file:../.."
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:contextshrink.generateContext",
+    "onCommand:contextshrink.copyContext",
+    "onCommand:contextshrink.openContext"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextshrink.generateContext",
+        "title": "ContextShrink: Generate Copilot Context"
+      },
+      {
+        "command": "contextshrink.copyContext",
+        "title": "ContextShrink: Copy Copilot Context"
+      },
+      {
+        "command": "contextshrink.openContext",
+        "title": "ContextShrink: Open Last Context"
+      }
+    ],
+    "configuration": {
+      "title": "ContextShrink",
+      "properties": {
+        "contextshrink.maxTokens": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 1000,
+          "description": "Token budget for generated Copilot context."
+        },
+        "contextshrink.level": {
+          "type": "number",
+          "default": 2,
+          "enum": [
+            1,
+            2,
+            3
+          ],
+          "description": "Compression level: 1 full-first, 2 skeleton, 3 tree map."
+        },
+        "contextshrink.outputFile": {
+          "type": "string",
+          "default": "/tmp/contextshrink-copilot.xml",
+          "description": "File path where generated context is written."
+        },
+        "contextshrink.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit path to the contextshrink binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.15.0",
+    "typescript": "^5.4.5"
+  }
+}
