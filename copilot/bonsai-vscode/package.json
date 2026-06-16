@@ -1,11 +1,11 @@
 {
-  "name": "contextshrink-vscode",
-  "displayName": "ContextShrink",
-  "description": "ContextShrink XML for GitHub Copilot Chat and Codex.",
+  "name": "bonsai-vscode",
+  "displayName": "Bonsai",
+  "description": "Bonsai XML for GitHub Copilot Chat and Codex.",
   "version": "0.1.0",
   "publisher": "local",
   "private": true,
-  "icon": "images/context-shrink.png",
+  "icon": "images/bonsai.png",
   "repository": {
     "type": "git",
     "url": "file:../.."
@@ -17,51 +17,51 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:contextshrink.generateContext",
-    "onCommand:contextshrink.generateAndAsk",
-    "onCommand:contextshrink.copyContext",
-    "onCommand:contextshrink.copyProjectMap",
-    "onCommand:contextshrink.previewProjectMap",
-    "onCommand:contextshrink.openContext"
+    "onCommand:bonsai.generateContext",
+    "onCommand:bonsai.generateAndAsk",
+    "onCommand:bonsai.copyContext",
+    "onCommand:bonsai.copyProjectMap",
+    "onCommand:bonsai.previewProjectMap",
+    "onCommand:bonsai.openContext"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "contextshrink.generateContext",
-        "title": "ContextShrink: Generate Context"
+        "command": "bonsai.generateContext",
+        "title": "Bonsai: Generate Context"
       },
       {
-        "command": "contextshrink.generateAndAsk",
-        "title": "ContextShrink: Generate and Ask"
+        "command": "bonsai.generateAndAsk",
+        "title": "Bonsai: Generate and Ask"
       },
       {
-        "command": "contextshrink.copyContext",
-        "title": "ContextShrink: Copy Context Prompt"
+        "command": "bonsai.copyContext",
+        "title": "Bonsai: Copy Context Prompt"
       },
       {
-        "command": "contextshrink.copyProjectMap",
-        "title": "ContextShrink: Copy Project Map"
+        "command": "bonsai.copyProjectMap",
+        "title": "Bonsai: Copy Project Map"
       },
       {
-        "command": "contextshrink.previewProjectMap",
-        "title": "ContextShrink: Preview Project Map"
+        "command": "bonsai.previewProjectMap",
+        "title": "Bonsai: Preview Project Map"
       },
       {
-        "command": "contextshrink.openContext",
-        "title": "ContextShrink: Open Last Context"
+        "command": "bonsai.openContext",
+        "title": "Bonsai: Open Last Context"
       }
     ],
     "configuration": {
-      "title": "ContextShrink",
+      "title": "Bonsai",
       "properties": {
-        "contextshrink.maxTokens": {
+        "bonsai.maxTokens": {
           "type": "number",
           "default": 12000,
           "minimum": 1000,
           "description": "Token budget for generated Copilot context."
         },
-        "contextshrink.level": {
+        "bonsai.level": {
           "type": "number",
           "default": 2,
           "enum": [
@@ -71,12 +71,12 @@
           ],
           "description": "Compression level: 1 full-first, 2 skeleton, 3 tree map."
         },
-        "contextshrink.outputFile": {
+        "bonsai.outputFile": {
           "type": "string",
-          "default": "/tmp/contextshrink-vscode.xml",
+          "default": "/tmp/bonsai-vscode.xml",
           "description": "File path where generated context is written."
         },
-        "contextshrink.outputFormat": {
+        "bonsai.outputFormat": {
           "type": "string",
           "default": "xml",
           "enum": [
@@ -85,7 +85,7 @@
           ],
           "description": "Generated context format."
         },
-        "contextshrink.include": {
+        "bonsai.include": {
           "type": "array",
           "default": [],
           "items": {
@@ -93,7 +93,7 @@
           },
           "description": "Glob patterns to include, such as src/**."
         },
-        "contextshrink.exclude": {
+        "bonsai.exclude": {
           "type": "array",
           "default": [],
           "items": {
@@ -101,22 +101,22 @@
           },
           "description": "Glob patterns to exclude, such as **/generated/**."
         },
-        "contextshrink.respectGitignore": {
+        "bonsai.respectGitignore": {
           "type": "boolean",
           "default": true,
           "description": "Respect .gitignore, global gitignore, and git exclude files."
         },
-        "contextshrink.binaryPath": {
+        "bonsai.binaryPath": {
           "type": "string",
           "default": "",
-          "description": "Optional explicit path to the contextshrink binary. When empty, ContextShrink checks CONTEXTSHRINK_BIN, PATH, then local release builds."
+          "description": "Optional explicit path to the bonsai binary. When empty, Bonsai checks BONSAI_BIN, PATH, then local release builds."
         }
       }
     }
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "test": "npm run compile && node dist/contextshrink.smoke.test.js",
+    "test": "npm run compile && node dist/bonsai.smoke.test.js",
     "watch": "tsc -watch -p ./",
     "package": "vsce package --no-dependencies"
   },

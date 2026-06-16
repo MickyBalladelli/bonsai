@@ -1,4 +1,4 @@
-export type ContextShrinkConfig = {
+export type BonsaiConfig = {
   binaryPath: string
   exclude: string[]
   include: string[]
@@ -25,7 +25,7 @@ export type ProjectMapEntry = {
   tokens: number
 }
 
-export function buildContextShrinkArgs(workspaceRoot: string, config: ContextShrinkConfig): string[] {
+export function buildBonsaiArgs(workspaceRoot: string, config: BonsaiConfig): string[] {
   const args = [
     workspaceRoot,
     '--max-tokens',
@@ -97,10 +97,10 @@ export function buildProjectMapText(entries: ProjectMapEntry[]): string {
 
 export function buildContextPrompt(outputFile: string, contextText?: string): string {
   if (contextText) {
-    return `Use this ContextShrink context as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.\n\n${contextText}`
+    return `Use this Bonsai context as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.\n\n${contextText}`
   }
 
-  return `Use the ContextShrink context opened at ${outputFile} as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.`
+  return `Use the Bonsai context opened at ${outputFile} as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.`
 }
 
 export function buildSuccessMessage(outputFile: string, report: RunReport, nextStep: string): string {
@@ -114,7 +114,7 @@ export function buildSuccessMessage(outputFile: string, report: RunReport, nextS
     ? `, ${report.filesIncluded} files`
     : ''
 
-  return `ContextShrink wrote ${outputFile} (${tokenText}${savedText}${fileText}). ${nextStep}`
+  return `Bonsai wrote ${outputFile} (${tokenText}${savedText}${fileText}). ${nextStep}`
 }
 
 function readNumber(text: string, pattern: RegExp): number | undefined {

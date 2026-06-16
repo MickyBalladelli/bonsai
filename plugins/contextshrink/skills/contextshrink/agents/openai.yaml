@@ -1,4 +1,0 @@
-interface:
-  display_name: "ContextShrink"
-  short_description: "Compress repo context for Codex prompts"
-  default_prompt: "Use $contextshrink to compress this repo into XML context before answering."

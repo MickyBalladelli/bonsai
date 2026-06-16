@@ -1,45 +1,45 @@
-<img src="images/context-shrink.png" alt="ContextShrink logo" width="160">
+<img src="images/bonsai.png" alt="Bonsai logo" width="160">
 
-# ContextShrink
+# Bonsai
 
-ContextShrink turns a repo into small, inspectable XML or JSON for LLMs. It walks files, shrinks code into useful shapes, counts tokens, and writes context you can paste into Codex, Claude, Copilot, ChatGPT, or another coding agent.
+Bonsai turns a repo into small, inspectable XML or JSON for LLMs. It walks files, shrinks code into useful shapes, counts tokens, and writes context you can paste into Codex, Claude, Copilot, ChatGPT, or another coding agent.
 
 ## Quick Start
 
-Download a release binary. No Rust needed.
-
-macOS Apple Silicon:
+Run inside a repo:
 
 ```sh
-curl -L -o contextshrink https://github.com/MickyBalladelli/context-shrink/releases/latest/download/contextshrink-macos-arm64
-chmod +x contextshrink
-./contextshrink --version
-```
-
-Linux x64:
-
-```sh
-curl -L -o contextshrink https://github.com/MickyBalladelli/context-shrink/releases/latest/download/contextshrink-linux-x64
-chmod +x contextshrink
-./contextshrink --version
-```
-
-Run inside any repo:
-
-```sh
-./contextshrink .
+bonsai .
 ```
 
 This writes:
 
 ```text
-contextshrink.xml
+bonsai.xml
 ```
 
-Need clipboard instead of a file?
+Copy it into your LLM and ask:
+
+```text
+Use this Bonsai XML as repo context. Summarize the architecture and tell me where to start reading.
+```
+
+Need the binary? Download a release. No Rust needed.
+
+macOS Apple Silicon:
 
 ```sh
-./contextshrink . --prompt --output clipboard
+curl -L -o bonsai https://github.com/MickyBalladelli/bonsai-context/releases/latest/download/bonsai-macos-arm64
+chmod +x bonsai
+sudo mv bonsai /usr/local/bin/bonsai
+```
+
+Linux x64:
+
+```sh
+curl -L -o bonsai https://github.com/MickyBalladelli/bonsai-context/releases/latest/download/bonsai-linux-x64
+chmod +x bonsai
+sudo mv bonsai /usr/local/bin/bonsai
 ```
 
 Or install from source:
@@ -51,24 +51,12 @@ cargo install --path .
 Install straight from GitHub:
 
 ```sh
-cargo install --git https://github.com/MickyBalladelli/context-shrink.git
-```
-
-If installed on `PATH`, run:
-
-```sh
-contextshrink .
-```
-
-Copy it into your LLM and ask:
-
-```text
-Use this ContextShrink XML as repo context. Summarize the architecture and tell me where to start reading.
+cargo install --git https://github.com/MickyBalladelli/bonsai-context.git
 ```
 
 ## What It Is Good For
 
-Use ContextShrink when you want broad repo context that is visible and repeatable:
+Use Bonsai when you want broad repo context that is visible and repeatable:
 
 ```text
 Summarize this project.
@@ -80,75 +68,19 @@ Compare token savings before sending repo context.
 
 It is less useful when the agent already has the exact file or function you want edited.
 
-## Common Commands
-
-Architecture map:
-
-```sh
-contextshrink . --level 3
-```
-
-Detailed repo context:
-
-```sh
-contextshrink . --max-tokens 12000 --level 2
-```
-
-Only scan `src`:
-
-```sh
-contextshrink src
-```
-
-Write somewhere else:
-
-```sh
-contextshrink . --output-file /tmp/contextshrink.xml
-```
-
-Write JSON:
-
-```sh
-contextshrink . --format json --output-file /tmp/contextshrink.json
-```
-
-Write a paste-ready prompt:
-
-```sh
-contextshrink . --prompt --output-file /tmp/contextshrink-prompt.txt
-```
-
-Show selected files:
-
-```sh
-contextshrink . --print-files
-```
-
-Measure token savings:
-
-```sh
-contextshrink . --max-tokens 12000 --stats
-```
-
-Filter files:
-
-```sh
-contextshrink . --include 'src/**' --exclude '**/generated.rs'
-```
-
 ## Install
 
 Release binaries:
 
 ```text
-contextshrink-macos-arm64
-contextshrink-linux-x64
+bonsai-macos-arm64
+bonsai-linux-x64
 ```
 
 Download from:
 
 ```text
-https://github.com/MickyBalladelli/context-shrink/releases/latest
+https://github.com/MickyBalladelli/bonsai-context/releases/latest
 ```
 
 From this repo:
@@ -160,32 +92,100 @@ cargo install --path .
 From git:
 
 ```sh
-cargo install --git https://github.com/MickyBalladelli/context-shrink.git
+cargo install --git https://github.com/MickyBalladelli/bonsai-context.git
 ```
 
 Or build a local binary:
 
 ```sh
 cargo build --release
-target/release/contextshrink .
+target/release/bonsai .
 ```
 
 Tagged releases publish:
 
 ```text
-contextshrink-linux-x64
-contextshrink-macos-arm64
-contextshrink-linux-x64.sha256
-contextshrink-macos-arm64.sha256
-contextshrink-vscode-*.vsix
+bonsai-linux-x64
+bonsai-macos-arm64
+bonsai-linux-x64.sha256
+bonsai-macos-arm64.sha256
+bonsai-vscode-*.vsix
 ```
 
 The Codex plugin, Claude Code plugin, and VS Code extension find the binary in this order:
 
 ```text
-CONTEXTSHRINK_BIN
-contextshrink on PATH
-repo-local target/release/contextshrink
+BONSAI_BIN
+bonsai on PATH
+repo-local target/release/bonsai
+```
+
+## Advanced Commands
+
+Paste-ready clipboard prompt:
+
+```sh
+bonsai . --prompt --output clipboard
+```
+
+Custom paste-ready prompt:
+
+```sh
+bonsai . --ask-template "Use this repo context to find likely bugs." --output clipboard
+```
+
+Architecture map:
+
+```sh
+bonsai . --level 3
+```
+
+Detailed repo context:
+
+```sh
+bonsai . --max-tokens 12000 --level 2
+```
+
+Only scan `src`:
+
+```sh
+bonsai src
+```
+
+Write somewhere else:
+
+```sh
+bonsai . --output-file /tmp/bonsai.xml
+```
+
+Write JSON:
+
+```sh
+bonsai . --format json --output-file /tmp/bonsai.json
+```
+
+Write a paste-ready prompt file:
+
+```sh
+bonsai . --prompt --output-file /tmp/bonsai-prompt.txt
+```
+
+Show selected files:
+
+```sh
+bonsai . --print-files
+```
+
+Measure token savings:
+
+```sh
+bonsai . --max-tokens 12000 --stats
+```
+
+Filter files:
+
+```sh
+bonsai . --include 'src/**' --exclude '**/generated.rs'
 ```
 
 ## Use With Agents
@@ -195,13 +195,13 @@ repo-local target/release/contextshrink
 Generate context:
 
 ```sh
-contextshrink . --max-tokens 12000 --level 2 --prompt --output-file /tmp/contextshrink-prompt.txt
+bonsai . --max-tokens 12000 --level 2 --prompt --output-file /tmp/bonsai-prompt.txt
 ```
 
-Paste `/tmp/contextshrink-prompt.txt` into an LLM. It starts with:
+Paste `/tmp/bonsai-prompt.txt` into an LLM. It starts with:
 
 ```text
-Use this ContextShrink XML as compressed repo context before answering.
+Use this repo context to explain the architecture, identify the main entry points, and tell me where to start reading.
 ```
 
 ### Codex
@@ -209,27 +209,27 @@ Use this ContextShrink XML as compressed repo context before answering.
 This repo includes a Codex plugin:
 
 ```text
-plugins/contextshrink
+plugins/bonsai
 ```
 
 Add the local marketplace:
 
 ```sh
-codex plugin marketplace add "$HOME/dev/context-shrink/.agents/plugins"
+codex plugin marketplace add "$HOME/dev/bonsai-context/.agents/plugins"
 ```
 
-Then install or enable `contextshrink` in Codex.
+Then install or enable `bonsai` in Codex.
 
 Ask:
 
 ```text
-Use $contextshrink to compress this repo before answering.
+Use $bonsai to compress this repo before answering.
 ```
 
 The helper command is:
 
 ```sh
-plugins/contextshrink/skills/contextshrink/scripts/run_contextshrink.sh . 12000 2 /tmp/contextshrink.xml
+plugins/bonsai/skills/bonsai/scripts/run_bonsai.sh . 12000 2 /tmp/bonsai.xml
 ```
 
 ### Claude Code
@@ -237,25 +237,25 @@ plugins/contextshrink/skills/contextshrink/scripts/run_contextshrink.sh . 12000 
 This repo includes a Claude Code plugin:
 
 ```text
-claude/contextshrink
+claude/bonsai
 ```
 
 Run Claude Code with the plugin:
 
 ```sh
-claude --plugin-dir ./claude/contextshrink
+claude --plugin-dir ./claude/bonsai
 ```
 
 Use the skill:
 
 ```text
-/contextshrink:contextshrink
+/bonsai:bonsai
 ```
 
 The helper command is:
 
 ```sh
-claude/contextshrink/bin/contextshrink-claude . 12000 2 /tmp/contextshrink.xml
+claude/bonsai/bin/bonsai-claude . 12000 2 /tmp/bonsai.xml
 ```
 
 For local marketplace testing:
@@ -267,7 +267,7 @@ claude plugin marketplace add .
 Then inside Claude Code:
 
 ```text
-/plugin install contextshrink@context-shrink
+/plugin install bonsai@bonsai-context
 ```
 
 ### VS Code
@@ -275,19 +275,19 @@ Then inside Claude Code:
 The VS Code extension lives here:
 
 ```text
-copilot/contextshrink-vscode
+copilot/bonsai-vscode
 ```
 
 Install the packaged VSIX:
 
 ```sh
-code --install-extension copilot/contextshrink-vscode/contextshrink-vscode-0.1.0.vsix
+code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.1.0.vsix
 ```
 
 Run Command Palette:
 
 ```text
-ContextShrink: Generate and Ask
+Bonsai: Generate and Ask
 ```
 
 If chat does not open automatically, paste the copied prompt into Copilot Chat, ChatGPT, or Codex in VS Code.
@@ -295,14 +295,14 @@ If chat does not open automatically, paste the copied prompt into Copilot Chat, 
 Other commands:
 
 ```text
-ContextShrink: Generate Context
-ContextShrink: Copy Context Prompt
-ContextShrink: Copy Project Map
-ContextShrink: Preview Project Map
-ContextShrink: Open Last Context
+Bonsai: Generate Context
+Bonsai: Copy Context Prompt
+Bonsai: Copy Project Map
+Bonsai: Preview Project Map
+Bonsai: Open Last Context
 ```
 
-<img src="images/vscode-flow.svg" alt="ContextShrink VS Code flow" width="720">
+<img src="images/vscode-flow.svg" alt="Bonsai VS Code flow" width="720">
 
 ## Levels
 
@@ -336,7 +336,7 @@ Tree map:
 fn greet(name: &str) -> String
 ```
 
-Markdown and config files are treated differently from source code. ContextShrink keeps compact headings, important lines, and top-level config shape.
+Markdown and config files are treated differently from source code. Bonsai keeps compact headings, important lines, and top-level config shape.
 
 ## Output Format
 
@@ -352,7 +352,7 @@ files: compressed file contents with per-file token counts
 
 ## Supported Files
 
-ContextShrink scans:
+Bonsai scans:
 
 ```text
 .js .jsx .ts .tsx .py .rs .go .java .cs .swift .kt .md .json .yaml .yml .toml
@@ -367,13 +367,13 @@ It respects `.gitignore` and `.cursorignore`.
 Binary not found:
 
 ```text
-Install with `cargo install --path .`, set `CONTEXTSHRINK_BIN`, or run `cargo build --release`.
+Install with `cargo install --path .`, set `BONSAI_BIN`, or run `cargo build --release`.
 ```
 
 Clipboard failure:
 
 ```text
-Use `--output file --output-file /tmp/contextshrink.xml`.
+Use `--output file --output-file /tmp/bonsai.xml`.
 Clipboard access can fail in headless shells, remote sessions, or sandboxes.
 ```
 
@@ -414,7 +414,7 @@ cargo build --release
 Build VS Code extension:
 
 ```sh
-cd copilot/contextshrink-vscode
+cd copilot/bonsai-vscode
 npm install
 npm run compile
 npm run package
@@ -440,10 +440,10 @@ Version bump checklist:
 
 ```text
 Cargo.toml
-copilot/contextshrink-vscode/package.json
-copilot/contextshrink-vscode/package-lock.json
-plugins/contextshrink/.codex-plugin/plugin.json
-claude/contextshrink/.claude-plugin/plugin.json
+copilot/bonsai-vscode/package.json
+copilot/bonsai-vscode/package-lock.json
+plugins/bonsai/.codex-plugin/plugin.json
+claude/bonsai/.claude-plugin/plugin.json
 .claude-plugin/marketplace.json, if pinning marketplace version
 README install/package examples
 ```

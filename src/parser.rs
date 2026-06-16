@@ -621,7 +621,7 @@ class Greeter {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = env::temp_dir().join(format!("contextshrink-parser-{unique}.{extension}"));
+        let path = env::temp_dir().join(format!("bonsai-parser-{unique}.{extension}"));
         fs::write(&path, source).unwrap();
         path
     }

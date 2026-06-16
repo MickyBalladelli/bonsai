@@ -4,17 +4,17 @@ set -euo pipefail
 repo_path="${1:-.}"
 max_tokens="${2:-12000}"
 level="${3:-2}"
-output_file="${4:-/tmp/contextshrink.xml}"
+output_file="${4:-/tmp/bonsai.xml}"
 shift $(( $# < 4 ? $# : 4 ))
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-project_root="$(cd "$script_dir/../../.." && pwd)"
-default_bin="$project_root/target/release/contextshrink"
+project_root="$(cd "$script_dir/../../../../.." && pwd)"
+default_bin="$project_root/target/release/bonsai"
 
-if [[ -n "${CONTEXTSHRINK_BIN:-}" ]]; then
-  bin="$CONTEXTSHRINK_BIN"
-elif command -v contextshrink >/dev/null 2>&1; then
-  bin="contextshrink"
+if [[ -n "${BONSAI_BIN:-}" ]]; then
+  bin="$BONSAI_BIN"
+elif command -v bonsai >/dev/null 2>&1; then
+  bin="bonsai"
 else
   bin="$default_bin"
 fi

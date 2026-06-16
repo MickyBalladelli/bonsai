@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="920" height="240" viewBox="0 0 920 240" role="img" aria-labelledby="title desc">
-  <title id="title">ContextShrink VS Code flow</title>
-  <desc id="desc">Run ContextShrink Generate and Ask, create XML, copy prompt, open chat, ask with compact context.</desc>
+  <title id="title">Bonsai VS Code flow</title>
+  <desc id="desc">Run Bonsai Generate and Ask, create XML, copy prompt, open chat, ask with compact context.</desc>
   <rect width="920" height="240" fill="#f8fafc"/>
   <g font-family="Arial, sans-serif" font-size="18" fill="#0f172a">
     <g transform="translate(30 60)">
@@ -10,7 +10,7 @@
     </g>
     <g transform="translate(260 60)">
       <rect width="170" height="90" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-      <text x="85" y="38" text-anchor="middle" font-weight="700">ContextShrink</text>
+      <text x="85" y="38" text-anchor="middle" font-weight="700">Bonsai</text>
       <text x="85" y="65" text-anchor="middle">writes XML</text>
     </g>
     <g transform="translate(480 60)">

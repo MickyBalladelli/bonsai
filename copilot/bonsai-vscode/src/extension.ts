@@ -6,15 +6,15 @@ import * as vscode from 'vscode'
 
 import {
   buildContextPrompt,
-  buildContextShrinkArgs,
+  buildBonsaiArgs,
   buildProjectMapText,
   buildSuccessMessage,
-  ContextShrinkConfig,
+  BonsaiConfig,
   extractProjectMap,
   parseRunReport,
   ProjectMapEntry,
   RunReport
-} from './contextshrink'
+} from './bonsai'
 
 type GeneratedContext = {
   contextText: string
@@ -25,13 +25,13 @@ type GeneratedContext = {
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('contextshrink.generateContext', async () => {
+    vscode.commands.registerCommand('bonsai.generateContext', async () => {
       const generated = await generateContext(context)
       await openContextFile(generated.outputFile)
       await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile))
       showSuccessMessage(generated, 'Prompt copied. Paste it into Copilot Chat, ChatGPT, or Codex in VS Code.')
     }),
-    vscode.commands.registerCommand('contextshrink.generateAndAsk', async () => {
+    vscode.commands.registerCommand('bonsai.generateAndAsk', async () => {
       const generated = await generateContext(context)
       const prompt = buildContextPrompt(generated.outputFile, generated.contextText)
       await openContextFile(generated.outputFile)
@@ -39,22 +39,22 @@ export function activate(context: vscode.ExtensionContext) {
       await openChat(prompt)
       showSuccessMessage(generated, 'Chat opened when available. Prompt also copied.')
     }),
-    vscode.commands.registerCommand('contextshrink.copyContext', async () => {
+    vscode.commands.registerCommand('bonsai.copyContext', async () => {
       const generated = await generateContext(context)
       await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile, generated.contextText))
       showSuccessMessage(generated, 'Full context prompt copied. Paste it into Copilot Chat, ChatGPT, or Codex in VS Code.')
     }),
-    vscode.commands.registerCommand('contextshrink.copyProjectMap', async () => {
+    vscode.commands.registerCommand('bonsai.copyProjectMap', async () => {
       const generated = await generateContext(context)
       await vscode.env.clipboard.writeText(buildProjectMapText(generated.projectMap))
       showSuccessMessage(generated, 'Project map copied.')
     }),
-    vscode.commands.registerCommand('contextshrink.previewProjectMap', async () => {
+    vscode.commands.registerCommand('bonsai.previewProjectMap', async () => {
       const generated = await generateContext(context)
       showProjectMapPreview(context, generated)
       showSuccessMessage(generated, 'Project map preview opened.')
     }),
-    vscode.commands.registerCommand('contextshrink.openContext', async () => {
+    vscode.commands.registerCommand('bonsai.openContext', async () => {
       const outputFile = getConfig().outputFile
       await openContextFile(outputFile)
     })
@@ -67,7 +67,7 @@ async function generateContext(context: vscode.ExtensionContext): Promise<Genera
   const workspaceRoot = getWorkspaceRoot()
   const config = getConfig()
   const binaryPath = await resolveBinaryPath(context, config.binaryPath)
-  const stdout = await runContextShrink(binaryPath, buildContextShrinkArgs(workspaceRoot, config))
+  const stdout = await runBonsai(binaryPath, buildBonsaiArgs(workspaceRoot, config))
   const contextText = await fs.readFile(config.outputFile, 'utf8')
 
   return {
@@ -81,20 +81,20 @@ async function generateContext(context: vscode.ExtensionContext): Promise<Genera
 function getWorkspaceRoot(): string {
   const folder = vscode.workspace.workspaceFolders?.[0]
   if (!folder) {
-    throw new Error('Open a workspace folder before running ContextShrink.')
+    throw new Error('Open a workspace folder before running Bonsai.')
   }
   return folder.uri.fsPath
 }
 
-function getConfig(): ContextShrinkConfig {
-  const config = vscode.workspace.getConfiguration('contextshrink')
+function getConfig(): BonsaiConfig {
+  const config = vscode.workspace.getConfiguration('bonsai')
   return {
     binaryPath: config.get<string>('binaryPath', ''),
     exclude: config.get<string[]>('exclude', []),
     include: config.get<string[]>('include', []),
     level: config.get<number>('level', 2),
     maxTokens: config.get<number>('maxTokens', 12000),
-    outputFile: expandHome(config.get<string>('outputFile', '/tmp/contextshrink-vscode.xml')),
+    outputFile: expandHome(config.get<string>('outputFile', '/tmp/bonsai-vscode.xml')),
     outputFormat: config.get<'json' | 'xml'>('outputFormat', 'xml'),
     respectGitignore: config.get<boolean>('respectGitignore', true)
   }
@@ -106,19 +106,19 @@ async function resolveBinaryPath(context: vscode.ExtensionContext, configuredPat
     return expandedConfiguredPath
   }
 
-  const envBinary = expandHome(process.env.CONTEXTSHRINK_BIN?.trim() ?? '')
+  const envBinary = expandHome(process.env.BONSAI_BIN?.trim() ?? '')
   if (envBinary) {
     return envBinary
   }
 
-  const pathBinary = await findExecutableOnPath('contextshrink')
+  const pathBinary = await findExecutableOnPath('bonsai')
   if (pathBinary) {
     return pathBinary
   }
 
   const candidates = [
-    path.resolve(context.extensionPath, '..', '..', 'target', 'release', 'contextshrink'),
-    path.join(os.homedir(), 'dev', 'context-shrink', 'target', 'release', 'contextshrink')
+    path.resolve(context.extensionPath, '..', '..', 'target', 'release', 'bonsai'),
+    path.join(os.homedir(), 'dev', 'bonsai-context', 'target', 'release', 'bonsai')
   ]
 
   for (const candidate of candidates) {
@@ -127,7 +127,7 @@ async function resolveBinaryPath(context: vscode.ExtensionContext, configuredPat
     }
   }
 
-  return 'contextshrink'
+  return 'bonsai'
 }
 
 async function isExecutable(filePath: string): Promise<boolean> {
@@ -165,7 +165,7 @@ function expandHome(value: string): string {
   return value
 }
 
-function runContextShrink(binaryPath: string, args: string[]): Promise<string> {
+function runBonsai(binaryPath: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = cp.spawn(binaryPath, args, {
       cwd: getWorkspaceRoot(),
@@ -184,7 +184,7 @@ function runContextShrink(binaryPath: string, args: string[]): Promise<string> {
     })
 
     child.on('error', error => {
-      reject(new Error(`Could not run ContextShrink: ${error.message}`))
+      reject(new Error(`Could not run Bonsai: ${error.message}`))
     })
 
     child.on('close', code => {
@@ -192,7 +192,7 @@ function runContextShrink(binaryPath: string, args: string[]): Promise<string> {
         resolve(stdout)
         return
       }
-      reject(new Error(`ContextShrink failed with exit code ${code}: ${stderr}`))
+      reject(new Error(`Bonsai failed with exit code ${code}: ${stderr}`))
     })
   })
 }
@@ -216,8 +216,8 @@ function showSuccessMessage(generated: GeneratedContext, nextStep: string): void
 
 function showProjectMapPreview(context: vscode.ExtensionContext, generated: GeneratedContext): void {
   const panel = vscode.window.createWebviewPanel(
-    'contextshrinkProjectMap',
-    'ContextShrink Project Map',
+    'bonsaiProjectMap',
+    'Bonsai Project Map',
     vscode.ViewColumn.Beside,
     { enableScripts: false }
   )
@@ -243,7 +243,7 @@ function buildProjectMapHtml(generated: GeneratedContext): string {
   </style>
 </head>
 <body>
-  <h1>ContextShrink Project Map</h1>
+  <h1>Bonsai Project Map</h1>
   <p>${escapeHtml(generated.outputFile)}</p>
   <table>
     <thead><tr><th>Path</th><th>Level</th><th>Tokens</th></tr></thead>

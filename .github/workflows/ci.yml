@@ -20,8 +20,8 @@ jobs:
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
         with:
-          name: contextshrink-linux-x64
-          path: target/release/contextshrink
+          name: bonsai-linux-x64
+          path: target/release/bonsai
 
   vscode:
     name: Package VSIX
@@ -32,18 +32,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: copilot/contextshrink-vscode/package-lock.json
+          cache-dependency-path: copilot/bonsai-vscode/package-lock.json
       - name: Install extension dependencies
         run: npm ci
-        working-directory: copilot/contextshrink-vscode
+        working-directory: copilot/bonsai-vscode
       - name: Compile extension
         run: npm run compile
-        working-directory: copilot/contextshrink-vscode
+        working-directory: copilot/bonsai-vscode
       - name: Package VSIX
         run: npm run package
-        working-directory: copilot/contextshrink-vscode
+        working-directory: copilot/bonsai-vscode
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
         with:
-          name: contextshrink-vscode-vsix
-          path: copilot/contextshrink-vscode/contextshrink-vscode-*.vsix
+          name: bonsai-vscode-vsix
+          path: copilot/bonsai-vscode/bonsai-vscode-*.vsix

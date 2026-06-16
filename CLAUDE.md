@@ -1,10 +1,10 @@
-For repo-wide analysis, first run ContextShrink. Do not answer from ordinary file browsing until this command succeeds:
+For repo-wide analysis, first run Bonsai. Do not answer from ordinary file browsing until this command succeeds:
 
 ```sh
-target/release/contextshrink . --max-tokens 12000 --level 2 --output file --output-file /tmp/contextshrink.xml
+target/release/bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
 ```
 
-Then inspect `/tmp/contextshrink.xml` before answering.
+Then inspect `/tmp/bonsai.xml` before answering.
 
 Repo-wide analysis includes architecture review, full project summary, broad bug hunting, onboarding, and questions that need many files.
 
@@ -12,7 +12,7 @@ Expected behavior example:
 
 ```text
 User asks: summarize this whole project
-Claude runs: target/release/contextshrink . --max-tokens 12000 --level 2 --output file --output-file /tmp/contextshrink.xml
-Claude inspects: /tmp/contextshrink.xml
+Claude runs: target/release/bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
+Claude inspects: /tmp/bonsai.xml
 Claude answers from that context.
 ```

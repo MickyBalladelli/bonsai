@@ -1,5 +1,5 @@
 {
-  "name": "contextshrink",
+  "name": "bonsai",
   "version": "0.1.0",
   "description": "Compress local repositories into token-budgeted XML context for Codex.",
   "author": {
@@ -7,12 +7,12 @@
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "ContextShrink",
+    "displayName": "Bonsai",
     "shortDescription": "Compress repo context for Codex.",
-    "longDescription": "ContextShrink runs a local Rust CLI that parses repositories with tree-sitter, strips implementation bodies when useful, applies a token budget, and emits XML context for Codex.",
+    "longDescription": "Bonsai runs a local Rust CLI that parses repositories with tree-sitter, strips implementation bodies when useful, applies a token budget, and emits XML context for Codex.",
     "developerName": "Local developer",
     "category": "Productivity",
     "capabilities": [],
-    "defaultPrompt": "Use $contextshrink to compress this repo into XML context before answering."
+    "defaultPrompt": "Use $bonsai to compress this repo into XML context before answering."
   }
 }

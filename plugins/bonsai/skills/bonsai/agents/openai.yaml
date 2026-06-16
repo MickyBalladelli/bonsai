@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bonsai"
+  short_description: "Compress repo context for Codex prompts"
+  default_prompt: "Use $bonsai to compress this repo into XML context before answering."

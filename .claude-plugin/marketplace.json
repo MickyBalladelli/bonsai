@@ -1,13 +1,13 @@
 {
-  "name": "context-shrink",
+  "name": "bonsai",
   "owner": {
     "name": "Local developer"
   },
-  "description": "ContextShrink plugins for Claude Code.",
+  "description": "Bonsai plugins for Claude Code.",
   "plugins": [
     {
-      "name": "contextshrink",
-      "source": "./claude/contextshrink",
+      "name": "bonsai",
+      "source": "./claude/bonsai",
       "description": "Compress local repositories into token-budgeted XML context for Claude Code.",
       "version": "0.1.0",
       "author": {

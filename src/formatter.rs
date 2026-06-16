@@ -212,7 +212,7 @@ mod tests {
     fn metadata() -> RepositoryMetadata {
         RepositoryMetadata {
             generated_at: "1234567890".to_owned(),
-            repo_root: "/tmp/context-shrink".to_owned(),
+            repo_root: "/tmp/bonsai-context".to_owned(),
             max_tokens: 12000,
             compression_level: 2,
             file_count: 1,

@@ -18,7 +18,7 @@ use parser::{compress_file, CompressionLevel};
 use walker::{collect_code_files, supported_extensions, WalkerOptions};
 
 #[derive(Debug, Parser)]
-#[command(name = "contextshrink")]
+#[command(name = "bonsai")]
 #[command(version)]
 #[command(about = "Shrink repository source context into token-efficient XML or JSON")]
 struct Cli {
@@ -34,7 +34,7 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = OutputDestination::File)]
     output: OutputDestination,
 
-    #[arg(long, default_value = "contextshrink.xml")]
+    #[arg(long, default_value = "bonsai.xml")]
     output_file: PathBuf,
 
     #[arg(long, value_enum, default_value_t = OutputFormat::Xml)]
@@ -63,6 +63,9 @@ struct Cli {
 
     #[arg(long)]
     prompt: bool,
+
+    #[arg(long, value_name = "TEXT")]
+    ask_template: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -223,7 +226,7 @@ fn format_context(
 }
 
 fn maybe_wrap_prompt(context: String, cli: &Cli) -> String {
-    if !cli.prompt {
+    if !cli.prompt && cli.ask_template.is_none() {
         return context;
     }
 
@@ -231,9 +234,12 @@ fn maybe_wrap_prompt(context: String, cli: &Cli) -> String {
         OutputFormat::Json => "JSON",
         OutputFormat::Xml => "XML",
     };
+    let task = cli.ask_template.as_deref().unwrap_or(
+        "Use this repo context to explain the architecture, identify the main entry points, and tell me where to start reading.",
+    );
 
     format!(
-        "Use this ContextShrink {format_name} as compressed repo context before answering.\n\n{context}"
+        "{task}\n\nThe context below is compressed Bonsai {format_name}. Use it as the source of truth before answering.\n\n<context>\n{context}</context>\n"
     )
 }
 

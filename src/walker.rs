@@ -231,7 +231,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = env::temp_dir().join(format!("contextshrink-walker-{unique}"));
+        let root = env::temp_dir().join(format!("bonsai-walker-{unique}"));
         fs::create_dir_all(&root).unwrap();
         root
     }

@@ -1,14 +1,14 @@
 {
-  "name": "context-shrink",
+  "name": "bonsai",
   "interface": {
-    "displayName": "context-shrink"
+    "displayName": "Bonsai"
   },
   "plugins": [
     {
-      "name": "contextshrink",
+      "name": "bonsai",
       "source": {
         "source": "local",
-        "path": "./plugins/contextshrink"
+        "path": "./plugins/bonsai"
       },
       "policy": {
         "installation": "AVAILABLE",

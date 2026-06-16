@@ -1,14 +1,14 @@
 import * as assert from 'assert'
 
 import {
-  buildContextShrinkArgs,
+  buildBonsaiArgs,
   buildProjectMapText,
   buildSuccessMessage,
   extractProjectMap,
   parseRunReport
-} from './contextshrink'
+} from './bonsai'
 
-const args = buildContextShrinkArgs('/repo', {
+const args = buildBonsaiArgs('/repo', {
   binaryPath: '',
   exclude: ['**/generated/**'],
   include: ['src/**'],
@@ -80,4 +80,4 @@ assert.deepStrictEqual(jsonMap, [{ path: 'src/main.rs', level: 2, tokens: 123 }]
 assert.ok(buildProjectMapText(jsonMap).includes('src/main.rs'))
 assert.ok(buildSuccessMessage('/tmp/context.xml', report, 'Done.').includes('saved 70.00%'))
 
-console.log('contextshrink extension smoke ok')
+console.log('bonsai extension smoke ok')
