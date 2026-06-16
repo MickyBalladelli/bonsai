@@ -386,7 +386,7 @@ Bonsai scans:
 .js .jsx .ts .tsx .py .rs .go .java .cs .swift .kt .md .json .yaml .yml .toml
 ```
 
-It parses JavaScript, TypeScript, Python, and Rust with tree-sitter. Other code languages use generic declaration extraction. Docs and config files use compact line-based context.
+It parses JavaScript, TypeScript, Python, Rust, Go, Java, C#, Swift, and Kotlin with tree-sitter. Docs and config files use compact line-based context.
 
 It respects `.gitignore` and `.cursorignore`.
 

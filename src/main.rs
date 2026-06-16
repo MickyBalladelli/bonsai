@@ -145,14 +145,15 @@ fn main() -> Result<()> {
         None
     };
 
-    let optimized = optimize_budget(files, cli.max_tokens)?;
     let metadata = RepositoryMetadata {
         generated_at: generated_at_unix()?,
         repo_root: root.display().to_string(),
         max_tokens: cli.max_tokens,
         compression_level: requested_level.as_u8(),
-        file_count: optimized.len(),
+        file_count: files.len(),
     };
+    let content_budget = reserved_content_budget(&files, &metadata, &cli)?;
+    let optimized = optimize_budget(files, content_budget)?;
     let (optimized, context, output_tokens) = fit_formatted_context(optimized, &metadata, &cli)?;
     let run_stats = RunStats::new(
         &cli,
@@ -284,6 +285,33 @@ fn fit_formatted_context(
             return Ok((files, context, output_tokens));
         }
     }
+}
+
+fn reserved_content_budget(
+    files: &[ProcessedFile],
+    metadata: &RepositoryMetadata,
+    cli: &Cli,
+) -> Result<usize> {
+    let overhead_files = files
+        .iter()
+        .map(|file| {
+            let mut overhead_file = ProcessedFile::new(
+                file.path.clone(),
+                file.level,
+                parser::FileVariants {
+                    full: None,
+                    skeleton: String::new(),
+                    tree_map: String::new(),
+                },
+            );
+            overhead_file.token_count = 0;
+            overhead_file
+        })
+        .collect::<Vec<_>>();
+    let overhead = maybe_wrap_prompt(format_context(&overhead_files, metadata, cli.format), cli);
+    let overhead_tokens = count_text_tokens(&overhead)?;
+
+    Ok(cli.max_tokens.saturating_sub(overhead_tokens))
 }
 
 fn maybe_wrap_prompt(context: String, cli: &Cli) -> String {

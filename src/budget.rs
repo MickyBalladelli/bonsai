@@ -97,16 +97,67 @@ fn pick_downgrade_candidate(files: &[ProcessedFile]) -> Option<usize> {
         .enumerate()
         .filter(|(_, file)| file.level != CompressionLevel::TreeMap)
         .max_by(|(_, left), (_, right)| {
-            leaf_score(left)
-                .cmp(&leaf_score(right))
+            downgrade_score(left)
+                .cmp(&downgrade_score(right))
                 .then(left.token_count.cmp(&right.token_count))
                 .then(left.path.cmp(&right.path))
         })
         .map(|(index, _)| index)
 }
 
+fn downgrade_score(file: &ProcessedFile) -> i64 {
+    leaf_score(file) as i64 + file.token_count as i64 - priority_score(file) as i64
+}
+
 fn leaf_score(file: &ProcessedFile) -> usize {
     file.path.matches('/').count() * 1000 + file.path.len()
+}
+
+fn priority_score(file: &ProcessedFile) -> usize {
+    let path = file.path.as_str();
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let extension = name.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");
+
+    if matches!(
+        name,
+        "Cargo.toml"
+            | "package.json"
+            | "package-lock.json"
+            | "tsconfig.json"
+            | "README.md"
+            | "AGENTS.md"
+            | "CLAUDE.md"
+            | "Dockerfile"
+            | "Makefile"
+    ) {
+        return 5_000;
+    }
+
+    if matches!(
+        name,
+        "main.rs"
+            | "main.ts"
+            | "main.js"
+            | "main.py"
+            | "index.ts"
+            | "index.js"
+            | "app.ts"
+            | "app.js"
+            | "server.ts"
+            | "server.js"
+    ) {
+        return 4_000;
+    }
+
+    if path.starts_with(".github/workflows/") || path.contains("/.github/workflows/") {
+        return 3_000;
+    }
+
+    if matches!(extension, "toml" | "json" | "yaml" | "yml" | "md") {
+        return 2_000;
+    }
+
+    0
 }
 
 #[cfg(test)]
@@ -171,6 +222,35 @@ mod tests {
 
         assert_eq!(levels(&first), levels(&second));
         assert_eq!(paths(&first), vec!["src/a.rs", "src/b.rs"]);
+    }
+
+    #[test]
+    fn keeps_manifest_before_leaf_file_under_pressure() {
+        let files = vec![
+            processed_file(
+                "Cargo.toml",
+                CompressionLevel::Full,
+                "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+                "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+                "[package]\nname = \"demo\"",
+            ),
+            processed_file(
+                "src/deep/leaf.rs",
+                CompressionLevel::Full,
+                "fn leaf() { let value = \"alpha alpha alpha alpha alpha alpha alpha\"; }",
+                "fn leaf() { ... }",
+                "fn leaf()",
+            ),
+        ];
+
+        let max_tokens =
+            count_text_tokens("[package]\nname = \"demo\"\nversion = \"0.1.0\"\nfn leaf() { ... }")
+                .unwrap();
+
+        let optimized = optimize_budget(files, max_tokens).unwrap();
+
+        assert_eq!(optimized[0].level, CompressionLevel::Full);
+        assert_ne!(optimized[1].level, CompressionLevel::Full);
     }
 
     fn processed_file(

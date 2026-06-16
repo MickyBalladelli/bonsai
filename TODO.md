@@ -1,24 +1,5 @@
 # TODO
 
-## Compression Quality
-
-- Add real tree-sitter parsers for languages currently using generic brace heuristics:
-  - Go
-  - Java
-  - C#
-  - Swift
-  - Kotlin
-- Improve Markdown compression:
-  - keep headings with nearby summary text
-  - keep important fenced code blocks
-  - drop badges, generated tables, and repeated boilerplate
-- Improve JSON/YAML/TOML compression:
-  - keep top-level shape
-  - preserve scripts, dependencies, package metadata, workflow jobs, and plugin manifests
-  - collapse long arrays and generated lockfile-style sections
-- Add file priority scoring so entry points, manifests, config, and docs survive tight budgets before leaf files.
-- Add budget reservations for metadata and project map before file contents are selected.
-
 ## CLI And Output
 
 - Add `--project-map-only`.

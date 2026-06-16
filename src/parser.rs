@@ -59,10 +59,6 @@ pub fn compress_file(path: &Path, _requested_level: CompressionLevel) -> Result<
             )
         }
         None => match syntax {
-            SyntaxKind::GenericBrace => (
-                strip_generic_brace_code(&source),
-                build_generic_brace_tree_map(&source),
-            ),
             SyntaxKind::Text => (
                 compact_text_context(path, &source),
                 build_text_tree_map(path, &source),
@@ -90,7 +86,11 @@ enum SyntaxKind {
     TypeScript,
     Python,
     Rust,
-    GenericBrace,
+    Go,
+    Java,
+    CSharp,
+    Swift,
+    Kotlin,
     Text,
 }
 
@@ -101,7 +101,11 @@ impl SyntaxKind {
             Some("ts" | "tsx") => Ok(Self::TypeScript),
             Some("py") => Ok(Self::Python),
             Some("rs") => Ok(Self::Rust),
-            Some("go" | "java" | "cs" | "swift" | "kt") => Ok(Self::GenericBrace),
+            Some("go") => Ok(Self::Go),
+            Some("java") => Ok(Self::Java),
+            Some("cs") => Ok(Self::CSharp),
+            Some("swift") => Ok(Self::Swift),
+            Some("kt") => Ok(Self::Kotlin),
             Some("md" | "json" | "yaml" | "yml" | "toml") => Ok(Self::Text),
             Some(other) => bail!("unsupported extension: {other}"),
             None => bail!("file has no extension: {}", path.display()),
@@ -114,7 +118,12 @@ impl SyntaxKind {
             Self::TypeScript => Some(tree_sitter_typescript::language_typescript()),
             Self::Python => Some(tree_sitter_python::language()),
             Self::Rust => Some(tree_sitter_rust::language()),
-            Self::GenericBrace | Self::Text => None,
+            Self::Go => Some(tree_sitter_go::language()),
+            Self::Java => Some(tree_sitter_java::language()),
+            Self::CSharp => Some(tree_sitter_c_sharp::language()),
+            Self::Swift => Some(tree_sitter_swift::language()),
+            Self::Kotlin => Some(tree_sitter_kotlin::language()),
+            Self::Text => None,
         }
     }
 }
@@ -184,7 +193,24 @@ fn body_replacement(node: Node, syntax: SyntaxKind) -> Option<Replacement> {
                 None
             }
         }
-        SyntaxKind::GenericBrace | SyntaxKind::Text => None,
+        SyntaxKind::Go
+        | SyntaxKind::Java
+        | SyntaxKind::CSharp
+        | SyntaxKind::Swift
+        | SyntaxKind::Kotlin => {
+            if is_brace_body_node(node.kind())
+                && node.parent().is_some_and(is_static_language_callable)
+            {
+                Some(Replacement {
+                    start: node.start_byte(),
+                    end: node.end_byte(),
+                    value: "{ ... }",
+                })
+            } else {
+                None
+            }
+        }
+        SyntaxKind::Text => None,
     }
 }
 
@@ -211,6 +237,26 @@ fn is_python_callable(node: Node) -> bool {
 
 fn is_rust_callable(node: Node) -> bool {
     matches!(node.kind(), "function_item" | "closure_expression")
+}
+
+fn is_static_language_callable(node: Node) -> bool {
+    matches!(
+        node.kind(),
+        "function_declaration"
+            | "method_declaration"
+            | "constructor_declaration"
+            | "function_literal"
+            | "lambda_expression"
+            | "local_function_statement"
+            | "function_value_parameters"
+    )
+}
+
+fn is_brace_body_node(kind: &str) -> bool {
+    matches!(
+        kind,
+        "block" | "constructor_body" | "function_body" | "code_block" | "control_structure_body"
+    )
 }
 
 fn apply_replacements(source: &str, mut replacements: Vec<Replacement>) -> String {
@@ -308,123 +354,76 @@ fn should_emit_tree_map_node(node: Node, syntax: SyntaxKind) -> bool {
                 | "static_item"
                 | "mod_item"
         ),
-        SyntaxKind::GenericBrace | SyntaxKind::Text => false,
+        SyntaxKind::Go => matches!(
+            kind,
+            "package_clause"
+                | "import_declaration"
+                | "const_declaration"
+                | "var_declaration"
+                | "type_declaration"
+                | "function_declaration"
+                | "method_declaration"
+        ),
+        SyntaxKind::Java => matches!(
+            kind,
+            "package_declaration"
+                | "import_declaration"
+                | "class_declaration"
+                | "interface_declaration"
+                | "enum_declaration"
+                | "record_declaration"
+                | "annotation_type_declaration"
+                | "method_declaration"
+                | "constructor_declaration"
+                | "field_declaration"
+        ),
+        SyntaxKind::CSharp => matches!(
+            kind,
+            "using_directive"
+                | "namespace_declaration"
+                | "class_declaration"
+                | "struct_declaration"
+                | "interface_declaration"
+                | "enum_declaration"
+                | "record_declaration"
+                | "method_declaration"
+                | "constructor_declaration"
+                | "property_declaration"
+                | "field_declaration"
+                | "delegate_declaration"
+        ),
+        SyntaxKind::Swift => matches!(
+            kind,
+            "import_declaration"
+                | "class_declaration"
+                | "struct_declaration"
+                | "protocol_declaration"
+                | "extension_declaration"
+                | "enum_declaration"
+                | "function_declaration"
+                | "property_declaration"
+                | "typealias_declaration"
+        ),
+        SyntaxKind::Kotlin => matches!(
+            kind,
+            "package_header"
+                | "import_header"
+                | "class_declaration"
+                | "object_declaration"
+                | "function_declaration"
+                | "property_declaration"
+                | "typealias_declaration"
+        ),
+        SyntaxKind::Text => false,
     }
-}
-
-fn strip_generic_brace_code(source: &str) -> String {
-    let mut output = Vec::new();
-    let mut depth = 0usize;
-
-    for line in source.lines() {
-        let trimmed = line.trim();
-        let line_depth = depth;
-
-        if line_depth == 0 && should_keep_generic_code_line(trimmed) {
-            output.push(collapse_generic_body(trimmed));
-        }
-
-        depth = update_brace_depth(depth, line);
-    }
-
-    if output.is_empty() {
-        compact_non_empty_lines(source, 120)
-    } else {
-        dedupe_preserving_order(output).join("\n")
-    }
-}
-
-fn build_generic_brace_tree_map(source: &str) -> String {
-    let lines = source
-        .lines()
-        .map(str::trim)
-        .filter(|line| should_keep_generic_code_line(line))
-        .map(collapse_generic_body)
-        .collect::<Vec<_>>();
-
-    if lines.is_empty() {
-        compact_non_empty_lines(source, 80)
-    } else {
-        dedupe_preserving_order(lines).join("\n")
-    }
-}
-
-fn should_keep_generic_code_line(line: &str) -> bool {
-    if line.is_empty() || line.starts_with("//") {
-        return false;
-    }
-
-    matches!(
-        line.split_whitespace().next(),
-        Some(
-            "package"
-                | "import"
-                | "using"
-                | "namespace"
-                | "public"
-                | "private"
-                | "protected"
-                | "internal"
-                | "class"
-                | "struct"
-                | "interface"
-                | "enum"
-                | "protocol"
-                | "extension"
-                | "func"
-                | "fun"
-                | "var"
-                | "let"
-                | "const"
-        )
-    ) || line.contains(" class ")
-        || line.contains(" struct ")
-        || line.contains(" interface ")
-        || line.contains(" enum ")
-        || line.contains(" func ")
-        || line.contains(" fun ")
-}
-
-fn collapse_generic_body(line: &str) -> String {
-    let mut collapsed = line.split_whitespace().collect::<Vec<_>>().join(" ");
-    if let Some(index) = collapsed.find('{') {
-        collapsed.truncate(index);
-        collapsed = collapsed.trim_end().to_owned();
-        collapsed.push_str(" { ... }");
-    }
-    truncate_line(collapsed, 240)
-}
-
-fn update_brace_depth(depth: usize, line: &str) -> usize {
-    line.chars()
-        .fold(depth, |depth, character| match character {
-            '{' => depth.saturating_add(1),
-            '}' => depth.saturating_sub(1),
-            _ => depth,
-        })
 }
 
 fn compact_text_context(path: &Path, source: &str) -> String {
-    if extension(path).as_deref() == Some("md") {
-        let lines = source
-            .lines()
-            .map(str::trim)
-            .filter(|line| {
-                line.starts_with('#')
-                    || line.starts_with("- ")
-                    || line.starts_with("* ")
-                    || line.starts_with("> ")
-            })
-            .map(|line| truncate_line(line.to_owned(), 240))
-            .take(160)
-            .collect::<Vec<_>>();
-
-        if !lines.is_empty() {
-            return lines.join("\n");
-        }
+    match extension(path).as_deref() {
+        Some("md") => compact_markdown_context(source),
+        Some("json" | "yaml" | "yml" | "toml") => compact_config_lines(source, 180),
+        _ => compact_non_empty_lines(source, 160),
     }
-
-    compact_non_empty_lines(source, 160)
 }
 
 fn build_text_tree_map(path: &Path, source: &str) -> String {
@@ -444,25 +443,226 @@ fn build_text_tree_map(path: &Path, source: &str) -> String {
                 headings.join("\n")
             }
         }
-        Some("json" | "yaml" | "yml" | "toml") => compact_config_lines(source),
+        Some("json" | "yaml" | "yml" | "toml") => compact_config_lines(source, 100),
         _ => compact_non_empty_lines(source, 80),
     }
 }
 
-fn compact_config_lines(source: &str) -> String {
-    source
-        .lines()
-        .map(str::trim)
-        .filter(|line| {
-            !line.is_empty()
-                && !line.starts_with('#')
-                && !line.starts_with("//")
-                && !matches!(*line, "{" | "}" | "[" | "]" | "," | "},")
-        })
-        .map(|line| truncate_line(line.to_owned(), 240))
-        .take(160)
-        .collect::<Vec<_>>()
-        .join("\n")
+fn compact_markdown_context(source: &str) -> String {
+    let mut output = Vec::new();
+    let mut keep_after_heading = 0usize;
+    let mut in_kept_fence = false;
+    let mut kept_fence_lines = 0usize;
+    let mut in_dropped_fence = false;
+
+    for line in source.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            if in_kept_fence {
+                output.push(trimmed.to_owned());
+                in_kept_fence = false;
+                continue;
+            }
+            if in_dropped_fence {
+                in_dropped_fence = false;
+                continue;
+            }
+
+            if is_important_fence(trimmed) {
+                output.push(trimmed.to_owned());
+                in_kept_fence = true;
+                kept_fence_lines = 0;
+            } else {
+                in_dropped_fence = true;
+            }
+            continue;
+        }
+
+        if in_kept_fence {
+            if kept_fence_lines < 24 {
+                output.push(truncate_line(trimmed.to_owned(), 240));
+            } else if kept_fence_lines == 24 {
+                output.push("...".to_owned());
+            }
+            kept_fence_lines += 1;
+            continue;
+        }
+
+        if in_dropped_fence || is_noisy_markdown_line(trimmed) {
+            continue;
+        }
+
+        if trimmed.starts_with('#') {
+            output.push(truncate_line(trimmed.to_owned(), 240));
+            keep_after_heading = 2;
+            continue;
+        }
+
+        if keep_after_heading > 0 && is_summary_markdown_line(trimmed) {
+            output.push(truncate_line(trimmed.to_owned(), 240));
+            keep_after_heading -= 1;
+            continue;
+        }
+
+        if is_important_markdown_list_item(trimmed) {
+            output.push(truncate_line(trimmed.to_owned(), 240));
+        }
+    }
+
+    if output.is_empty() {
+        compact_non_empty_lines(source, 120)
+    } else {
+        dedupe_preserving_order(output)
+            .into_iter()
+            .take(180)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+fn is_important_fence(line: &str) -> bool {
+    let language = line
+        .trim_start_matches("```")
+        .trim_start_matches("~~~")
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    matches!(
+        language.as_str(),
+        "sh" | "bash"
+            | "shell"
+            | "text"
+            | "txt"
+            | "rust"
+            | "rs"
+            | "js"
+            | "jsx"
+            | "ts"
+            | "tsx"
+            | "python"
+            | "py"
+            | "json"
+            | "yaml"
+            | "yml"
+            | "toml"
+    )
+}
+
+fn is_noisy_markdown_line(line: &str) -> bool {
+    line.is_empty()
+        || line.contains("img.shields.io")
+        || line.contains("<img ")
+        || line.starts_with("<p align=")
+        || (line.starts_with('|') && line.ends_with('|'))
+        || line.chars().all(|ch| matches!(ch, '-' | ':' | '|' | ' '))
+}
+
+fn is_summary_markdown_line(line: &str) -> bool {
+    !line.is_empty()
+        && !line.starts_with('#')
+        && !is_noisy_markdown_line(line)
+        && line.chars().count() <= 280
+}
+
+fn is_important_markdown_list_item(line: &str) -> bool {
+    (line.starts_with("- ") || line.starts_with("* "))
+        && !line.contains("badge")
+        && line.chars().count() <= 240
+}
+
+fn compact_config_lines(source: &str, max_lines: usize) -> String {
+    let mut output = Vec::new();
+    let mut kept_array_items = 0usize;
+    let mut collapsed_array = false;
+
+    for line in source.lines().map(str::trim) {
+        if is_noisy_config_line(line) {
+            continue;
+        }
+
+        if is_array_item(line) {
+            kept_array_items += 1;
+            if kept_array_items > 12 {
+                if !collapsed_array {
+                    output.push("...".to_owned());
+                    collapsed_array = true;
+                }
+                continue;
+            }
+        } else if !line.starts_with(']') && !line.starts_with('}') {
+            kept_array_items = 0;
+            collapsed_array = false;
+        }
+
+        if is_top_level_config_line(line) || is_important_config_line(line) || kept_array_items > 0
+        {
+            output.push(truncate_line(line.to_owned(), 240));
+        }
+
+        if output.len() >= max_lines {
+            break;
+        }
+    }
+
+    if output.is_empty() {
+        compact_non_empty_lines(source, max_lines)
+    } else {
+        dedupe_preserving_order(output).join("\n")
+    }
+}
+
+fn is_noisy_config_line(line: &str) -> bool {
+    line.is_empty()
+        || line.starts_with('#')
+        || line.starts_with("//")
+        || matches!(line, "{" | "}" | "[" | "]" | "," | "}," | "],")
+}
+
+fn is_array_item(line: &str) -> bool {
+    line.starts_with('"')
+        || line.starts_with('{')
+        || line.starts_with('-')
+        || line.starts_with("[[")
+        || line.ends_with(',')
+}
+
+fn is_top_level_config_line(line: &str) -> bool {
+    line.starts_with('[')
+        || line.starts_with("[[")
+        || line.starts_with('"')
+        || (!line.starts_with('-')
+            && !line.starts_with(' ')
+            && (line.contains(':') || line.contains('=')))
+}
+
+fn is_important_config_line(line: &str) -> bool {
+    let lower = line.to_ascii_lowercase();
+    [
+        "name",
+        "version",
+        "description",
+        "scripts",
+        "dependencies",
+        "devdependencies",
+        "peerdependencies",
+        "workspaces",
+        "jobs",
+        "steps",
+        "runs-on",
+        "plugins",
+        "skills",
+        "contributes",
+        "activationevents",
+        "commands",
+        "configuration",
+        "package",
+        "bin",
+    ]
+    .iter()
+    .any(|key| lower.contains(key))
 }
 
 fn compact_non_empty_lines(source: &str, max_lines: usize) -> String {
@@ -584,6 +784,177 @@ def greet(name: str) -> str:
         assert!(variants.skeleton.contains("def greet(name: str) -> str:"));
         assert!(variants.skeleton.contains("..."));
         assert!(!variants.skeleton.contains("return f"));
+    }
+
+    #[test]
+    fn static_language_parsers_keep_shapes() {
+        let cases = [
+            (
+                "go",
+                r#"
+package demo
+
+import "fmt"
+
+func Greet(name string) string {
+    return fmt.Sprintf("hello %s", name)
+}
+"#,
+                "func Greet",
+                "Sprintf",
+            ),
+            (
+                "java",
+                r#"
+package demo;
+
+import java.util.List;
+
+public class Greeter {
+    public String greet(String name) {
+        return "hello " + name;
+    }
+}
+"#,
+                "class Greeter",
+                "return \"hello",
+            ),
+            (
+                "cs",
+                r#"
+using System;
+
+namespace Demo;
+
+public class Greeter {
+    public string Greet(string name) {
+        return $"hello {name}";
+    }
+}
+"#,
+                "class Greeter",
+                "return $",
+            ),
+            (
+                "swift",
+                r#"
+import Foundation
+
+struct Greeter {
+    func greet(name: String) -> String {
+        return "hello \(name)"
+    }
+}
+"#,
+                "struct Greeter",
+                "return \"hello",
+            ),
+            (
+                "kt",
+                r#"
+package demo
+
+class Greeter {
+    fun greet(name: String): String {
+        return "hello $name"
+    }
+}
+"#,
+                "class Greeter",
+                "return \"hello",
+            ),
+        ];
+
+        for (extension, source, expected_shape, body_text) in cases {
+            let path = write_temp_source(extension, source);
+            let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+            assert!(
+                variants.tree_map.contains(expected_shape),
+                "missing shape for {extension}: {}",
+                variants.tree_map
+            );
+            assert!(
+                !variants.skeleton.contains(body_text),
+                "body kept for {extension}: {}",
+                variants.skeleton
+            );
+        }
+    }
+
+    #[test]
+    fn markdown_keeps_headings_summary_and_important_fences() {
+        let path = write_temp_source(
+            "md",
+            r#"
+<p align="center"><img src="badge.png" /></p>
+| noisy | table |
+| ----- | ----- |
+
+# Bonsai
+
+Useful summary text.
+More summary.
+
+```sh
+bonsai .
+```
+
+```mermaid
+graph TD
+```
+"#,
+        );
+
+        let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(variants.skeleton.contains("# Bonsai"));
+        assert!(variants.skeleton.contains("Useful summary text."));
+        assert!(variants.skeleton.contains("```sh"));
+        assert!(variants.skeleton.contains("bonsai ."));
+        assert!(!variants.skeleton.contains("<img"));
+        assert!(!variants.skeleton.contains("noisy | table"));
+        assert!(!variants.skeleton.contains("mermaid"));
+    }
+
+    #[test]
+    fn config_keeps_important_shape_and_collapses_long_arrays() {
+        let path = write_temp_source(
+            "json",
+            r#"
+{
+  "name": "demo",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "cargo test"
+  },
+  "files": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n"
+  ]
+}
+"#,
+        );
+
+        let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(variants.skeleton.contains("\"name\": \"demo\""));
+        assert!(variants.skeleton.contains("\"scripts\""));
+        assert!(variants.skeleton.contains("\"test\": \"cargo test\""));
+        assert!(variants.skeleton.contains("..."));
+        assert!(!variants.skeleton.contains("\"n\""));
     }
 
     #[test]
