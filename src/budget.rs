@@ -106,14 +106,14 @@ fn pick_downgrade_candidate(files: &[ProcessedFile]) -> Option<usize> {
 }
 
 fn downgrade_score(file: &ProcessedFile) -> i64 {
-    leaf_score(file) as i64 + file.token_count as i64 - priority_score(file) as i64
+    leaf_score(file) as i64 + file.token_count as i64 - file_priority_score(file) as i64
 }
 
 fn leaf_score(file: &ProcessedFile) -> usize {
     file.path.matches('/').count() * 1000 + file.path.len()
 }
 
-fn priority_score(file: &ProcessedFile) -> usize {
+pub fn file_priority_score(file: &ProcessedFile) -> usize {
     let path = file.path.as_str();
     let name = path.rsplit('/').next().unwrap_or(path);
     let extension = name.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");

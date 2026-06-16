@@ -196,6 +196,45 @@ Show selected files:
 bonsai . --print-files
 ```
 
+Only write the project map:
+
+```sh
+bonsai . --project-map-only
+```
+
+Write metadata and project map without file bodies:
+
+```sh
+bonsai . --no-content
+```
+
+Sort output:
+
+```sh
+bonsai . --sort priority
+bonsai . --sort tokens
+bonsai . --sort path
+```
+
+Add per-directory token summaries:
+
+```sh
+bonsai . --directory-summaries
+```
+
+Fail when output is still over budget after maximum compression:
+
+```sh
+bonsai . --max-tokens 12000 --fail-over-budget
+```
+
+Write starter agent instructions:
+
+```sh
+bonsai init-agent
+bonsai init-agent . --force
+```
+
 Measure token savings:
 
 ```sh
@@ -376,6 +415,12 @@ Both formats include:
 metadata: generated time, repo root, token budget, compression level, file count
 project map: file paths, selected levels, per-file token counts
 files: compressed file contents with per-file token counts
+```
+
+Schema notes live in:
+
+```text
+docs/output-schema.md
 ```
 
 ## Supported Files

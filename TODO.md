@@ -1,15 +1,5 @@
 # TODO
 
-## CLI And Output
-
-- Add `--project-map-only`.
-- Add `--no-content` for metadata plus project map without file bodies.
-- Add `--sort path|tokens|priority`.
-- Add optional per-directory summaries.
-- Add schema docs for XML and JSON output.
-- Add `bonsai init-agent` to write starter `AGENTS.md` / `CLAUDE.md` instructions for using Bonsai before broad repo questions.
-- Consider a `--fail-over-budget` flag for CI and agent workflows.
-
 ## Tests
 
 - Add CLI integration tests that run the compiled binary against temp repos.

@@ -3,17 +3,21 @@ mod formatter;
 mod parser;
 mod walker;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 
-use budget::{count_text_tokens, downgrade_largest_file, optimize_budget, ProcessedFile};
+use budget::{
+    count_text_tokens, downgrade_largest_file, file_priority_score, optimize_budget, ProcessedFile,
+};
 use formatter::{
-    format_repository_context_json, format_repository_context_xml, RepositoryMetadata,
+    format_repository_context_json, format_repository_context_xml, DirectorySummary, FormatOptions,
+    RepositoryMetadata,
 };
 use parser::{compress_file, CompressionLevel};
 use walker::{collect_code_files, supported_extensions, WalkerOptions};
@@ -47,6 +51,21 @@ struct Cli {
 
     #[arg(long, value_enum, default_value_t = OutputFormat::Xml)]
     format: OutputFormat,
+
+    #[arg(long)]
+    project_map_only: bool,
+
+    #[arg(long)]
+    no_content: bool,
+
+    #[arg(long, value_enum, default_value_t = SortMode::Path)]
+    sort: SortMode,
+
+    #[arg(long)]
+    directory_summaries: bool,
+
+    #[arg(long)]
+    fail_over_budget: bool,
 
     #[arg(long, value_name = "GLOB")]
     include: Vec<String>,
@@ -91,7 +110,18 @@ enum OutputFormat {
     Xml,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum SortMode {
+    Path,
+    Tokens,
+    Priority,
+}
+
 fn main() -> Result<()> {
+    if handle_init_agent_command()? {
+        return Ok(());
+    }
+
     let cli = Cli::parse();
     let root = fs::canonicalize(&cli.path)
         .with_context(|| format!("cannot resolve target path {}", cli.path.display()))?;
@@ -137,8 +167,10 @@ fn main() -> Result<()> {
             compression_level: requested_level.as_u8(),
             file_count: files.len(),
         };
+        let mut full_files = full_context_files(&files)?;
+        sort_files(&mut full_files, cli.sort);
         Some(maybe_wrap_prompt(
-            format_context(&full_context_files(&files)?, &metadata, cli.format),
+            format_context(&full_files, &metadata, &cli),
             &cli,
         ))
     } else {
@@ -154,7 +186,9 @@ fn main() -> Result<()> {
     };
     let content_budget = reserved_content_budget(&files, &metadata, &cli)?;
     let optimized = optimize_budget(files, content_budget)?;
-    let (optimized, context, output_tokens) = fit_formatted_context(optimized, &metadata, &cli)?;
+    let (mut optimized, context, output_tokens) =
+        fit_formatted_context(optimized, &metadata, &cli)?;
+    sort_files(&mut optimized, cli.sort);
     let run_stats = RunStats::new(
         &cli,
         requested_level,
@@ -168,6 +202,12 @@ fn main() -> Result<()> {
             "warning: output is {output_tokens} tokens, above --max-tokens {} after all files reached tree map",
             cli.max_tokens
         );
+        if cli.fail_over_budget {
+            bail!(
+                "output is {output_tokens} tokens, above --max-tokens {}",
+                cli.max_tokens
+            );
+        }
     }
 
     match cli.output {
@@ -197,6 +237,80 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+fn handle_init_agent_command() -> Result<bool> {
+    let args = env::args().collect::<Vec<_>>();
+    if args.get(1).map(String::as_str) != Some("init-agent") {
+        return Ok(false);
+    }
+
+    let mut target = PathBuf::from(".");
+    let mut force = false;
+    let mut saw_path = false;
+
+    for arg in args.iter().skip(2) {
+        match arg.as_str() {
+            "--force" | "-f" => force = true,
+            "--help" | "-h" => {
+                println!("Usage: bonsai init-agent [PATH] [--force]");
+                return Ok(true);
+            }
+            value if value.starts_with('-') => bail!("unknown init-agent option {value}"),
+            value => {
+                if saw_path {
+                    bail!("init-agent accepts only one path");
+                }
+                target = PathBuf::from(value);
+                saw_path = true;
+            }
+        }
+    }
+
+    init_agent_files(&target, force)?;
+    Ok(true)
+}
+
+fn init_agent_files(target: &Path, force: bool) -> Result<()> {
+    fs::create_dir_all(target)
+        .with_context(|| format!("cannot create agent target {}", target.display()))?;
+    write_agent_file(&target.join("AGENTS.md"), force, AGENTS_TEMPLATE)?;
+    write_agent_file(&target.join("CLAUDE.md"), force, CLAUDE_TEMPLATE)?;
+    println!("wrote AGENTS.md and CLAUDE.md in {}", target.display());
+    Ok(())
+}
+
+fn write_agent_file(path: &Path, force: bool, contents: &str) -> Result<()> {
+    if path.exists() && !force {
+        bail!(
+            "{} already exists; pass --force to overwrite",
+            path.display()
+        );
+    }
+
+    fs::write(path, contents).with_context(|| format!("cannot write {}", path.display()))
+}
+
+const AGENTS_TEMPLATE: &str = r#"# AGENTS.md
+
+For repo-wide analysis, first run Bonsai. Use this before full project summaries, architecture review, onboarding, broad bug hunting, and questions that need many files:
+
+```sh
+bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
+```
+
+Inspect `/tmp/bonsai.xml` before answering.
+"#;
+
+const CLAUDE_TEMPLATE: &str = r#"# CLAUDE.md
+
+For repo-wide analysis, first run Bonsai. Use this before full project summaries, architecture review, onboarding, broad bug hunting, and questions that need many files:
+
+```sh
+bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
+```
+
+Inspect `/tmp/bonsai.xml` before answering.
+"#;
 
 fn max_file_bytes(cli: &Cli) -> Option<u64> {
     if cli.max_file_bytes == 0 {
@@ -261,14 +375,24 @@ fn full_context_files(files: &[ProcessedFile]) -> Result<Vec<ProcessedFile>> {
         .collect()
 }
 
-fn format_context(
-    files: &[ProcessedFile],
-    metadata: &RepositoryMetadata,
-    output_format: OutputFormat,
-) -> String {
-    match output_format {
-        OutputFormat::Json => format_repository_context_json(files, metadata),
-        OutputFormat::Xml => format_repository_context_xml(files, metadata),
+fn format_context(files: &[ProcessedFile], metadata: &RepositoryMetadata, cli: &Cli) -> String {
+    let options = format_options(files, cli);
+    match cli.format {
+        OutputFormat::Json => format_repository_context_json(files, metadata, &options),
+        OutputFormat::Xml => format_repository_context_xml(files, metadata, &options),
+    }
+}
+
+fn format_options(files: &[ProcessedFile], cli: &Cli) -> FormatOptions {
+    FormatOptions {
+        project_map_only: cli.project_map_only,
+        include_files: !cli.project_map_only && !cli.no_content,
+        include_content: !cli.project_map_only && !cli.no_content,
+        directory_summaries: if cli.directory_summaries && !cli.project_map_only {
+            build_directory_summaries(files)
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -278,7 +402,8 @@ fn fit_formatted_context(
     cli: &Cli,
 ) -> Result<(Vec<ProcessedFile>, String, usize)> {
     loop {
-        let context = maybe_wrap_prompt(format_context(&files, metadata, cli.format), cli);
+        sort_files(&mut files, cli.sort);
+        let context = maybe_wrap_prompt(format_context(&files, metadata, cli), cli);
         let output_tokens = count_text_tokens(&context)?;
 
         if output_tokens <= cli.max_tokens || !downgrade_largest_file(&mut files)? {
@@ -308,10 +433,50 @@ fn reserved_content_budget(
             overhead_file
         })
         .collect::<Vec<_>>();
-    let overhead = maybe_wrap_prompt(format_context(&overhead_files, metadata, cli.format), cli);
+    let overhead = maybe_wrap_prompt(format_context(&overhead_files, metadata, cli), cli);
     let overhead_tokens = count_text_tokens(&overhead)?;
 
     Ok(cli.max_tokens.saturating_sub(overhead_tokens))
+}
+
+fn sort_files(files: &mut [ProcessedFile], sort: SortMode) {
+    match sort {
+        SortMode::Path => files.sort_by(|left, right| left.path.cmp(&right.path)),
+        SortMode::Tokens => files.sort_by(|left, right| {
+            right
+                .token_count
+                .cmp(&left.token_count)
+                .then(left.path.cmp(&right.path))
+        }),
+        SortMode::Priority => files.sort_by(|left, right| {
+            file_priority_score(right)
+                .cmp(&file_priority_score(left))
+                .then(left.path.cmp(&right.path))
+        }),
+    }
+}
+
+fn build_directory_summaries(files: &[ProcessedFile]) -> Vec<DirectorySummary> {
+    let mut by_dir: BTreeMap<String, DirectorySummary> = BTreeMap::new();
+
+    for file in files {
+        let directory = file
+            .path
+            .rsplit_once('/')
+            .map(|(directory, _)| directory)
+            .unwrap_or(".");
+        let entry = by_dir
+            .entry(directory.to_owned())
+            .or_insert_with(|| DirectorySummary {
+                path: directory.to_owned(),
+                file_count: 0,
+                tokens: 0,
+            });
+        entry.file_count += 1;
+        entry.tokens += file.token_count;
+    }
+
+    by_dir.into_values().collect()
 }
 
 fn maybe_wrap_prompt(context: String, cli: &Cli) -> String {

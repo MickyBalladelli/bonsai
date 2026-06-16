@@ -17,6 +17,8 @@ jobs:
         run: cargo test
       - name: Build release binary
         run: cargo build --release
+      - name: CLI output smoke test
+        run: bash tests/cli_output_smoke.sh
       - name: Plugin smoke tests
         run: bash tests/plugin_binary_lookup.sh
       - name: Release asset smoke test
