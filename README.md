@@ -149,6 +149,32 @@ target/release/contextshrink . --no-respect-gitignore --output file
 
 `--level 3` keeps a compact tree map only.
 
+## Before And After
+
+Full source:
+
+```rust
+fn greet(name: &str) -> String {
+    let message = format!("hello {name}");
+    println!("{message}");
+    message
+}
+```
+
+Skeleton:
+
+```rust
+fn greet(name: &str) -> String { ... }
+```
+
+Tree map:
+
+```text
+fn greet(name: &str) -> String
+```
+
+Markdown/config files are treated differently from source code. ContextShrink keeps compact headings, important lines, and top-level config shape instead of stripping function bodies.
+
 ## Measuring Token Savings
 
 Use `--stats` to measure how much ContextShrink saves:
@@ -166,6 +192,16 @@ stats:
   tokens_saved: 41000
   saving_percent: 82.00
   files_scanned: 42
+```
+
+Example from this repo on June 16, 2026:
+
+```text
+raw_tokens: 73542
+shrunk_tokens: 10798
+tokens_saved: 62744
+saving_percent: 85.32
+files_scanned: 24
 ```
 
 ContextShrink compares full XML against shrunk XML with the same tokenizer it uses for budgeting.
@@ -225,6 +261,37 @@ VS Code extension smoke test:
 Run Command Palette: ContextShrink: Generate and Ask
 Ask: Using this context, explain what src/main.rs does.
 Expected: the answer uses the generated ContextShrink context.
+```
+
+## Troubleshooting
+
+Binary not found:
+
+```text
+Install with `cargo install --path .`, set `CONTEXTSHRINK_BIN`, or run `cargo build --release`.
+Plugins and the VS Code extension check `CONTEXTSHRINK_BIN`, then `contextshrink` on PATH, then repo-local release builds.
+```
+
+Clipboard failure:
+
+```text
+Use `--output file --output-file /tmp/contextshrink.xml` instead of `--output clipboard`.
+Clipboard access can fail in headless shells, remote sessions, or sandboxed environments.
+```
+
+No files selected:
+
+```text
+Run with `--print-files` to see what was selected.
+Check `--include`, `--exclude`, `.gitignore`, and `.cursorignore`.
+Use `--no-respect-gitignore` when ignored files should be included.
+```
+
+Output over budget:
+
+```text
+Use a smaller target path, add `--exclude`, increase `--max-tokens`, or use `--level 3`.
+If every file is already tree map, ContextShrink cannot shrink much further without dropping files.
 ```
 
 ## Development Check
@@ -601,6 +668,8 @@ copilot/contextshrink-vscode/contextshrink-vscode-0.1.0.vsix
 Restart VS Code after installing.
 
 ### Use With VS Code Chat
+
+<img src="images/vscode-flow.svg" alt="ContextShrink VS Code flow" width="720">
 
 Open the repo in VS Code.
 
