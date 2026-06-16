@@ -1,4 +1,12 @@
-<img src="images/bonsai.png" alt="Bonsai logo" width="160">
+<p align="center">
+    <img src="images/bonsai.png" alt="Bonsai logo" width="160" />
+</p>
+
+<p align="center">
+    <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+    <img alt="Language: Rust" src="https://img.shields.io/badge/Language-Rust-orange.svg" />
+    <img alt="Version" src="https://img.shields.io/badge/Version-0.1.0-lightgrey.svg" />
+</p>
 
 # Bonsai
 
