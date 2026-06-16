@@ -18,25 +18,32 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux-x64
+            target: x86_64-unknown-linux-gnu
           - os: macos-latest
             name: macos-arm64
+            target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - name: Test
         run: cargo test
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --target "${{ matrix.target }}"
       - name: Package binary
         run: |
           mkdir -p dist
-          cp target/release/contextshrink "dist/contextshrink-${{ matrix.name }}"
+          cp "target/${{ matrix.target }}/release/contextshrink" "dist/contextshrink-${{ matrix.name }}"
           chmod +x "dist/contextshrink-${{ matrix.name }}"
+          shasum -a 256 "dist/contextshrink-${{ matrix.name }}" > "dist/contextshrink-${{ matrix.name }}.sha256"
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: contextshrink-${{ matrix.name }}
-          path: dist/contextshrink-${{ matrix.name }}
+          path: |
+            dist/contextshrink-${{ matrix.name }}
+            dist/contextshrink-${{ matrix.name }}.sha256
 
   vsix:
     name: Package VSIX
@@ -74,7 +81,37 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## Install without Rust
+
+          macOS Apple Silicon:
+
+          ```sh
+          curl -L -o contextshrink https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/contextshrink-macos-arm64
+          chmod +x contextshrink
+          ./contextshrink --version
+          ```
+
+          Linux x64:
+
+          ```sh
+          curl -L -o contextshrink https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/contextshrink-linux-x64
+          chmod +x contextshrink
+          ./contextshrink --version
+          ```
+
+          Then run it in a repo:
+
+          ```sh
+          ./contextshrink . --prompt --output clipboard
+          ```
+
+          SHA-256 checksum files are attached beside each binary.
+          NOTES
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: dist/*

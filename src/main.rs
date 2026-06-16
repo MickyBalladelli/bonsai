@@ -19,6 +19,7 @@ use walker::{collect_code_files, supported_extensions, WalkerOptions};
 
 #[derive(Debug, Parser)]
 #[command(name = "contextshrink")]
+#[command(version)]
 #[command(about = "Shrink repository source context into token-efficient XML or JSON")]
 struct Cli {
     #[arg(default_value = ".")]
@@ -59,6 +60,9 @@ struct Cli {
 
     #[arg(long)]
     summary: bool,
+
+    #[arg(long)]
+    prompt: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -119,8 +123,8 @@ fn main() -> Result<()> {
         compression_level: requested_level.as_u8(),
         file_count: optimized.len(),
     };
-    let raw_context = format_context(&full_files, &metadata, cli.format);
-    let context = format_context(&optimized, &metadata, cli.format);
+    let raw_context = maybe_wrap_prompt(format_context(&full_files, &metadata, cli.format), &cli);
+    let context = maybe_wrap_prompt(format_context(&optimized, &metadata, cli.format), &cli);
     let run_stats = RunStats::new(
         &cli,
         requested_level,
@@ -216,6 +220,21 @@ fn format_context(
         OutputFormat::Json => format_repository_context_json(files, metadata),
         OutputFormat::Xml => format_repository_context_xml(files, metadata),
     }
+}
+
+fn maybe_wrap_prompt(context: String, cli: &Cli) -> String {
+    if !cli.prompt {
+        return context;
+    }
+
+    let format_name = match cli.format {
+        OutputFormat::Json => "JSON",
+        OutputFormat::Xml => "XML",
+    };
+
+    format!(
+        "Use this ContextShrink {format_name} as compressed repo context before answering.\n\n{context}"
+    )
 }
 
 fn generated_at_unix() -> Result<String> {
