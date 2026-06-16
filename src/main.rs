@@ -6,6 +6,7 @@ mod walker;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
@@ -57,6 +58,9 @@ struct Cli {
 
     #[arg(long)]
     stats: bool,
+
+    #[arg(long)]
+    detailed_stats: bool,
 
     #[arg(long)]
     summary: bool,
@@ -155,6 +159,10 @@ fn main() -> Result<()> {
 
     if cli.stats {
         print_stats(&run_stats);
+    }
+
+    if cli.detailed_stats {
+        print_detailed_stats(&optimized, &run_stats);
     }
 
     Ok(())
@@ -305,4 +313,51 @@ fn print_stats(stats: &RunStats) {
     println!("  tokens_saved: {}", stats.tokens_saved);
     println!("  saving_percent: {:.2}", stats.saving_percent);
     println!("  files_scanned: {}", stats.files_scanned);
+}
+
+fn print_detailed_stats(files: &[ProcessedFile], _stats: &RunStats) {
+    println!("detailed_stats:");
+    println!("  files_reported: {}", files.len());
+
+    println!("  per_file_tokens:");
+    for f in files {
+        println!("    {}: {}", f.path, f.token_count);
+    }
+
+    let mut ext_map: HashMap<String, usize> = HashMap::new();
+    for f in files {
+        let ext = std::path::Path::new(&f.path)
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
+            .unwrap_or_else(|| "<noext>".to_string());
+        *ext_map.entry(ext).or_default() += f.token_count;
+    }
+
+    let mut ext_vec: Vec<_> = ext_map.into_iter().collect();
+    ext_vec.sort_by(|a, b| b.1.cmp(&a.1));
+    println!("  tokens_by_extension:");
+    for (k, v) in ext_vec {
+        println!("    {}: {}", k, v);
+    }
+
+    let mut toks: Vec<usize> = files.iter().map(|f| f.token_count).collect();
+    toks.sort();
+    let mn = toks.first().cloned().unwrap_or(0);
+    let mx = toks.last().cloned().unwrap_or(0);
+    let mean = if toks.is_empty() {
+        0.0
+    } else {
+        toks.iter().sum::<usize>() as f64 / toks.len() as f64
+    };
+    let median = if toks.is_empty() {
+        0.0
+    } else if toks.len() % 2 == 1 {
+        toks[toks.len() / 2] as f64
+    } else {
+        (toks[toks.len() / 2 - 1] + toks[toks.len() / 2]) as f64 / 2.0
+    };
+    println!(
+        "  token_distribution: min={}, median={:.1}, mean={:.1}, max={}",
+        mn, median, mean, mx
+    );
 }

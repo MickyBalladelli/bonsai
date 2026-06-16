@@ -12,6 +12,16 @@
 
   On this repository Bonsai reduced ~76,911 raw tokens to 13,450 shrunk tokens (~82.5% savings) using AST skeletonization — keep your LLM contexts small, accurate, and cheap.*
 
+## Demo
+
+Command panel:
+
+![Command panel](images/panel_cmd_fixed.png)
+
+Stats panel:
+
+![Stats panel](images/panel_stats_fixed.png)
+
 ## Quick Start
 
 Run inside a repo:
