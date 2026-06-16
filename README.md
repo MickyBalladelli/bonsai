@@ -1,4 +1,4 @@
-![ContextShrink logo](images/context-shrink.png)
+<img src="images/context-shrink.png" alt="ContextShrink logo" width="160">
 
 # ContextShrink
 
