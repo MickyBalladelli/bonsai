@@ -16,11 +16,11 @@
 
 Command panel:
 
-![Command panel](images/panel_cmd_fixed.png)
+![Command panel](images/panel_cmd.png)
 
 Stats panel:
 
-![Stats panel](images/panel_stats_fixed.png)
+![Stats panel](images/panel_stats.png)
 
 ## Quick Start
 
