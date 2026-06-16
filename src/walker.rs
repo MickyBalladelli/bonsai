@@ -15,11 +15,13 @@ pub struct WalkerOptions {
     pub include: Vec<String>,
     pub exclude: Vec<String>,
     pub respect_gitignore: bool,
+    pub max_file_bytes: Option<u64>,
 }
 
 pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<PathBuf>> {
     let files = Mutex::new(Vec::new());
     let filters = Arc::new(PathFilters::new(&options.include, &options.exclude)?);
+    let max_file_bytes = options.max_file_bytes;
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(false)
@@ -40,7 +42,10 @@ pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<Pa
                 Err(_) => return WalkState::Continue,
             };
 
-            if is_target_file(&entry) && filters.matches(root, entry.path()) {
+            if is_target_file(&entry)
+                && fits_size_limit(&entry, max_file_bytes)
+                && filters.matches(root, entry.path())
+            {
                 if let Some(path) = entry.path().to_str() {
                     if path.contains("/.git/") {
                         return WalkState::Continue;
@@ -63,6 +68,17 @@ pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<Pa
 
 pub fn supported_extensions() -> &'static [&'static str] {
     TARGET_EXTENSIONS
+}
+
+fn fits_size_limit(entry: &DirEntry, max_file_bytes: Option<u64>) -> bool {
+    max_file_bytes
+        .and_then(|limit| {
+            entry
+                .metadata()
+                .ok()
+                .map(|metadata| metadata.len() <= limit)
+        })
+        .unwrap_or(true)
 }
 
 fn is_target_file(entry: &DirEntry) -> bool {
@@ -197,6 +213,7 @@ mod tests {
                 include: vec!["src/**".to_owned()],
                 exclude: vec!["**/generated.rs".to_owned()],
                 respect_gitignore: true,
+                max_file_bytes: Some(1_048_576),
             },
         )
         .unwrap();
@@ -218,12 +235,34 @@ mod tests {
                 include: Vec::new(),
                 exclude: Vec::new(),
                 respect_gitignore: false,
+                max_file_bytes: Some(1_048_576),
             },
         )
         .unwrap();
         let names = relative_names(&root, files);
 
         assert!(names.contains(&"ignored.rs".to_owned()));
+    }
+
+    #[test]
+    fn skips_files_over_size_limit() {
+        let root = temp_dir();
+        write_file(&root, "small.rs", "fn a() {}");
+        write_file(&root, "large.rs", "fn large() {}");
+
+        let files = collect_code_files(
+            &root,
+            &WalkerOptions {
+                include: Vec::new(),
+                exclude: Vec::new(),
+                respect_gitignore: true,
+                max_file_bytes: Some(12),
+            },
+        )
+        .unwrap();
+        let names = relative_names(&root, files);
+
+        assert_eq!(names, vec!["small.rs"]);
     }
 
     fn temp_dir() -> PathBuf {
@@ -257,6 +296,7 @@ mod tests {
             include: Vec::new(),
             exclude: Vec::new(),
             respect_gitignore: true,
+            max_file_bytes: Some(1_048_576),
         }
     }
 }

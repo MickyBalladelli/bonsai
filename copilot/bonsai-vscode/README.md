@@ -1,20 +1,6 @@
-# Bonsai
+# Bonsai VS Code
 
-VS Code extension that generates Bonsai XML for GitHub Copilot Chat and Codex.
-
-Install into VS Code:
-
-```sh
-"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --install-extension copilot/bonsai-vscode/bonsai-vscode-0.1.0.vsix
-```
-
-Install into Cursor:
-
-```sh
-code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.1.0.vsix
-```
-
-On some machines, `code` points to Cursor. Use the full VS Code path when you want Visual Studio Code.
+VS Code extension for generating Bonsai repo context for Copilot Chat, ChatGPT, and Codex.
 
 Install the CLI first:
 
@@ -22,34 +8,34 @@ Install the CLI first:
 cargo install --path .
 ```
 
-The extension checks `BONSAI_BIN`, then `bonsai` on `PATH`, then local release builds.
+Install the VSIX:
 
-Use Command Palette:
-
-```text
-Bonsai: Generate Context
+```sh
+code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.2.1.vsix
 ```
 
-or:
+Run Command Palette:
 
 ```text
 Bonsai: Generate and Ask
 ```
 
-or:
+If chat does not open automatically, paste the copied prompt into your chat.
+
+Other commands:
 
 ```text
+Bonsai: Generate Context
 Bonsai: Copy Context Prompt
-```
-
-or:
-
-```text
-Bonsai: Preview Project Map
-```
-
-or:
-
-```text
 Bonsai: Copy Project Map
+Bonsai: Preview Project Map
+Bonsai: Open Last Context
+```
+
+The extension checks `BONSAI_BIN`, then `bonsai` on `PATH`, then local release builds.
+
+On some machines, `code` points to Cursor. Use the full VS Code path when you want Visual Studio Code:
+
+```sh
+"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --install-extension copilot/bonsai-vscode/bonsai-vscode-0.2.1.vsix
 ```

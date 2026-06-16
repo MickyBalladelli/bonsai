@@ -5,12 +5,14 @@
 <p align="center">
     <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
     <img alt="Language: Rust" src="https://img.shields.io/badge/Language-Rust-orange.svg" />
-    <img alt="Version" src="https://img.shields.io/badge/Version-0.1.0-lightgrey.svg" />
+    <img alt="Version" src="https://img.shields.io/badge/Version-0.2.1-lightgrey.svg" />
 </p>
 
 # Bonsai
 
   On this repository Bonsai reduced ~76,911 raw tokens to 13,450 shrunk tokens (~82.5% savings) using AST skeletonization — keep your LLM contexts small, accurate, and cheap.*
+
+Naming note: the GitHub repository, CLI binary, Codex plugin, and Claude plugin are `bonsai`; the VS Code package is `bonsai-vscode`.
 
 ## Demo
 
@@ -47,7 +49,7 @@ Need the binary? Download a release. No Rust needed.
 macOS Apple Silicon:
 
 ```sh
-curl -L -o bonsai https://github.com/MickyBalladelli/bonsai-context/releases/latest/download/bonsai-macos-arm64
+curl -L -o bonsai https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-macos-arm64
 chmod +x bonsai
 sudo mv bonsai /usr/local/bin/bonsai
 ```
@@ -55,7 +57,7 @@ sudo mv bonsai /usr/local/bin/bonsai
 Linux x64:
 
 ```sh
-curl -L -o bonsai https://github.com/MickyBalladelli/bonsai-context/releases/latest/download/bonsai-linux-x64
+curl -L -o bonsai https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-linux-x64
 chmod +x bonsai
 sudo mv bonsai /usr/local/bin/bonsai
 ```
@@ -69,7 +71,7 @@ cargo install --path .
 Install straight from GitHub:
 
 ```sh
-cargo install --git https://github.com/MickyBalladelli/bonsai-context.git
+cargo install --git https://github.com/MickyBalladelli/bonsai.git
 ```
 
 ## What It Is Good For
@@ -98,7 +100,7 @@ bonsai-linux-x64
 Download from:
 
 ```text
-https://github.com/MickyBalladelli/bonsai-context/releases/latest
+https://github.com/MickyBalladelli/bonsai/releases/latest
 ```
 
 From this repo:
@@ -110,7 +112,7 @@ cargo install --path .
 From git:
 
 ```sh
-cargo install --git https://github.com/MickyBalladelli/bonsai-context.git
+cargo install --git https://github.com/MickyBalladelli/bonsai.git
 ```
 
 Or build a local binary:
@@ -206,6 +208,14 @@ Filter files:
 bonsai . --include 'src/**' --exclude '**/generated.rs'
 ```
 
+Skip files larger than the default 1 MiB limit:
+
+```sh
+bonsai . --max-file-bytes 2097152
+```
+
+Use `--max-file-bytes 0` to disable the size cap.
+
 ## Use With Agents
 
 ### Plain Paste
@@ -233,7 +243,7 @@ plugins/bonsai
 Add the local marketplace:
 
 ```sh
-codex plugin marketplace add "$HOME/dev/bonsai-context/.agents/plugins"
+codex plugin marketplace add "$HOME/dev/bonsai/.agents/plugins"
 ```
 
 Then install or enable `bonsai` in Codex.
@@ -285,7 +295,7 @@ claude plugin marketplace add .
 Then inside Claude Code:
 
 ```text
-/plugin install bonsai@bonsai-context
+/plugin install bonsai@bonsai
 ```
 
 ### VS Code
@@ -299,7 +309,7 @@ copilot/bonsai-vscode
 Install the packaged VSIX:
 
 ```sh
-code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.1.0.vsix
+code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.2.1.vsix
 ```
 
 Run Command Palette:
@@ -450,8 +460,8 @@ CI and releases are configured in:
 Create a release:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 Version bump checklist:

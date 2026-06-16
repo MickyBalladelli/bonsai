@@ -42,7 +42,7 @@ claude plugin marketplace add .
 Then install in Claude Code:
 
 ```text
-/plugin install bonsai@bonsai-context
+/plugin install bonsai@bonsai
 ```
 
 Validate before publishing:

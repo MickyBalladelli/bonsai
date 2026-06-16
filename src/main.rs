@@ -3,15 +3,15 @@ mod formatter;
 mod parser;
 mod walker;
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 
-use budget::{count_text_tokens, optimize_budget, ProcessedFile};
+use budget::{count_text_tokens, downgrade_largest_file, optimize_budget, ProcessedFile};
 use formatter::{
     format_repository_context_json, format_repository_context_xml, RepositoryMetadata,
 };
@@ -28,6 +28,13 @@ struct Cli {
 
     #[arg(long, default_value_t = 4000)]
     max_tokens: usize,
+
+    #[arg(
+        long,
+        default_value_t = 1_048_576,
+        help = "Skip files larger than this many bytes; 0 disables the cap"
+    )]
+    max_file_bytes: u64,
 
     #[arg(long, default_value_t = 2)]
     level: u8,
@@ -96,6 +103,7 @@ fn main() -> Result<()> {
             include: cli.include.clone(),
             exclude: cli.exclude.clone(),
             respect_gitignore: cli.respect_gitignore,
+            max_file_bytes: max_file_bytes(&cli),
         },
     )?;
     if paths.is_empty() {
@@ -121,7 +129,22 @@ fn main() -> Result<()> {
         files.push(ProcessedFile::new(relative_path, requested_level, variants));
     }
 
-    let full_files = full_context_files(&files)?;
+    let raw_context = if cli.stats {
+        let metadata = RepositoryMetadata {
+            generated_at: generated_at_unix()?,
+            repo_root: root.display().to_string(),
+            max_tokens: cli.max_tokens,
+            compression_level: requested_level.as_u8(),
+            file_count: files.len(),
+        };
+        Some(maybe_wrap_prompt(
+            format_context(&full_context_files(&files)?, &metadata, cli.format),
+            &cli,
+        ))
+    } else {
+        None
+    };
+
     let optimized = optimize_budget(files, cli.max_tokens)?;
     let metadata = RepositoryMetadata {
         generated_at: generated_at_unix()?,
@@ -130,15 +153,21 @@ fn main() -> Result<()> {
         compression_level: requested_level.as_u8(),
         file_count: optimized.len(),
     };
-    let raw_context = maybe_wrap_prompt(format_context(&full_files, &metadata, cli.format), &cli);
-    let context = maybe_wrap_prompt(format_context(&optimized, &metadata, cli.format), &cli);
+    let (optimized, context, output_tokens) = fit_formatted_context(optimized, &metadata, &cli)?;
     let run_stats = RunStats::new(
         &cli,
         requested_level,
         optimized.len(),
-        &raw_context,
-        &context,
+        raw_context.as_deref(),
+        output_tokens,
     )?;
+
+    if output_tokens > cli.max_tokens {
+        eprintln!(
+            "warning: output is {output_tokens} tokens, above --max-tokens {} after all files reached tree map",
+            cli.max_tokens
+        );
+    }
 
     match cli.output {
         OutputDestination::Clipboard => {
@@ -168,16 +197,24 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn max_file_bytes(cli: &Cli) -> Option<u64> {
+    if cli.max_file_bytes == 0 {
+        None
+    } else {
+        Some(cli.max_file_bytes)
+    }
+}
+
 #[derive(Debug)]
 struct RunStats {
     output_target: String,
     files_scanned: usize,
     selected_level: CompressionLevel,
     max_tokens: usize,
-    raw_tokens: usize,
+    raw_tokens: Option<usize>,
     shrunk_tokens: usize,
-    tokens_saved: usize,
-    saving_percent: f64,
+    tokens_saved: Option<usize>,
+    saving_percent: Option<f64>,
 }
 
 impl RunStats {
@@ -185,17 +222,18 @@ impl RunStats {
         cli: &Cli,
         selected_level: CompressionLevel,
         files_scanned: usize,
-        raw_xml: &str,
-        shrunk_xml: &str,
+        raw_context: Option<&str>,
+        shrunk_tokens: usize,
     ) -> Result<Self> {
-        let raw_tokens = count_text_tokens(raw_xml)?;
-        let shrunk_tokens = count_text_tokens(shrunk_xml)?;
-        let tokens_saved = raw_tokens.saturating_sub(shrunk_tokens);
-        let saving_percent = if raw_tokens == 0 {
-            0.0
-        } else {
-            tokens_saved as f64 / raw_tokens as f64 * 100.0
-        };
+        let raw_tokens = raw_context.map(count_text_tokens).transpose()?;
+        let tokens_saved = raw_tokens.map(|tokens| tokens.saturating_sub(shrunk_tokens));
+        let saving_percent = raw_tokens.map(|tokens| {
+            if tokens == 0 {
+                0.0
+            } else {
+                tokens_saved.unwrap_or(0) as f64 / tokens as f64 * 100.0
+            }
+        });
 
         Ok(Self {
             output_target: output_target(cli),
@@ -230,6 +268,21 @@ fn format_context(
     match output_format {
         OutputFormat::Json => format_repository_context_json(files, metadata),
         OutputFormat::Xml => format_repository_context_xml(files, metadata),
+    }
+}
+
+fn fit_formatted_context(
+    mut files: Vec<ProcessedFile>,
+    metadata: &RepositoryMetadata,
+    cli: &Cli,
+) -> Result<(Vec<ProcessedFile>, String, usize)> {
+    loop {
+        let context = maybe_wrap_prompt(format_context(&files, metadata, cli.format), cli);
+        let output_tokens = count_text_tokens(&context)?;
+
+        if output_tokens <= cli.max_tokens || !downgrade_largest_file(&mut files)? {
+            return Ok((files, context, output_tokens));
+        }
     }
 }
 
@@ -308,10 +361,13 @@ fn print_summary(stats: &RunStats) {
 
 fn print_stats(stats: &RunStats) {
     println!("stats:");
-    println!("  raw_tokens: {}", stats.raw_tokens);
+    println!("  raw_tokens: {}", stats.raw_tokens.unwrap_or(0));
     println!("  shrunk_tokens: {}", stats.shrunk_tokens);
-    println!("  tokens_saved: {}", stats.tokens_saved);
-    println!("  saving_percent: {:.2}", stats.saving_percent);
+    println!("  tokens_saved: {}", stats.tokens_saved.unwrap_or(0));
+    println!(
+        "  saving_percent: {:.2}",
+        stats.saving_percent.unwrap_or(0.0)
+    );
     println!("  files_scanned: {}", stats.files_scanned);
 }
 

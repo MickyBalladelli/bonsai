@@ -47,15 +47,20 @@ pub fn optimize_budget(
             break;
         };
 
-        files[index].level = match files[index].level {
-            CompressionLevel::Full => CompressionLevel::Skeleton,
-            CompressionLevel::Skeleton => CompressionLevel::TreeMap,
-            CompressionLevel::TreeMap => CompressionLevel::TreeMap,
-        };
-        files[index].token_count = count_tokens(&encoder, files[index].content());
+        downgrade_file(&mut files[index], &encoder);
     }
 
     Ok(files)
+}
+
+pub fn downgrade_largest_file(files: &mut [ProcessedFile]) -> Result<bool> {
+    let encoder = cl100k_base().context("cannot load cl100k tokenizer")?;
+    let Some(index) = pick_downgrade_candidate(files) else {
+        return Ok(false);
+    };
+
+    downgrade_file(&mut files[index], &encoder);
+    Ok(true)
 }
 
 pub fn count_text_tokens(text: &str) -> Result<usize> {
@@ -75,6 +80,15 @@ fn total_tokens(files: &[ProcessedFile]) -> usize {
 
 fn count_tokens(encoder: &CoreBPE, text: &str) -> usize {
     encoder.encode_ordinary(text).len()
+}
+
+fn downgrade_file(file: &mut ProcessedFile, encoder: &CoreBPE) {
+    file.level = match file.level {
+        CompressionLevel::Full => CompressionLevel::Skeleton,
+        CompressionLevel::Skeleton => CompressionLevel::TreeMap,
+        CompressionLevel::TreeMap => CompressionLevel::TreeMap,
+    };
+    file.token_count = count_tokens(encoder, file.content());
 }
 
 fn pick_downgrade_candidate(files: &[ProcessedFile]) -> Option<usize> {
