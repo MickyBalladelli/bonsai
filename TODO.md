@@ -64,19 +64,6 @@
   - `--fail-on-empty`
 - Add tests for empty repos and repos with only unsupported files.
 
-## Distribution
-
-- Add GitHub Actions:
-  - `cargo test`
-  - build release binary
-  - package VSIX
-- Add release packaging:
-  - macOS binary
-  - Linux binary
-  - VSIX artifact
-- Add installation docs for Homebrew or cargo install from git.
-- Add version bump checklist so CLI, Codex plugin, Claude plugin, and VSIX stay aligned.
-
 ## Performance
 
 - Avoid formatting full raw context when only stats are not requested.

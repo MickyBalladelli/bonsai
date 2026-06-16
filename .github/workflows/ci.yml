@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test
+      - name: Build release binary
+        run: cargo build --release
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: contextshrink-linux-x64
+          path: target/release/contextshrink
+
+  vscode:
+    name: Package VSIX
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: copilot/contextshrink-vscode/package-lock.json
+      - name: Install extension dependencies
+        run: npm ci
+        working-directory: copilot/contextshrink-vscode
+      - name: Compile extension
+        run: npm run compile
+        working-directory: copilot/contextshrink-vscode
+      - name: Package VSIX
+        run: npm run package
+        working-directory: copilot/contextshrink-vscode
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: contextshrink-vscode-vsix
+          path: copilot/contextshrink-vscode/contextshrink-vscode-*.vsix

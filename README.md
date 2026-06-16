@@ -71,6 +71,18 @@ Install the CLI into Cargo's bin directory:
 cargo install --path .
 ```
 
+Install from git:
+
+```sh
+cargo install --git https://github.com/owner/context-shrink.git
+```
+
+Homebrew install, once a tap/formula is published:
+
+```sh
+brew install owner/tap/contextshrink
+```
+
 After install, `contextshrink` should be available on `PATH`:
 
 ```sh
@@ -637,6 +649,8 @@ The package appears as:
 contextshrink-vscode-0.1.0.vsix
 ```
 
+Release builds also publish the VSIX as a GitHub release artifact.
+
 ### Install VS Code Extension
 
 From repo root, install into VS Code:
@@ -708,6 +722,52 @@ contextshrink.maxTokens
 contextshrink.level
 contextshrink.outputFile
 contextshrink.binaryPath
+```
+
+## Distribution
+
+GitHub Actions are configured in:
+
+```text
+.github/workflows/ci.yml
+.github/workflows/release.yml
+```
+
+CI runs:
+
+```text
+cargo test
+cargo build --release
+npm ci
+npm run compile
+npm run package
+```
+
+Tagged releases publish:
+
+```text
+contextshrink-linux-x64
+contextshrink-macos-arm64
+contextshrink-vscode-*.vsix
+```
+
+Create a release by pushing a version tag:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Version bump checklist:
+
+```text
+Cargo.toml
+copilot/contextshrink-vscode/package.json
+copilot/contextshrink-vscode/package-lock.json
+plugins/contextshrink/.codex-plugin/plugin.json
+claude/contextshrink/.claude-plugin/plugin.json
+.claude-plugin/marketplace.json, if pinning marketplace version
+README install/package examples
 ```
 
 ## How The Plugin Was Created
