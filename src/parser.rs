@@ -681,12 +681,13 @@ fn compact_markdown_context(source: &str) -> String {
     let mut in_kept_fence = false;
     let mut kept_fence_lines = 0usize;
     let mut in_dropped_fence = false;
-    let mut table_lines = 0usize;
+    let mut table_buffer: Vec<String> = Vec::new();
 
     for line in source.lines() {
         let trimmed = line.trim();
 
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            flush_markdown_table(&mut output, &mut table_buffer);
             if in_kept_fence {
                 output.push(trimmed.to_owned());
                 in_kept_fence = false;
@@ -721,19 +722,15 @@ fn compact_markdown_context(source: &str) -> String {
         }
 
         if in_dropped_fence || is_noisy_markdown_line(trimmed) {
+            flush_markdown_table(&mut output, &mut table_buffer);
             continue;
         }
 
         if is_markdown_table_line(trimmed) {
-            if table_lines < 24 {
-                output.push(truncate_line(trimmed.to_owned(), 240));
-            } else if table_lines == 24 {
-                output.push("...".to_owned());
-            }
-            table_lines += 1;
+            table_buffer.push(truncate_line(trimmed.to_owned(), 240));
             continue;
         }
-        table_lines = 0;
+        flush_markdown_table(&mut output, &mut table_buffer);
 
         if trimmed.starts_with('#') {
             output.push(truncate_line(trimmed.to_owned(), 240));
@@ -756,6 +753,7 @@ fn compact_markdown_context(source: &str) -> String {
             output.push(truncate_line(trimmed.to_owned(), 240));
         }
     }
+    flush_markdown_table(&mut output, &mut table_buffer);
 
     if output.is_empty() {
         compact_non_empty_lines(source, 120)
@@ -766,6 +764,34 @@ fn compact_markdown_context(source: &str) -> String {
             .collect::<Vec<_>>()
             .join("\n")
     }
+}
+
+fn flush_markdown_table(output: &mut Vec<String>, table: &mut Vec<String>) {
+    if table.is_empty() {
+        return;
+    }
+
+    output.extend(sample_markdown_table(table));
+    table.clear();
+}
+
+fn sample_markdown_table(table: &[String]) -> Vec<String> {
+    if table.len() <= 14 {
+        return table.to_vec();
+    }
+
+    let mut sampled = Vec::new();
+    sampled.extend(table.iter().take(10).cloned());
+    sampled.push("...".to_owned());
+
+    let tail_start = table.len().saturating_sub(4);
+    for row in &table[tail_start..] {
+        if sampled.last() != Some(row) {
+            sampled.push(row.clone());
+        }
+    }
+
+    sampled
 }
 
 fn is_important_fence(line: &str) -> bool {
@@ -1579,6 +1605,26 @@ graph TD
         assert!(variants.skeleton.contains("```mermaid"));
         assert!(!variants.skeleton.contains("<img"));
         assert!(!variants.skeleton.contains("graph TD"));
+    }
+
+    #[test]
+    fn markdown_samples_long_tables_with_header_and_tail() {
+        let mut source = String::from("# Matrix\n\n| name | value |\n| --- | --- |\n");
+        for index in 1..=20 {
+            source.push_str(&format!("| row-{index} | value-{index} |\n"));
+        }
+
+        let path = write_temp_source("md", &source);
+        let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(variants.skeleton.contains("| name | value |"));
+        assert!(variants.skeleton.contains("| --- | --- |"));
+        assert!(variants.skeleton.contains("| row-1 | value-1 |"));
+        assert!(variants.skeleton.contains("| row-8 | value-8 |"));
+        assert!(variants.skeleton.contains("..."));
+        assert!(variants.skeleton.contains("| row-17 | value-17 |"));
+        assert!(variants.skeleton.contains("| row-20 | value-20 |"));
+        assert!(!variants.skeleton.contains("| row-12 | value-12 |"));
     }
 
     #[test]
