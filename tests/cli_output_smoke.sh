@@ -85,6 +85,13 @@ if test -s "$tmp_root/quiet.txt"; then
 fi
 test -f "$tmp_root/quiet.xml"
 
+"$bin" completions bash > "$tmp_root/bonsai.bash"
+"$bin" completions zsh > "$tmp_root/_bonsai"
+"$bin" completions fish > "$tmp_root/bonsai.fish"
+grep -Fq 'init-agent' "$tmp_root/bonsai.bash"
+grep -Fq 'completions' "$tmp_root/_bonsai"
+grep -Fq 'dry-run' "$tmp_root/bonsai.fish"
+
 "$bin" doctor "$repo" --tokenizer cl100k_base > "$tmp_root/doctor.txt"
 grep -Fq 'bonsai doctor:' "$tmp_root/doctor.txt"
 grep -Fq '  binary:' "$tmp_root/doctor.txt"

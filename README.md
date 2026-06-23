@@ -216,6 +216,14 @@ Suppress normal stdout for scripts:
 bonsai . --quiet --output-file /tmp/bonsai.xml
 ```
 
+Generate shell completions:
+
+```sh
+bonsai completions bash > ~/.local/share/bash-completion/completions/bonsai
+bonsai completions zsh > ~/.zfunc/_bonsai
+bonsai completions fish > ~/.config/fish/completions/bonsai.fish
+```
+
 Filter files:
 
 ```sh

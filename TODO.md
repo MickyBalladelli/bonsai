@@ -8,7 +8,6 @@
 
 ## CLI Ergonomics
 
-- Add shell completions for bash, zsh, and fish.
 
 ## Testing And Release
 

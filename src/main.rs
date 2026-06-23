@@ -8,11 +8,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::Command as ProcessCommand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
-use clap::{ArgAction, Parser, ValueEnum};
+use clap::{Arg, ArgAction, Command as ClapCommand, CommandFactory, Parser, ValueEnum};
+use clap_complete::{generate, Shell};
 
 use budget::{
     count_text_tokens, downgrade_largest_file, file_priority_score, optimize_budget, ProcessedFile,
@@ -178,6 +179,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if handle_doctor_command()? {
+        return Ok(());
+    }
+    if handle_completions_command()? {
         return Ok(());
     }
 
@@ -434,6 +438,81 @@ fn handle_doctor_command() -> Result<bool> {
     let options = doctor_options(&args[2..])?;
     print_doctor(&options.target, options.tokenizer)?;
     Ok(true)
+}
+
+fn handle_completions_command() -> Result<bool> {
+    let args = env::args().collect::<Vec<_>>();
+    if args.get(1).map(String::as_str) != Some("completions") {
+        return Ok(false);
+    }
+
+    let Some(shell) = args.get(2) else {
+        println!("Usage: bonsai completions <bash|zsh|fish>");
+        return Ok(true);
+    };
+
+    if matches!(shell.as_str(), "--help" | "-h") {
+        println!("Usage: bonsai completions <bash|zsh|fish>");
+        return Ok(true);
+    }
+
+    if args.len() > 3 {
+        bail!("completions accepts only one shell");
+    }
+
+    let shell = completion_shell(shell)?;
+    let mut command = completion_command();
+    generate(shell, &mut command, "bonsai", &mut std::io::stdout());
+    Ok(true)
+}
+
+fn completion_shell(value: &str) -> Result<Shell> {
+    match value {
+        "bash" => Ok(Shell::Bash),
+        "zsh" => Ok(Shell::Zsh),
+        "fish" => Ok(Shell::Fish),
+        other => bail!("unsupported shell {other}; use bash, zsh, or fish"),
+    }
+}
+
+fn completion_command() -> ClapCommand {
+    Cli::command()
+        .subcommand(
+            ClapCommand::new("init-agent")
+                .about("Write AGENTS.md and CLAUDE.md starter instructions")
+                .arg(Arg::new("path").default_value("."))
+                .arg(
+                    Arg::new("force")
+                        .long("force")
+                        .short('f')
+                        .action(ArgAction::SetTrue),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("cache")
+                .about("Manage Bonsai cache")
+                .subcommand(
+                    ClapCommand::new("clear")
+                        .about("Clear the local parse cache for a repo")
+                        .arg(Arg::new("path").default_value(".")),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("doctor")
+                .about("Show install health")
+                .arg(Arg::new("path").default_value("."))
+                .arg(
+                    Arg::new("tokenizer")
+                        .long("tokenizer")
+                        .value_name("TOKENIZER")
+                        .default_value(TokenizerKind::default().as_str()),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("completions")
+                .about("Generate shell completions")
+                .arg(Arg::new("shell").value_parser(["bash", "zsh", "fish"])),
+        )
 }
 
 struct DoctorOptions {
@@ -707,7 +786,7 @@ fn load_git_changes(cli: &Cli, root: &Path) -> Result<Option<GitChanges>> {
         return Ok(None);
     };
 
-    let output = Command::new("git")
+    let output = ProcessCommand::new("git")
         .arg("-C")
         .arg(root)
         .arg("diff")
