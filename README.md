@@ -454,6 +454,7 @@ Check parser and tokenizer health:
 
 ```sh
 bonsai doctor
+bonsai doctor --json
 ```
 
 It also reports the cache path, cache size, cache entry count, stored selection metadata, and stale entries.

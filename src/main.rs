@@ -437,7 +437,7 @@ fn handle_doctor_command() -> Result<bool> {
     }
 
     let options = doctor_options(&args[2..])?;
-    print_doctor(&options.target, options.tokenizer)?;
+    print_doctor(&options.target, options.tokenizer, options.json)?;
     Ok(true)
 }
 
@@ -502,6 +502,7 @@ fn completion_command() -> ClapCommand {
             ClapCommand::new("doctor")
                 .about("Show install health")
                 .arg(Arg::new("path").default_value("."))
+                .arg(Arg::new("json").long("json").action(ArgAction::SetTrue))
                 .arg(
                     Arg::new("tokenizer")
                         .long("tokenizer")
@@ -519,20 +520,23 @@ fn completion_command() -> ClapCommand {
 struct DoctorOptions {
     target: PathBuf,
     tokenizer: TokenizerKind,
+    json: bool,
 }
 
 fn doctor_options(args: &[String]) -> Result<DoctorOptions> {
     let mut target = PathBuf::from(".");
     let mut tokenizer = TokenizerKind::default();
+    let mut json = false;
     let mut saw_path = false;
     let mut index = 0;
 
     while index < args.len() {
         match args[index].as_str() {
             "--help" | "-h" => {
-                println!("Usage: bonsai doctor [PATH] [--tokenizer TOKENIZER]");
+                println!("Usage: bonsai doctor [PATH] [--tokenizer TOKENIZER] [--json]");
                 std::process::exit(0);
             }
+            "--json" => json = true,
             "--tokenizer" => {
                 index += 1;
                 let Some(value) = args.get(index) else {
@@ -552,51 +556,115 @@ fn doctor_options(args: &[String]) -> Result<DoctorOptions> {
         index += 1;
     }
 
-    Ok(DoctorOptions { target, tokenizer })
+    Ok(DoctorOptions {
+        target,
+        tokenizer,
+        json,
+    })
 }
 
-fn print_doctor(target: &Path, tokenizer: TokenizerKind) -> Result<()> {
-    let root = fs::canonicalize(target)
-        .with_context(|| format!("cannot resolve doctor target {}", target.display()))?;
-    let binary_path = env::current_exe().context("cannot resolve current executable")?;
-    let cache_path = cache_path_for_root(&root);
-    let tokenizer_status = TokenCounter::new(tokenizer)
-        .map(|_| "ok".to_owned())
-        .unwrap_or_else(|error| format!("error: {error:#}"));
+#[derive(Debug)]
+struct DoctorReport {
+    binary_path: PathBuf,
+    version: &'static str,
+    repo_root: PathBuf,
+    cache_path: PathBuf,
+    cache_size_bytes: u64,
+    cache: CacheDiagnostics,
+    tokenizer_name: String,
+    tokenizer_status: String,
+    tokenizer_ok: bool,
+    parsers: Vec<DoctorParserReport>,
+}
 
-    println!("bonsai doctor:");
-    println!("  binary: {}", binary_path.display());
-    println!("  version: {}", env!("CARGO_PKG_VERSION"));
-    println!("  repo_root: {}", root.display());
-    println!("  cache_path: {}", cache_path.display());
-    print_cache_diagnostics(&cache_path, &ParseCache::load(cache_path.clone()));
-    println!("  tokenizer: {} ({tokenizer_status})", tokenizer.as_str());
-    println!("  parsers:");
+#[derive(Debug)]
+struct DoctorParserReport {
+    extension: String,
+    mode: &'static str,
+    available: bool,
+}
 
-    for extension in supported_extensions() {
-        let support = parser_support_for_extension(extension);
-        let mode = match support.mode {
-            ParserMode::TreeSitter => "tree-sitter",
-            ParserMode::Compact => "compact",
-        };
-        let status = if support.available { "ok" } else { "missing" };
-        println!("    .{}: {mode} ({status})", support.extension);
+fn print_doctor(target: &Path, tokenizer: TokenizerKind, json: bool) -> Result<()> {
+    let report = doctor_report(target, tokenizer)?;
+
+    if json {
+        println!("{}", format_doctor_json(&report));
+    } else {
+        print_doctor_text(&report);
     }
 
     Ok(())
 }
 
-fn print_cache_diagnostics(cache_path: &Path, cache: &ParseCache) {
-    let diagnostics = cache.diagnostics();
-    let size_bytes = fs::metadata(cache_path)
+fn doctor_report(target: &Path, tokenizer: TokenizerKind) -> Result<DoctorReport> {
+    let root = fs::canonicalize(target)
+        .with_context(|| format!("cannot resolve doctor target {}", target.display()))?;
+    let binary_path = env::current_exe().context("cannot resolve current executable")?;
+    let cache_path = cache_path_for_root(&root);
+    let tokenizer_result = TokenCounter::new(tokenizer).map(|_| ());
+    let tokenizer_ok = tokenizer_result.is_ok();
+    let tokenizer_status = tokenizer_result
+        .map(|_| "ok".to_owned())
+        .unwrap_or_else(|error| format!("error: {error:#}"));
+    let cache_size_bytes = fs::metadata(&cache_path)
         .map(|metadata| metadata.len())
         .unwrap_or(0);
+    let cache = ParseCache::load(cache_path.clone()).diagnostics();
+    let parsers = supported_extensions()
+        .iter()
+        .map(|extension| {
+            let support = parser_support_for_extension(extension);
+            let mode = match support.mode {
+                ParserMode::TreeSitter => "tree-sitter",
+                ParserMode::Compact => "compact",
+            };
+            DoctorParserReport {
+                extension: format!(".{}", support.extension),
+                mode,
+                available: support.available,
+            }
+        })
+        .collect();
 
+    Ok(DoctorReport {
+        binary_path,
+        version: env!("CARGO_PKG_VERSION"),
+        repo_root: root,
+        cache_path,
+        cache_size_bytes,
+        cache,
+        tokenizer_name: tokenizer.as_str().to_owned(),
+        tokenizer_status,
+        tokenizer_ok,
+        parsers,
+    })
+}
+
+fn print_doctor_text(report: &DoctorReport) {
+    println!("bonsai doctor:");
+    println!("  binary: {}", report.binary_path.display());
+    println!("  version: {}", report.version);
+    println!("  repo_root: {}", report.repo_root.display());
+    println!("  cache_path: {}", report.cache_path.display());
+    print_cache_diagnostics(report);
+    println!(
+        "  tokenizer: {} ({})",
+        report.tokenizer_name, report.tokenizer_status
+    );
+    println!("  parsers:");
+
+    for parser in &report.parsers {
+        let status = if parser.available { "ok" } else { "missing" };
+        println!("    {}: {} ({status})", parser.extension, parser.mode);
+    }
+}
+
+fn print_cache_diagnostics(report: &DoctorReport) {
     println!("  cache:");
-    println!("    size_bytes: {size_bytes}");
-    println!("    entries: {}", diagnostics.entry_count);
-    println!("    stale_entries: {}", diagnostics.stale_entry_count);
-    print_cache_metadata(&diagnostics);
+    println!("    size_bytes: {}", report.cache_size_bytes);
+    println!("    entries: {}", report.cache.entry_count);
+    println!("    stale_entries: {}", report.cache.stale_entry_count);
+    print_cache_metadata(&report.cache);
 }
 
 fn print_cache_metadata(diagnostics: &CacheDiagnostics) {
@@ -631,6 +699,110 @@ fn print_cache_metadata(diagnostics: &CacheDiagnostics) {
             metadata.exclude.join(", ")
         }
     );
+}
+
+fn format_doctor_json(report: &DoctorReport) -> String {
+    let mut output = String::new();
+    output.push_str("{\n");
+    output.push_str("  \"binary\": \"");
+    push_json_escaped(&mut output, &report.binary_path.display().to_string());
+    output.push_str("\",\n  \"version\": \"");
+    push_json_escaped(&mut output, report.version);
+    output.push_str("\",\n  \"repo_root\": \"");
+    push_json_escaped(&mut output, &report.repo_root.display().to_string());
+    output.push_str("\",\n  \"cache_path\": \"");
+    push_json_escaped(&mut output, &report.cache_path.display().to_string());
+    output.push_str("\",\n  \"cache\": ");
+    push_cache_diagnostics_json(&mut output, report);
+    output.push_str(",\n  \"tokenizer\": {\"name\": \"");
+    push_json_escaped(&mut output, &report.tokenizer_name);
+    output.push_str("\", \"available\": ");
+    output.push_str(if report.tokenizer_ok { "true" } else { "false" });
+    output.push_str(", \"status\": \"");
+    push_json_escaped(&mut output, &report.tokenizer_status);
+    output.push_str("\"},\n  \"parsers\": [\n");
+
+    for (index, parser) in report.parsers.iter().enumerate() {
+        if index > 0 {
+            output.push_str(",\n");
+        }
+        output.push_str("    {\"extension\": \"");
+        push_json_escaped(&mut output, &parser.extension);
+        output.push_str("\", \"mode\": \"");
+        push_json_escaped(&mut output, parser.mode);
+        output.push_str("\", \"available\": ");
+        output.push_str(if parser.available { "true" } else { "false" });
+        output.push('}');
+    }
+
+    output.push_str("\n  ]\n}");
+    output
+}
+
+fn push_cache_diagnostics_json(output: &mut String, report: &DoctorReport) {
+    output.push_str("{\"size_bytes\": ");
+    output.push_str(&report.cache_size_bytes.to_string());
+    output.push_str(", \"entries\": ");
+    output.push_str(&report.cache.entry_count.to_string());
+    output.push_str(", \"stale_entries\": ");
+    output.push_str(&report.cache.stale_entry_count.to_string());
+    output.push_str(", \"metadata\": ");
+    push_cache_metadata_json(output, report.cache.metadata.as_ref());
+    output.push('}');
+}
+
+fn push_cache_metadata_json(output: &mut String, metadata: Option<&CacheMetadata>) {
+    let Some(metadata) = metadata else {
+        output.push_str("null");
+        return;
+    };
+
+    output.push_str("{\"respect_gitignore\": ");
+    output.push_str(if metadata.respect_gitignore {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str(", \"max_file_bytes\": ");
+    match metadata.max_file_bytes {
+        Some(value) => output.push_str(&value.to_string()),
+        None => output.push_str("null"),
+    }
+    output.push_str(", \"include\": ");
+    push_json_string_array(output, &metadata.include);
+    output.push_str(", \"exclude\": ");
+    push_json_string_array(output, &metadata.exclude);
+    output.push('}');
+}
+
+fn push_json_string_array(output: &mut String, values: &[String]) {
+    output.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            output.push_str(", ");
+        }
+        output.push('"');
+        push_json_escaped(output, value);
+        output.push('"');
+    }
+    output.push(']');
+}
+
+fn push_json_escaped(output: &mut String, value: &str) {
+    for ch in value.chars() {
+        match ch {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            ch if ch.is_control() => {
+                output.push_str("\\u");
+                output.push_str(&format!("{:04x}", ch as u32));
+            }
+            _ => output.push(ch),
+        }
+    }
 }
 
 fn cache_command_target(args: &[String]) -> Result<PathBuf> {

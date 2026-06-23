@@ -3,7 +3,6 @@
 ## CLI Ergonomics
 
 - Convert `doctor`, `cache`, `init-agent`, and `completions` to real Clap subcommands.
-- Add `bonsai doctor --json` for scripts and CI.
 
 ## Change Workflows
 

@@ -109,6 +109,18 @@ grep -Fq '  tokenizer: cl100k_base (ok)' "$tmp_root/doctor.txt"
 grep -Fq '    .rs: tree-sitter (ok)' "$tmp_root/doctor.txt"
 grep -Fq '    .md: compact (ok)' "$tmp_root/doctor.txt"
 
+"$bin" doctor "$repo" --json --tokenizer cl100k_base > "$tmp_root/doctor.json"
+grep -Fq '"binary":' "$tmp_root/doctor.json"
+grep -Fq '"version":' "$tmp_root/doctor.json"
+grep -Fq '"cache":' "$tmp_root/doctor.json"
+grep -Fq '"stale_entries":' "$tmp_root/doctor.json"
+grep -Fq '"tokenizer": {"name": "cl100k_base", "available": true' "$tmp_root/doctor.json"
+grep -Fq '"extension": ".rs", "mode": "tree-sitter", "available": true' "$tmp_root/doctor.json"
+if grep -Fq 'bonsai doctor:' "$tmp_root/doctor.json"; then
+  printf 'doctor --json included text output\n' >&2
+  exit 1
+fi
+
 if "$bin" "$repo" --max-tokens 1 --fail-over-budget --output-file "$tmp_root/over.xml" >/dev/null 2>&1; then
   printf 'fail-over-budget did not fail\n' >&2
   exit 1
