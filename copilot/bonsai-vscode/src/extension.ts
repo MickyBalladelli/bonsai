@@ -8,6 +8,7 @@ import {
   buildContextPrompt,
   buildBonsaiArgs,
   buildProjectMapText,
+  buildStatusText,
   buildSuccessMessage,
   BonsaiConfig,
   extractProjectMap,
@@ -23,8 +24,15 @@ type GeneratedContext = {
   report: RunReport
 }
 
+let statusItem: vscode.StatusBarItem | undefined
+
 export function activate(context: vscode.ExtensionContext) {
+  statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
+  statusItem.command = 'bonsai.openContext'
+  statusItem.hide()
+
   context.subscriptions.push(
+    statusItem,
     vscode.commands.registerCommand('bonsai.generateContext', async () => {
       const generated = await generateContext(context)
       await openContextFile(generated.outputFile)
@@ -77,13 +85,17 @@ async function generateContext(
   const binaryPath = await resolveBinaryPath(context, config.binaryPath)
   const stdout = await runBonsai(binaryPath, buildBonsaiArgs(workspaceRoot, config, mode))
   const contextText = await fs.readFile(config.outputFile, 'utf8')
+  const report = parseRunReport(stdout)
 
-  return {
+  const generated = {
     contextText,
     outputFile: config.outputFile,
     projectMap: extractProjectMap(contextText, config.outputFormat),
-    report: parseRunReport(stdout)
+    report
   }
+
+  updateStatus(generated)
+  return generated
 }
 
 function getWorkspaceRoot(): string {
@@ -220,6 +232,16 @@ async function openChat(prompt: string): Promise<void> {
 
 function showSuccessMessage(generated: GeneratedContext, nextStep: string): void {
   vscode.window.showInformationMessage(buildSuccessMessage(generated.outputFile, generated.report, nextStep))
+}
+
+function updateStatus(generated: GeneratedContext): void {
+  if (!statusItem) {
+    return
+  }
+
+  statusItem.text = buildStatusText(generated.report)
+  statusItem.tooltip = `Bonsai output: ${generated.outputFile}`
+  statusItem.show()
 }
 
 function showProjectMapPreview(context: vscode.ExtensionContext, generated: GeneratedContext): void {

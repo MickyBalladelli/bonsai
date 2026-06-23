@@ -23,7 +23,6 @@
 
 ## Agent And Editor Integrations
 
-- Add status output in the VS Code extension that shows output path, token count, and file count.
 - Keep Codex and Claude plugin versions in sync with `Cargo.toml`.
 - Add plugin smoke tests that verify generated agent instructions mention current flags.
 

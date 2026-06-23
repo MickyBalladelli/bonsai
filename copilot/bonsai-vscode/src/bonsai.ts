@@ -125,6 +125,17 @@ export function buildSuccessMessage(outputFile: string, report: RunReport, nextS
   return `Bonsai wrote ${outputFile} (${tokenText}${savedText}${fileText}). ${nextStep}`
 }
 
+export function buildStatusText(report: RunReport): string {
+  const tokenText = report.shrunkTokens !== undefined
+    ? `${report.shrunkTokens}${report.outputTokensBudget !== undefined ? `/${report.outputTokensBudget}` : ''} tokens`
+    : 'tokens unknown'
+  const fileText = report.filesIncluded !== undefined
+    ? `${report.filesIncluded} files`
+    : 'files unknown'
+
+  return `Bonsai: ${tokenText}, ${fileText}`
+}
+
 function readNumber(text: string, pattern: RegExp): number | undefined {
   const value = text.match(pattern)?.[1]
   return value === undefined ? undefined : Number(value)

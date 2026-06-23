@@ -3,6 +3,7 @@ import * as assert from 'assert'
 import {
   buildBonsaiArgs,
   buildProjectMapText,
+  buildStatusText,
   buildSuccessMessage,
   extractProjectMap,
   parseRunReport
@@ -71,6 +72,7 @@ assert.strictEqual(report.filesIncluded, 3)
 assert.strictEqual(report.outputTokens, 900)
 assert.strictEqual(report.outputTokensBudget, 12000)
 assert.strictEqual(report.savingPercent, 70)
+assert.strictEqual(buildStatusText(report), 'Bonsai: 900/12000 tokens, 3 files')
 
 const xmlMap = extractProjectMap(
   `<project_map>

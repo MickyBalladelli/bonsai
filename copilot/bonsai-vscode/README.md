@@ -22,6 +22,8 @@ Bonsai: Generate and Ask
 
 If chat does not open automatically, paste the copied prompt into your chat.
 
+After each run, the status bar shows token count and file count. Hover it to see the output path.
+
 Other commands:
 
 ```text
