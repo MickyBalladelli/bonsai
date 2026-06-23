@@ -1,9 +1,5 @@
 # TODO
 
-## Incremental Runs
-
-No immediate items.
-
 ## Output Quality
 
 - Add deleted-file markers for incremental mode, so agents can see when important files disappeared.
@@ -27,7 +23,6 @@ No immediate items.
 
 ## Agent And Editor Integrations
 
-- Teach the VS Code extension about `--incremental` with a command for "Copy Changed Context".
 - Add status output in the VS Code extension that shows output path, token count, and file count.
 - Keep Codex and Claude plugin versions in sync with `Cargo.toml`.
 - Add plugin smoke tests that verify generated agent instructions mention current flags.

@@ -23,6 +23,7 @@
     "onCommand:bonsai.generateContext",
     "onCommand:bonsai.generateAndAsk",
     "onCommand:bonsai.copyContext",
+    "onCommand:bonsai.copyChangedContext",
     "onCommand:bonsai.copyProjectMap",
     "onCommand:bonsai.previewProjectMap",
     "onCommand:bonsai.openContext"
@@ -41,6 +42,10 @@
       {
         "command": "bonsai.copyContext",
         "title": "Bonsai: Copy Context Prompt"
+      },
+      {
+        "command": "bonsai.copyChangedContext",
+        "title": "Bonsai: Copy Changed Context"
       },
       {
         "command": "bonsai.copyProjectMap",

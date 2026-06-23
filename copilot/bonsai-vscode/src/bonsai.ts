@@ -9,6 +9,10 @@ export type BonsaiConfig = {
   respectGitignore: boolean
 }
 
+export type RunMode = {
+  incremental?: boolean
+}
+
 export type RunReport = {
   filesIncluded?: number
   outputTokens?: number
@@ -25,7 +29,7 @@ export type ProjectMapEntry = {
   tokens: number
 }
 
-export function buildBonsaiArgs(workspaceRoot: string, config: BonsaiConfig): string[] {
+export function buildBonsaiArgs(workspaceRoot: string, config: BonsaiConfig, mode: RunMode = {}): string[] {
   const args = [
     workspaceRoot,
     '--max-tokens',
@@ -41,6 +45,10 @@ export function buildBonsaiArgs(workspaceRoot: string, config: BonsaiConfig): st
     '--summary',
     '--stats'
   ]
+
+  if (mode.incremental) {
+    args.push('--incremental', '--incremental-summary')
+  }
 
   for (const pattern of config.include) {
     args.push('--include', pattern)

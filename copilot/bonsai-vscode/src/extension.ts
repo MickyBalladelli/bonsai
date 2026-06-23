@@ -44,6 +44,11 @@ export function activate(context: vscode.ExtensionContext) {
       await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile, generated.contextText))
       showSuccessMessage(generated, 'Full context prompt copied. Paste it into Copilot Chat, ChatGPT, or Codex in VS Code.')
     }),
+    vscode.commands.registerCommand('bonsai.copyChangedContext', async () => {
+      const generated = await generateContext(context, { incremental: true })
+      await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile, generated.contextText))
+      showSuccessMessage(generated, 'Changed context prompt copied.')
+    }),
     vscode.commands.registerCommand('bonsai.copyProjectMap', async () => {
       const generated = await generateContext(context)
       await vscode.env.clipboard.writeText(buildProjectMapText(generated.projectMap))
@@ -63,11 +68,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {}
 
-async function generateContext(context: vscode.ExtensionContext): Promise<GeneratedContext> {
+async function generateContext(
+  context: vscode.ExtensionContext,
+  mode: { incremental?: boolean } = {}
+): Promise<GeneratedContext> {
   const workspaceRoot = getWorkspaceRoot()
   const config = getConfig()
   const binaryPath = await resolveBinaryPath(context, config.binaryPath)
-  const stdout = await runBonsai(binaryPath, buildBonsaiArgs(workspaceRoot, config))
+  const stdout = await runBonsai(binaryPath, buildBonsaiArgs(workspaceRoot, config, mode))
   const contextText = await fs.readFile(config.outputFile, 'utf8')
 
   return {

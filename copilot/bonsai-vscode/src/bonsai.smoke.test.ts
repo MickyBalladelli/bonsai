@@ -40,6 +40,20 @@ assert.deepStrictEqual(args, [
   '--no-respect-gitignore'
 ])
 
+const changedArgs = buildBonsaiArgs('/repo', {
+  binaryPath: '',
+  exclude: [],
+  include: [],
+  level: 2,
+  maxTokens: 12000,
+  outputFile: '/tmp/context.xml',
+  outputFormat: 'xml',
+  respectGitignore: true
+}, { incremental: true })
+
+assert.ok(changedArgs.includes('--incremental'))
+assert.ok(changedArgs.includes('--incremental-summary'))
+
 const report = parseRunReport(`summary:
   output: /tmp/context.xml
   files_included: 3

@@ -27,6 +27,7 @@ Other commands:
 ```text
 Bonsai: Generate Context
 Bonsai: Copy Context Prompt
+Bonsai: Copy Changed Context
 Bonsai: Copy Project Map
 Bonsai: Preview Project Map
 Bonsai: Open Last Context
