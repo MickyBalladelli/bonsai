@@ -16,12 +16,14 @@ pub struct WalkerOptions {
     pub exclude: Vec<String>,
     pub respect_gitignore: bool,
     pub max_file_bytes: Option<u64>,
+    pub exclude_generated: bool,
 }
 
 pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<PathBuf>> {
     let files = Mutex::new(Vec::new());
     let filters = Arc::new(PathFilters::new(&options.include, &options.exclude)?);
     let max_file_bytes = options.max_file_bytes;
+    let exclude_generated = options.exclude_generated;
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(false)
@@ -45,6 +47,9 @@ pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<Pa
             if is_target_file(&entry)
                 && fits_size_limit(&entry, max_file_bytes)
                 && filters.matches(root, entry.path())
+                && (!exclude_generated
+                    || filters.explicitly_includes(root, entry.path())
+                    || !is_generated_like(root, entry.path()))
             {
                 if let Some(path) = entry.path().to_str() {
                     if path.contains("/.git/") {
@@ -133,6 +138,80 @@ impl PathFilters {
             .map(|include| include.is_match(relative_path))
             .unwrap_or(true)
     }
+
+    fn explicitly_includes(&self, root: &Path, path: &Path) -> bool {
+        let relative_path = path.strip_prefix(root).unwrap_or(path);
+        self.include
+            .as_ref()
+            .is_some_and(|include| include.is_match(relative_path))
+    }
+}
+
+pub fn is_generated_like(root: &Path, path: &Path) -> bool {
+    let relative_path = path.strip_prefix(root).unwrap_or(path);
+    let components = relative_path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .map(str::to_ascii_lowercase)
+        .collect::<Vec<_>>();
+
+    if components.iter().any(|component| {
+        matches!(
+            component.as_str(),
+            "node_modules"
+                | "vendor"
+                | "vendors"
+                | "third_party"
+                | "third-party"
+                | "external"
+                | "generated"
+                | "__generated__"
+                | "dist"
+                | "build"
+                | "out"
+                | "target"
+        )
+    }) {
+        return true;
+    }
+
+    let Some(file_name) = components.last() else {
+        return false;
+    };
+
+    is_lockfile_like(file_name) || is_minified_like(file_name) || is_generated_file_name(file_name)
+}
+
+fn is_lockfile_like(file_name: &str) -> bool {
+    matches!(
+        file_name,
+        "package-lock.json"
+            | "npm-shrinkwrap.json"
+            | "pnpm-lock.yaml"
+            | "pnpm-lock.yml"
+            | "yarn.lock"
+            | "bun.lock"
+            | "bun.lockb"
+            | "cargo.lock"
+            | "poetry.lock"
+            | "pdm.lock"
+            | "composer.lock"
+            | "gemfile.lock"
+            | "go.sum"
+    )
+}
+
+fn is_minified_like(file_name: &str) -> bool {
+    file_name.contains(".min.")
+}
+
+fn is_generated_file_name(file_name: &str) -> bool {
+    file_name.contains("generated")
+        || file_name.contains(".gen.")
+        || file_name.contains("_gen.")
+        || file_name.ends_with(".pb.go")
+        || file_name.ends_with(".pb.rs")
+        || file_name.ends_with(".pb.swift")
 }
 
 fn build_glob_set(patterns: &[String]) -> Result<Option<GlobSet>> {
@@ -245,6 +324,7 @@ mod tests {
                 exclude: vec!["**/generated.rs".to_owned()],
                 respect_gitignore: true,
                 max_file_bytes: Some(1_048_576),
+                exclude_generated: false,
             },
         )
         .unwrap();
@@ -267,6 +347,7 @@ mod tests {
                 exclude: Vec::new(),
                 respect_gitignore: false,
                 max_file_bytes: Some(1_048_576),
+                exclude_generated: false,
             },
         )
         .unwrap();
@@ -288,12 +369,66 @@ mod tests {
                 exclude: Vec::new(),
                 respect_gitignore: true,
                 max_file_bytes: Some(12),
+                exclude_generated: false,
             },
         )
         .unwrap();
         let names = relative_names(&root, files);
 
         assert_eq!(names, vec!["small.rs"]);
+    }
+
+    #[test]
+    fn can_exclude_generated_like_files() {
+        let root = temp_dir();
+        fs::create_dir_all(root.join("src/generated")).unwrap();
+        fs::create_dir_all(root.join("vendor")).unwrap();
+        fs::create_dir_all(root.join("dist")).unwrap();
+        write_file(&root, "src/app.rs", "");
+        write_file(&root, "src/generated/types.ts", "");
+        write_file(&root, "src/client.min.js", "");
+        write_file(&root, "src/schema.pb.go", "");
+        write_file(&root, "vendor/lib.rs", "");
+        write_file(&root, "dist/app.js", "");
+        write_file(&root, "package-lock.json", "{}");
+
+        let files = collect_code_files(
+            &root,
+            &WalkerOptions {
+                include: Vec::new(),
+                exclude: Vec::new(),
+                respect_gitignore: true,
+                max_file_bytes: Some(1_048_576),
+                exclude_generated: true,
+            },
+        )
+        .unwrap();
+        let names = relative_names(&root, files);
+
+        assert_eq!(names, vec!["src/app.rs"]);
+    }
+
+    #[test]
+    fn include_overrides_generated_exclusion() {
+        let root = temp_dir();
+        fs::create_dir_all(root.join("src/generated")).unwrap();
+        write_file(&root, "src/app.rs", "");
+        write_file(&root, "src/generated/types.ts", "");
+
+        let files = collect_code_files(
+            &root,
+            &WalkerOptions {
+                include: vec!["src/generated/**".to_owned()],
+                exclude: Vec::new(),
+                respect_gitignore: true,
+                max_file_bytes: Some(1_048_576),
+                exclude_generated: true,
+            },
+        )
+        .unwrap();
+        let names = relative_names(&root, files);
+
+        assert_eq!(names, vec!["src/generated/types.ts"]);
     }
 
     fn temp_dir() -> PathBuf {
@@ -328,6 +463,7 @@ mod tests {
             exclude: Vec::new(),
             respect_gitignore: true,
             max_file_bytes: Some(1_048_576),
+            exclude_generated: false,
         }
     }
 }

@@ -30,18 +30,20 @@ completion_snippets() {
   printf '[bash]\n'
   grep -F '            bonsai,init-agent)' "$bash_file"
   grep -F '            bonsai,completions)' "$bash_file"
-  grep -F -- '--project-map --file-hashes --no-token-counts' "$bash_file" | head -n 1
+  grep -F -- '--no-respect-gitignore --exclude-generated --print-files' "$bash_file" | head -n 1
   grep -F '            opts="-h --tokenizer --json --help [PATH]"' "$bash_file"
   printf '[zsh]\n'
   grep -F -- "'--project-map=[]:PROJECT_MAP:(flat compact)' \\" "$zsh_file"
   grep -F -- "'--no-token-counts[Omit token count fields from XML and JSON output]' \\" "$zsh_file"
   grep -F -- "'--changed-since=[Only include tracked changes and untracked files compared with this git ref]:GIT_REF:_default' \\" "$zsh_file"
+  grep -F -- "'--exclude-generated[Skip minified, vendored, generated, and lockfile-like files unless --include matches them]' \\" "$zsh_file"
   grep -F -- "'--drop-low-priority[Omit lowest-priority files if tree-map output still exceeds --max-tokens]' \\" "$zsh_file"
   grep -F -- "'--json[]' \\" "$zsh_file"
   grep -F -- "'completions:Generate shell completions' \\" "$zsh_file" | head -n 1
   printf '[fish]\n'
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l changed-since -d '"'"'Only include tracked changes and untracked files compared with this git ref'"'"' -r' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l no-token-counts -d '"'"'Omit token count fields from XML and JSON output'"'"'' "$fish_file"
+  grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l exclude-generated -d '"'"'Skip minified, vendored, generated, and lockfile-like files unless --include matches them'"'"'' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l drop-low-priority -d '"'"'Omit lowest-priority files if tree-map output still exceeds --max-tokens'"'"'' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l project-map -r -f -a "flat' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_using_subcommand doctor" -l json' "$fish_file"
@@ -65,7 +67,7 @@ RS
 
 make_flag_repo() {
   local repo="$1"
-  mkdir -p "$repo/src" "$repo/tests"
+  mkdir -p "$repo/src" "$repo/tests" "$repo/vendor" "$repo/dist"
   mkdir -p "$repo/.git"
   cat > "$repo/.gitignore" <<'GITIGNORE'
 ignored.rs
@@ -79,6 +81,21 @@ RS
   cat > "$repo/tests/test.rs" <<'RS'
 pub fn test_only() {}
 RS
+  cat > "$repo/src/client.min.js" <<'JS'
+console.log("min")
+JS
+  cat > "$repo/src/generated.ts" <<'TS'
+export const generated = true
+TS
+  cat > "$repo/vendor/lib.rs" <<'RS'
+pub fn vendor() {}
+RS
+  cat > "$repo/dist/app.js" <<'JS'
+console.log("dist")
+JS
+  cat > "$repo/package-lock.json" <<'JSON'
+{"lockfileVersion": 3}
+JSON
   cat > "$repo/ignored.rs" <<'RS'
 pub fn ignored() {}
 RS
@@ -133,6 +150,16 @@ if grep -Fxq 'ignored.rs' "$tmp_root/respect.txt"; then
   printf 'gitignore was not respected\n' >&2
   exit 1
 fi
+
+"$bin" "$flag_repo" --exclude-generated --print-files --output-file "$tmp_root/exclude-generated.xml" > "$tmp_root/exclude-generated.txt"
+grep -Fxq 'src/lib.rs' "$tmp_root/exclude-generated.txt"
+if grep -Eq 'package-lock.json|generated|vendor/|dist/|\.min\.' "$tmp_root/exclude-generated.txt"; then
+  printf 'exclude-generated selected generated-like files\n' >&2
+  exit 1
+fi
+
+"$bin" "$flag_repo" --exclude-generated --include 'vendor/**' --print-files --output-file "$tmp_root/include-generated.xml" > "$tmp_root/include-generated.txt"
+grep -Fxq 'vendor/lib.rs' "$tmp_root/include-generated.txt"
 
 "$bin" "$flag_repo" --no-respect-gitignore --print-files --output-file "$tmp_root/no-respect.xml" > "$tmp_root/no-respect.txt"
 grep -Fxq 'ignored.rs' "$tmp_root/no-respect.txt"

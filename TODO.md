@@ -2,7 +2,6 @@
 
 ## Token Cost Improvements
 
-- Add `--exclude-generated` to skip minified, vendored, generated, and lockfile-like files unless explicitly included.
 - Collapse long import/include/use blocks by language: keep first few, then `... N more imports`.
 - Make Markdown/config/web truncation token-aware instead of character-aware.
 - Add Markdown long-list sampling, like table sampling: keep first items plus tail items.

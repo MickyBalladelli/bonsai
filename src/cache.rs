@@ -25,6 +25,7 @@ pub struct CacheMetadata {
     pub exclude: Vec<String>,
     pub respect_gitignore: bool,
     pub max_file_bytes: Option<u64>,
+    pub exclude_generated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -267,20 +268,21 @@ fn format_cache_bytes(
 
 fn push_metadata(output: &mut Vec<u8>, metadata: &Option<CacheMetadata>) {
     let Some(metadata) = metadata else {
-        output.extend_from_slice(b"OPTIONS 0 -1 0 0\n");
+        output.extend_from_slice(b"OPTIONS 0 -1 0 0 0\n");
         return;
     };
 
     output.extend_from_slice(
         format!(
-            "OPTIONS {} {} {} {}\n",
+            "OPTIONS {} {} {} {} {}\n",
             u8::from(metadata.respect_gitignore),
             metadata
                 .max_file_bytes
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "-1".to_owned()),
             metadata.include.len(),
-            metadata.exclude.len()
+            metadata.exclude.len(),
+            u8::from(metadata.exclude_generated)
         )
         .as_bytes(),
     );
@@ -330,7 +332,7 @@ fn parse_cache_bytes(bytes: &[u8]) -> Option<ParsedCache> {
 fn parse_metadata(bytes: &[u8], cursor: &mut usize) -> Option<CacheMetadata> {
     let line = std::str::from_utf8(read_line(bytes, cursor)?).ok()?;
     let parts = line.split_whitespace().collect::<Vec<_>>();
-    if parts.len() != 5 || parts[0] != "OPTIONS" {
+    if (parts.len() != 5 && parts.len() != 6) || parts[0] != "OPTIONS" {
         return None;
     }
 
@@ -345,12 +347,18 @@ fn parse_metadata(bytes: &[u8], cursor: &mut usize) -> Option<CacheMetadata> {
     };
     let include_count = parts[3].parse::<usize>().ok()?;
     let exclude_count = parts[4].parse::<usize>().ok()?;
+    let exclude_generated = match parts.get(5).copied().unwrap_or("0") {
+        "0" => false,
+        "1" => true,
+        _ => return None,
+    };
 
     Some(CacheMetadata {
         include: read_patterns(bytes, cursor, include_count)?,
         exclude: read_patterns(bytes, cursor, exclude_count)?,
         respect_gitignore,
         max_file_bytes,
+        exclude_generated,
     })
 }
 
@@ -460,6 +468,7 @@ mod tests {
             exclude: vec!["**/generated.rs".to_owned()],
             respect_gitignore: true,
             max_file_bytes: Some(1024),
+            exclude_generated: true,
         });
 
         let bytes = format_cache_bytes(&metadata, &entries);

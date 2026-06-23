@@ -140,6 +140,12 @@ struct Cli {
     #[arg(long = "no-respect-gitignore", action = ArgAction::SetFalse, default_value_t = true)]
     respect_gitignore: bool,
 
+    #[arg(
+        long,
+        help = "Skip minified, vendored, generated, and lockfile-like files unless --include matches them"
+    )]
+    exclude_generated: bool,
+
     #[arg(long)]
     print_files: bool,
 
@@ -292,6 +298,7 @@ fn main() -> Result<()> {
             exclude: cli.exclude.clone(),
             respect_gitignore: cli.respect_gitignore,
             max_file_bytes: max_file_bytes(&cli),
+            exclude_generated: cli.exclude_generated,
         },
     )?;
     if paths.is_empty() {
@@ -843,6 +850,7 @@ fn cache_metadata(cli: &Cli) -> CacheMetadata {
         exclude: cli.exclude.clone(),
         respect_gitignore: cli.respect_gitignore,
         max_file_bytes: max_file_bytes(cli),
+        exclude_generated: cli.exclude_generated,
     }
 }
 
@@ -1169,6 +1177,7 @@ fn deleted_files(
                     exclude: cli.exclude.clone(),
                     respect_gitignore: cli.respect_gitignore,
                     max_file_bytes: max_file_bytes(cli),
+                    exclude_generated: cli.exclude_generated,
                 },
             )?;
             let mut deleted = relative_path_set(base_root, &base_paths)
@@ -1722,6 +1731,7 @@ mod tests {
             include: Vec::new(),
             exclude: Vec::new(),
             respect_gitignore: true,
+            exclude_generated: false,
             print_files: false,
             fail_on_empty: false,
             quiet: false,

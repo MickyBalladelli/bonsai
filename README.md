@@ -246,7 +246,10 @@ Filter files:
 
 ```sh
 bonsai . --include 'src/**' --exclude '**/generated.rs'
+bonsai . --exclude-generated
 ```
+
+`--exclude-generated` skips minified, vendored, generated, and lockfile-like files. A matching `--include` pattern keeps explicit paths.
 
 Sort output:
 
@@ -308,7 +311,7 @@ bonsai cache clear
 bonsai cache clear /path/to/repo
 ```
 
-Bonsai stores file-selection options with the cache. If `--include`, `--exclude`, `--max-file-bytes`, or gitignore handling changes, the next incremental run includes selected files once instead of comparing against stale selection.
+Bonsai stores file-selection options with the cache. If `--include`, `--exclude`, `--exclude-generated`, `--max-file-bytes`, or gitignore handling changes, the next incremental run includes selected files once instead of comparing against stale selection.
 
 ## Output
 
