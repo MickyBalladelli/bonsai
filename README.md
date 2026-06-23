@@ -155,7 +155,7 @@ Level 3 tree map:
 fn greet(name: &str) -> String
 ```
 
-Markdown keeps headings, useful summary text, tables, links, and code fence language names. Config files keep important top-level shape and supported top-level comments.
+Markdown keeps headings, useful summary text, tables, links, and code fence language names. Config files keep important top-level shape and supported top-level comments. Long import/include/use blocks keep the first few lines and collapse the rest.
 
 ## Common Commands
 

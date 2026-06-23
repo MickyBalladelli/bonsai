@@ -18,6 +18,8 @@ pub struct FileVariants {
     pub tree_map: String,
 }
 
+const IMPORT_BLOCK_KEEP: usize = 5;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParserMode {
     TreeSitter,
@@ -99,6 +101,8 @@ pub fn compress_file(path: &Path, _requested_level: CompressionLevel) -> Result<
             _ => unreachable!("tree-sitter language missing for parsed syntax"),
         },
     };
+    let skeleton = collapse_import_blocks(&skeleton, syntax);
+    let tree_map = collapse_import_blocks(&tree_map, syntax);
 
     Ok(FileVariants {
         full,
@@ -351,6 +355,117 @@ fn apply_replacements(source: &str, mut replacements: Vec<Replacement>) -> Strin
 
     output.push_str(&source[cursor..]);
     output
+}
+
+fn collapse_import_blocks(source: &str, syntax: SyntaxKind) -> String {
+    let lines = source.lines().collect::<Vec<_>>();
+    let mut output = Vec::with_capacity(lines.len());
+    let mut index = 0usize;
+
+    while index < lines.len() {
+        if syntax == SyntaxKind::Go && lines[index].trim() == "import (" {
+            let (collapsed, next_index) = collapse_go_import_block(&lines, index);
+            output.extend(collapsed);
+            index = next_index;
+            continue;
+        }
+
+        if !is_import_like_line(lines[index].trim(), syntax) {
+            output.push(lines[index].to_owned());
+            index += 1;
+            continue;
+        }
+
+        let start = index;
+        while index < lines.len() && is_import_like_line(lines[index].trim(), syntax) {
+            index += 1;
+        }
+
+        push_collapsed_import_run(&mut output, &lines[start..index]);
+    }
+
+    let mut collapsed = output.join("\n");
+    if source.ends_with('\n') {
+        collapsed.push('\n');
+    }
+    collapsed
+}
+
+fn collapse_go_import_block(lines: &[&str], start: usize) -> (Vec<String>, usize) {
+    let mut end = start + 1;
+    while end < lines.len() && lines[end].trim() != ")" {
+        end += 1;
+    }
+
+    if end >= lines.len() {
+        return (vec![lines[start].to_owned()], start + 1);
+    }
+
+    let imports = lines[start + 1..end]
+        .iter()
+        .copied()
+        .filter(|line| !line.trim().is_empty())
+        .collect::<Vec<_>>();
+
+    if imports.len() <= IMPORT_BLOCK_KEEP {
+        return (
+            lines[start..=end]
+                .iter()
+                .map(|line| (*line).to_owned())
+                .collect(),
+            end + 1,
+        );
+    }
+
+    let mut output = Vec::with_capacity(IMPORT_BLOCK_KEEP + 3);
+    output.push(lines[start].to_owned());
+    output.extend(
+        imports
+            .iter()
+            .take(IMPORT_BLOCK_KEEP)
+            .map(|line| (*line).to_owned()),
+    );
+    output.push(format!(
+        "    ... {} more imports",
+        imports.len() - IMPORT_BLOCK_KEEP
+    ));
+    output.push(lines[end].to_owned());
+    (output, end + 1)
+}
+
+fn push_collapsed_import_run(output: &mut Vec<String>, lines: &[&str]) {
+    if lines.len() <= IMPORT_BLOCK_KEEP {
+        output.extend(lines.iter().map(|line| (*line).to_owned()));
+        return;
+    }
+
+    output.extend(
+        lines
+            .iter()
+            .take(IMPORT_BLOCK_KEEP)
+            .map(|line| (*line).to_owned()),
+    );
+    output.push(format!(
+        "... {} more imports",
+        lines.len() - IMPORT_BLOCK_KEEP
+    ));
+}
+
+fn is_import_like_line(line: &str, syntax: SyntaxKind) -> bool {
+    match syntax {
+        SyntaxKind::JavaScript | SyntaxKind::TypeScript => {
+            line.starts_with("import ") || line.starts_with("import{")
+        }
+        SyntaxKind::Python => line.starts_with("import ") || line.starts_with("from "),
+        SyntaxKind::Rust => line.starts_with("use "),
+        SyntaxKind::Go => line.starts_with("import "),
+        SyntaxKind::Java | SyntaxKind::Kotlin | SyntaxKind::Swift => line.starts_with("import "),
+        SyntaxKind::CSharp => line.starts_with("using "),
+        SyntaxKind::C | SyntaxKind::Cpp | SyntaxKind::ObjectiveC => {
+            line.starts_with("#include ") || line.starts_with("#import ")
+        }
+        SyntaxKind::WebText | SyntaxKind::Text => false,
+    }
 }
 
 fn build_tree_map(source: &str, root: Node, syntax: SyntaxKind) -> String {
@@ -1217,6 +1332,124 @@ def greet(name: str) -> str:
         assert!(variants.skeleton.contains("def greet(name: str) -> str:"));
         assert!(variants.skeleton.contains("..."));
         assert!(!variants.skeleton.contains("return f"));
+    }
+
+    #[test]
+    fn collapses_long_import_blocks_by_language() {
+        let cases = [
+            (
+                "rs",
+                r#"
+use a::A;
+use b::B;
+use c::C;
+use d::D;
+use e::E;
+use f::F;
+use g::G;
+
+fn greet() {}
+"#,
+                "use e::E;\n... 2 more imports\n\nfn greet() { ... }",
+                "use g::G;",
+            ),
+            (
+                "ts",
+                r#"
+import a from 'a'
+import b from 'b'
+import c from 'c'
+import d from 'd'
+import e from 'e'
+import f from 'f'
+import g from 'g'
+
+export const value = 1
+"#,
+                "import e from 'e'\n... 2 more imports\n\nexport const value = 1",
+                "import g from 'g'",
+            ),
+            (
+                "py",
+                r#"
+import a
+import b
+from c import C
+from d import D
+import e
+import f
+import g
+
+def greet():
+    return "hi"
+"#,
+                "import e\n... 2 more imports\n\ndef greet():",
+                "import g",
+            ),
+            (
+                "c",
+                r#"
+#include <a.h>
+#include <b.h>
+#include <c.h>
+#include <d.h>
+#include <e.h>
+#include <f.h>
+#include <g.h>
+
+int main(void) { return 0; }
+"#,
+                "#include <e.h>\n... 2 more imports\n\nint main(void) { ... }",
+                "#include <g.h>",
+            ),
+        ];
+
+        for (extension, source, kept, dropped) in cases {
+            let path = write_temp_source(extension, source);
+            let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+            assert!(
+                variants.skeleton.contains(kept),
+                "missing collapsed import block for {extension}: {}",
+                variants.skeleton
+            );
+            assert!(
+                !variants.skeleton.contains(dropped),
+                "import was not collapsed for {extension}: {}",
+                variants.skeleton
+            );
+        }
+    }
+
+    #[test]
+    fn collapses_go_import_blocks() {
+        let path = write_temp_source(
+            "go",
+            r#"
+package demo
+
+import (
+    "a"
+    "b"
+    "c"
+    "d"
+    "e"
+    "f"
+    "g"
+)
+
+func greet() string {
+    return "hi"
+}
+"#,
+        );
+
+        let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(variants
+            .skeleton
+            .contains("    \"e\"\n    ... 2 more imports\n)"));
+        assert!(!variants.skeleton.contains("\"g\""));
     }
 
     #[test]
