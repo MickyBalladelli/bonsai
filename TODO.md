@@ -8,7 +8,6 @@
 
 ## CLI Ergonomics
 
-- Add `--quiet` for scripts that only care about exit code and output file.
 - Add shell completions for bash, zsh, and fish.
 
 ## Testing And Release

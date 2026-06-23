@@ -68,6 +68,23 @@ if test -e "$tmp_root/dry-run.xml"; then
   exit 1
 fi
 
+"$bin" "$repo" --dry-run --quiet --output-file "$tmp_root/dry-run-quiet.xml" > "$tmp_root/dry-run-quiet.txt"
+if test -s "$tmp_root/dry-run-quiet.txt"; then
+  printf 'quiet dry-run wrote stdout\n' >&2
+  exit 1
+fi
+if test -e "$tmp_root/dry-run-quiet.xml"; then
+  printf 'quiet dry-run wrote output file\n' >&2
+  exit 1
+fi
+
+"$bin" "$repo" --summary --quiet --output-file "$tmp_root/quiet.xml" > "$tmp_root/quiet.txt"
+if test -s "$tmp_root/quiet.txt"; then
+  printf 'quiet wrote stdout\n' >&2
+  exit 1
+fi
+test -f "$tmp_root/quiet.xml"
+
 "$bin" doctor "$repo" --tokenizer cl100k_base > "$tmp_root/doctor.txt"
 grep -Fq 'bonsai doctor:' "$tmp_root/doctor.txt"
 grep -Fq '  binary:' "$tmp_root/doctor.txt"

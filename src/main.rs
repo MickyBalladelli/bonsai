@@ -132,6 +132,9 @@ struct Cli {
     #[arg(long)]
     fail_on_empty: bool,
 
+    #[arg(long, help = "Suppress normal stdout output for scripts")]
+    quiet: bool,
+
     #[arg(long)]
     stats: bool,
 
@@ -204,7 +207,7 @@ fn main() -> Result<()> {
         handle_empty_selection(&cli, &root)?;
     }
 
-    if cli.print_files {
+    if cli.print_files && !cli.quiet {
         print_selected_files(&root, &paths);
     }
 
@@ -310,10 +313,12 @@ fn main() -> Result<()> {
     )?;
 
     if output_tokens > cli.max_tokens {
-        eprintln!(
-            "warning: output is {output_tokens} tokens, above --max-tokens {} after all files reached tree map",
-            cli.max_tokens
-        );
+        if !cli.quiet {
+            eprintln!(
+                "warning: output is {output_tokens} tokens, above --max-tokens {} after all files reached tree map",
+                cli.max_tokens
+            );
+        }
         if cli.fail_over_budget {
             bail!(
                 "output is {output_tokens} tokens, above --max-tokens {}",
@@ -323,7 +328,9 @@ fn main() -> Result<()> {
     }
 
     if cli.dry_run {
-        print_dry_run(&optimized, &deleted_files, output_tokens, cli.max_tokens);
+        if !cli.quiet {
+            print_dry_run(&optimized, &deleted_files, output_tokens, cli.max_tokens);
+        }
     } else {
         match cli.output {
             OutputDestination::Clipboard => {
@@ -341,23 +348,25 @@ fn main() -> Result<()> {
 
     if !cli.dry_run {
         if let Err(error) = parse_cache.save() {
-            eprintln!("warning: cannot write parse cache: {error:#}");
+            if !cli.quiet {
+                eprintln!("warning: cannot write parse cache: {error:#}");
+            }
         }
     }
 
-    if cli.summary {
+    if cli.summary && !cli.quiet {
         print_summary(&run_stats);
     }
 
-    if cli.incremental_summary {
+    if cli.incremental_summary && !cli.quiet {
         print_incremental_summary(&incremental_counts);
     }
 
-    if cli.stats {
+    if cli.stats && !cli.quiet {
         print_stats(&run_stats);
     }
 
-    if cli.detailed_stats {
+    if cli.detailed_stats && !cli.quiet {
         print_detailed_stats(&optimized, &run_stats);
     }
 
@@ -1178,7 +1187,9 @@ fn handle_empty_selection(cli: &Cli, root: &std::path::Path) -> Result<()> {
         bail!("{message}");
     }
 
-    eprintln!("warning: {message}");
+    if !cli.quiet {
+        eprintln!("warning: {message}");
+    }
     Ok(())
 }
 
@@ -1369,6 +1380,7 @@ mod tests {
             respect_gitignore: true,
             print_files: false,
             fail_on_empty: false,
+            quiet: false,
             stats: false,
             detailed_stats: false,
             summary: false,

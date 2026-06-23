@@ -210,6 +210,12 @@ Preview selected files and estimated tokens without writing output:
 bonsai . --dry-run
 ```
 
+Suppress normal stdout for scripts:
+
+```sh
+bonsai . --quiet --output-file /tmp/bonsai.xml
+```
+
 Filter files:
 
 ```sh
