@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
@@ -23,7 +24,10 @@ use formatter::{
     RepositoryMetadata,
 };
 use parser::{compress_file, CompressionLevel};
-use walker::{collect_code_files, supported_extensions, WalkerOptions};
+use walker::{
+    collect_code_files, is_supported_path, matches_path_filters, supported_extensions,
+    WalkerOptions,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "bonsai")]
@@ -96,6 +100,13 @@ struct Cli {
 
     #[arg(
         long,
+        value_name = "GIT_REF",
+        help = "Only include files changed by git diff against this ref"
+    )]
+    changed_since: Option<String>,
+
+    #[arg(
+        long,
         help = "Print added, changed, unchanged, skipped, and deleted counts"
     )]
     incremental_summary: bool,
@@ -159,12 +170,14 @@ fn main() -> Result<()> {
     }
 
     let cli = Cli::parse();
+    validate_delta_options(&cli)?;
     let root = fs::canonicalize(&cli.path)
         .with_context(|| format!("cannot resolve target path {}", cli.path.display()))?;
     let requested_level = CompressionLevel::try_from(cli.level)?;
     let token_counter = TokenCounter::new(cli.tokenizer)?;
     let mut parse_cache = ParseCache::load(cache_path_for_root(&root));
     let incremental_base = load_incremental_base(&cli)?;
+    let git_changes = load_git_changes(&cli, &root)?;
     let cache_metadata = cache_metadata(&cli);
     let baseline_metadata_matches =
         baseline_metadata_matches(&incremental_base, &parse_cache, &cache_metadata);
@@ -201,6 +214,7 @@ fn main() -> Result<()> {
             .with_context(|| format!("cannot read metadata for {}", path.display()))?;
         let delta = classify_file(
             &incremental_base,
+            &git_changes,
             &parse_cache,
             baseline_metadata_matches,
             &path,
@@ -236,6 +250,7 @@ fn main() -> Result<()> {
     let deleted_files = deleted_files(
         &cli,
         &incremental_base,
+        &git_changes,
         &parse_cache,
         baseline_metadata_matches,
         &root,
@@ -509,6 +524,13 @@ fn max_file_bytes(cli: &Cli) -> Option<u64> {
     }
 }
 
+fn validate_delta_options(cli: &Cli) -> Result<()> {
+    if cli.changed_since.is_some() && (cli.incremental || cli.incremental_base.is_some()) {
+        bail!("--changed-since cannot be combined with --incremental or --incremental-base");
+    }
+    Ok(())
+}
+
 fn cache_metadata(cli: &Cli) -> CacheMetadata {
     CacheMetadata {
         include: cli.include.clone(),
@@ -522,6 +544,12 @@ fn cache_metadata(cli: &Cli) -> CacheMetadata {
 enum IncrementalBase {
     Directory(PathBuf),
     Cache(ParseCache),
+}
+
+#[derive(Debug, Default)]
+struct GitChanges {
+    changed: HashMap<String, FileDelta>,
+    deleted: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -570,14 +598,111 @@ fn load_incremental_base(cli: &Cli) -> Result<Option<IncrementalBase>> {
     )?)))
 }
 
+fn load_git_changes(cli: &Cli, root: &Path) -> Result<Option<GitChanges>> {
+    let Some(git_ref) = &cli.changed_since else {
+        return Ok(None);
+    };
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("diff")
+        .arg("--name-status")
+        .arg("-z")
+        .arg("--relative")
+        .arg(git_ref)
+        .arg("--")
+        .output()
+        .with_context(|| format!("cannot run git diff against {git_ref}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("git diff against {git_ref} failed: {}", stderr.trim());
+    }
+
+    parse_git_changes(&output.stdout, root, cli)
+}
+
+fn parse_git_changes(bytes: &[u8], root: &Path, cli: &Cli) -> Result<Option<GitChanges>> {
+    let fields = bytes
+        .split(|byte| *byte == 0)
+        .filter(|field| !field.is_empty())
+        .map(|field| String::from_utf8_lossy(field).into_owned())
+        .collect::<Vec<_>>();
+    let mut changes = GitChanges::default();
+    let mut index = 0;
+
+    while index < fields.len() {
+        let status = fields[index].as_str();
+        index += 1;
+
+        if status.starts_with('R') || status.starts_with('C') {
+            if index + 1 >= fields.len() {
+                bail!("invalid git diff --name-status output");
+            }
+            let old_path = normalize_relative_path(&fields[index]);
+            let new_path = normalize_relative_path(&fields[index + 1]);
+            index += 2;
+
+            if status.starts_with('R') && git_path_allowed(root, &old_path, cli)? {
+                changes.deleted.push(old_path);
+            }
+            if git_path_allowed(root, &new_path, cli)? {
+                changes.changed.insert(new_path, FileDelta::Added);
+            }
+            continue;
+        }
+
+        if index >= fields.len() {
+            bail!("invalid git diff --name-status output");
+        }
+        let path = normalize_relative_path(&fields[index]);
+        index += 1;
+
+        if !git_path_allowed(root, &path, cli)? {
+            continue;
+        }
+
+        if status.starts_with('D') {
+            changes.deleted.push(path);
+        } else if status.starts_with('A') {
+            changes.changed.insert(path, FileDelta::Added);
+        } else {
+            changes.changed.insert(path, FileDelta::Changed);
+        }
+    }
+
+    changes.deleted.sort();
+    changes.deleted.dedup();
+    Ok(Some(changes))
+}
+
+fn normalize_relative_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn git_path_allowed(root: &Path, relative_path: &str, cli: &Cli) -> Result<bool> {
+    let path = root.join(relative_path);
+    Ok(is_supported_path(&path) && matches_path_filters(root, &path, &cli.include, &cli.exclude)?)
+}
+
 fn classify_file(
     incremental_base: &Option<IncrementalBase>,
+    git_changes: &Option<GitChanges>,
     parse_cache: &ParseCache,
     baseline_metadata_matches: bool,
     path: &Path,
     relative_path: &str,
     metadata: &fs::Metadata,
 ) -> Result<FileDelta> {
+    if let Some(git_changes) = git_changes {
+        return Ok(git_changes
+            .changed
+            .get(relative_path)
+            .copied()
+            .unwrap_or(FileDelta::Unchanged));
+    }
+
     match incremental_base {
         Some(IncrementalBase::Directory(base_root)) => {
             let base_path = base_root.join(relative_path);
@@ -615,7 +740,7 @@ fn should_include_delta(
     incremental_base: &Option<IncrementalBase>,
     delta: FileDelta,
 ) -> bool {
-    if cli.incremental || incremental_base.is_some() {
+    if cli.incremental || cli.changed_since.is_some() || incremental_base.is_some() {
         delta != FileDelta::Unchanged
     } else {
         true
@@ -677,11 +802,16 @@ fn relative_path_set(root: &Path, paths: &[PathBuf]) -> HashSet<String> {
 fn deleted_files(
     cli: &Cli,
     incremental_base: &Option<IncrementalBase>,
+    git_changes: &Option<GitChanges>,
     parse_cache: &ParseCache,
     baseline_metadata_matches: bool,
     root: &Path,
     current_relative_paths: &HashSet<String>,
 ) -> Result<Vec<String>> {
+    if let Some(git_changes) = git_changes {
+        return Ok(git_changes.deleted.clone());
+    }
+
     match incremental_base {
         Some(IncrementalBase::Directory(base_root)) => {
             let base_paths = collect_code_files(
@@ -1103,6 +1233,7 @@ mod tests {
             fail_over_budget: false,
             incremental: false,
             incremental_base: None,
+            changed_since: None,
             incremental_summary: false,
             include: Vec::new(),
             exclude: Vec::new(),

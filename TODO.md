@@ -2,7 +2,6 @@
 
 ## Output Quality
 
-- Add `--changed-since <git-ref>` mode that uses git diff for branch review workflows.
 
 ## Parser Coverage
 

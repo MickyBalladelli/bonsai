@@ -189,6 +189,40 @@ grep -Fq '  skipped: 0' "$tmp_root/incremental-summary.txt"
 grep -Fq '  deleted: 1' "$tmp_root/incremental-summary.txt"
 grep -Fq '<deleted path="Cargo.toml" />' "$tmp_root/incremental-summary.xml"
 
+changed_since_repo="$tmp_root/changed-since-repo"
+make_golden_repo "$changed_since_repo"
+(
+  cd "$changed_since_repo"
+  git init >/dev/null
+  git config user.email "bonsai@example.com"
+  git config user.name "Bonsai Test"
+  git add .
+  git commit -m "base" >/dev/null
+)
+cat >> "$changed_since_repo/src/lib.rs" <<'RS'
+
+pub fn branch_change() {}
+RS
+cat > "$changed_since_repo/src/new.rs" <<'RS'
+pub fn new_file() {}
+RS
+(
+  cd "$changed_since_repo"
+  git add src/new.rs
+)
+rm "$changed_since_repo/Cargo.toml"
+"$bin" "$changed_since_repo" --changed-since HEAD --incremental-summary --output-file "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.txt"
+grep -Fq 'path="src/lib.rs"' "$tmp_root/changed-since.xml"
+grep -Fq 'path="src/new.rs"' "$tmp_root/changed-since.xml"
+if grep -Fq '<entry path="Cargo.toml"' "$tmp_root/changed-since.xml" || grep -Fq '<file path="Cargo.toml"' "$tmp_root/changed-since.xml"; then
+  printf 'changed-since included deleted file content\n' >&2
+  exit 1
+fi
+grep -Fq '<deleted path="Cargo.toml" />' "$tmp_root/changed-since.xml"
+grep -Fq '  added: 1' "$tmp_root/changed-since.txt"
+grep -Fq '  changed: 1' "$tmp_root/changed-since.txt"
+grep -Fq '  deleted: 1' "$tmp_root/changed-since.txt"
+
 empty_repo="$tmp_root/empty-repo"
 mkdir -p "$empty_repo"
 if "$bin" "$empty_repo" --fail-on-empty --output-file "$tmp_root/empty.xml" >/dev/null 2>&1; then

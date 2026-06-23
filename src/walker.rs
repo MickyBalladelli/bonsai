@@ -70,6 +70,22 @@ pub fn supported_extensions() -> &'static [&'static str] {
     TARGET_EXTENSIONS
 }
 
+pub fn is_supported_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|extension| TARGET_EXTENSIONS.contains(&extension.as_str()))
+}
+
+pub fn matches_path_filters(
+    root: &Path,
+    path: &Path,
+    include: &[String],
+    exclude: &[String],
+) -> Result<bool> {
+    Ok(PathFilters::new(include, exclude)?.matches(root, path))
+}
+
 fn fits_size_limit(entry: &DirEntry, max_file_bytes: Option<u64>) -> bool {
     max_file_bytes
         .and_then(|limit| {
@@ -85,12 +101,7 @@ fn is_target_file(entry: &DirEntry) -> bool {
     entry
         .file_type()
         .is_some_and(|file_type| file_type.is_file())
-        && entry
-            .path()
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .map(str::to_ascii_lowercase)
-            .is_some_and(|extension| TARGET_EXTENSIONS.contains(&extension.as_str()))
+        && is_supported_path(entry.path())
 }
 
 struct PathFilters {

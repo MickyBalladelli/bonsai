@@ -215,6 +215,12 @@ Include file hashes in the project map:
 bonsai . --file-hashes
 ```
 
+Include files changed against a git ref:
+
+```sh
+bonsai . --changed-since main
+```
+
 Write metadata and project map without file bodies:
 
 ```sh

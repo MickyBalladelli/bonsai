@@ -30,6 +30,8 @@ Default XML shape:
 
 `--no-content` omits `files`.
 
+`--changed-since <git-ref>` uses `git diff` and emits added/changed files plus deleted file markers.
+
 `--project-map-only` emits only:
 
 ```xml
@@ -82,6 +84,8 @@ Default JSON shape:
 `deleted_files` appears when incremental output detects files that were present in the baseline but are now gone.
 
 `--no-content` omits `files`.
+
+`--changed-since <git-ref>` uses `git diff` and emits added/changed files plus deleted file markers.
 
 `--project-map-only` emits only the project map array:
 
