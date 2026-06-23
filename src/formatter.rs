@@ -13,6 +13,7 @@ pub struct FormatOptions {
     pub include_files: bool,
     pub include_content: bool,
     pub directory_summaries: Vec<DirectorySummary>,
+    pub deleted_files: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,7 @@ pub fn format_repository_context_xml(
     output.push_str("<repository_context>\n");
     push_metadata_xml(&mut output, metadata);
     push_project_map_xml(&mut output, files);
+    push_deleted_files_xml(&mut output, &options.deleted_files);
     push_directory_summaries_xml(&mut output, &options.directory_summaries);
 
     if options.include_files {
@@ -85,6 +87,11 @@ pub fn format_repository_context_json(
     push_metadata_json(&mut output, metadata);
     output.push_str(",\n  \"project_map\": ");
     push_project_map_json(&mut output, files, 2);
+
+    if !options.deleted_files.is_empty() {
+        output.push_str(",\n  \"deleted_files\": ");
+        push_deleted_files_json(&mut output, &options.deleted_files, 2);
+    }
 
     if !options.directory_summaries.is_empty() {
         output.push_str(",\n  \"directory_summaries\": ");
@@ -155,6 +162,20 @@ fn push_directory_summaries_xml(output: &mut String, summaries: &[DirectorySumma
     output.push_str("</directory_summaries>\n");
 }
 
+fn push_deleted_files_xml(output: &mut String, deleted_files: &[String]) {
+    if deleted_files.is_empty() {
+        return;
+    }
+
+    output.push_str("<deleted_files>\n");
+    for path in deleted_files {
+        output.push_str("<deleted path=\"");
+        push_xml_escaped(output, path);
+        output.push_str("\" />\n");
+    }
+    output.push_str("</deleted_files>\n");
+}
+
 fn push_metadata_json(output: &mut String, metadata: &RepositoryMetadata) {
     output.push_str("{");
     output.push_str("\"generated_at\":\"");
@@ -168,6 +189,26 @@ fn push_metadata_json(output: &mut String, metadata: &RepositoryMetadata) {
     output.push_str(",\"file_count\":");
     output.push_str(&metadata.file_count.to_string());
     output.push_str("}");
+}
+
+fn push_deleted_files_json(output: &mut String, deleted_files: &[String], indent: usize) {
+    let base = " ".repeat(indent);
+    let item = " ".repeat(indent + 2);
+    output.push_str("[\n");
+
+    for (index, path) in deleted_files.iter().enumerate() {
+        if index > 0 {
+            output.push_str(",\n");
+        }
+        output.push_str(&item);
+        output.push_str("{\"path\":\"");
+        push_json_escaped(output, path);
+        output.push_str("\"}");
+    }
+
+    output.push('\n');
+    output.push_str(&base);
+    output.push(']');
 }
 
 fn push_project_map_json(output: &mut String, files: &[ProcessedFile], indent: usize) {
@@ -360,6 +401,25 @@ mod tests {
         assert!(xml.contains("path=\"src\""));
         assert!(json.contains("\"directory_summaries\""));
         assert!(json.contains("\"path\":\"src\""));
+    }
+
+    #[test]
+    fn includes_deleted_file_markers() {
+        let files = vec![processed_file()];
+        let options = FormatOptions {
+            include_files: true,
+            include_content: true,
+            deleted_files: vec!["src/deleted.rs".to_owned()],
+            ..FormatOptions::default()
+        };
+
+        let xml = format_repository_context_xml(&files, &metadata(), &options);
+        let json = format_repository_context_json(&files, &metadata(), &options);
+
+        assert!(xml.contains("<deleted_files>"));
+        assert!(xml.contains("<deleted path=\"src/deleted.rs\" />"));
+        assert!(json.contains("\"deleted_files\""));
+        assert!(json.contains("\"path\":\"src/deleted.rs\""));
     }
 
     fn processed_file() -> ProcessedFile {

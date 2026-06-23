@@ -12,6 +12,9 @@ Default XML shape:
   <project_map>
     <entry path="src/main.rs" level="2" tokens="120" />
   </project_map>
+  <deleted_files>
+    <deleted path="src/old.rs" />
+  </deleted_files>
   <directory_summaries>
     <directory path="src" files="2" tokens="240" />
   </directory_summaries>
@@ -22,6 +25,8 @@ Default XML shape:
 ```
 
 `directory_summaries` appears only with `--directory-summaries`.
+
+`deleted_files` appears when incremental output detects files that were present in the baseline but are now gone.
 
 `--no-content` omits `files`.
 
@@ -49,6 +54,9 @@ Default JSON shape:
   "project_map": [
     { "path": "src/main.rs", "level": 2, "tokens": 120 }
   ],
+  "deleted_files": [
+    { "path": "src/old.rs" }
+  ],
   "directory_summaries": [
     { "path": "src", "files": 2, "tokens": 240 }
   ],
@@ -64,6 +72,8 @@ Default JSON shape:
 ```
 
 `directory_summaries` appears only with `--directory-summaries`.
+
+`deleted_files` appears when incremental output detects files that were present in the baseline but are now gone.
 
 `--no-content` omits `files`.
 

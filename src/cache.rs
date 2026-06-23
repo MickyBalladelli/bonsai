@@ -77,11 +77,21 @@ impl ParseCache {
         }
     }
 
-    pub fn deleted_count(&self) -> usize {
-        self.entries
+    pub fn deleted_paths(&self, root: &Path) -> Vec<String> {
+        let mut paths = self
+            .entries
             .keys()
             .filter(|path| !Path::new(path.as_str()).exists())
-            .count()
+            .map(|path| {
+                let path = Path::new(path.as_str());
+                path.strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+            .collect::<Vec<_>>();
+        paths.sort();
+        paths
     }
 
     pub fn load_required(path: PathBuf) -> Result<Self> {

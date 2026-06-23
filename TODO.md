@@ -2,10 +2,8 @@
 
 ## Output Quality
 
-- Add deleted-file markers for incremental mode, so agents can see when important files disappeared.
 - Add optional file hashes in the project map for stronger repeatability checks.
 - Add `--changed-since <git-ref>` mode that uses git diff for branch review workflows.
-- Add schema examples for incremental XML and JSON in `docs/output-schema.md`.
 
 ## Parser Coverage
 

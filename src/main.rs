@@ -223,13 +223,15 @@ fn main() -> Result<()> {
 
         files.push(ProcessedFile::new(relative_path, requested_level, variants));
     }
-    incremental_counts.deleted = deleted_count(
+    let deleted_files = deleted_files(
         &cli,
         &incremental_base,
         &parse_cache,
         baseline_metadata_matches,
+        &root,
         &current_relative_paths,
     )?;
+    incremental_counts.deleted = deleted_files.len();
     parse_cache.retain_touched();
     parse_cache.set_metadata(cache_metadata);
 
@@ -244,7 +246,7 @@ fn main() -> Result<()> {
         let mut full_files = full_context_files(&files, &token_counter)?;
         sort_files(&mut full_files, cli.sort);
         Some(maybe_wrap_prompt(
-            format_context(&full_files, &metadata, &cli),
+            format_context(&full_files, &metadata, &cli, &deleted_files),
             &cli,
         ))
     } else {
@@ -258,10 +260,11 @@ fn main() -> Result<()> {
         compression_level: requested_level.as_u8(),
         file_count: files.len(),
     };
-    let content_budget = reserved_content_budget(&files, &metadata, &cli, &token_counter)?;
+    let content_budget =
+        reserved_content_budget(&files, &metadata, &cli, &token_counter, &deleted_files)?;
     let optimized = optimize_budget(files, content_budget, &token_counter)?;
     let (mut optimized, context, output_tokens) =
-        fit_formatted_context(optimized, &metadata, &cli, &token_counter)?;
+        fit_formatted_context(optimized, &metadata, &cli, &token_counter, &deleted_files)?;
     sort_files(&mut optimized, cli.sort);
     let run_stats = RunStats::new(
         &cli,
@@ -661,13 +664,14 @@ fn relative_path_set(root: &Path, paths: &[PathBuf]) -> HashSet<String> {
         .collect()
 }
 
-fn deleted_count(
+fn deleted_files(
     cli: &Cli,
     incremental_base: &Option<IncrementalBase>,
     parse_cache: &ParseCache,
     baseline_metadata_matches: bool,
+    root: &Path,
     current_relative_paths: &HashSet<String>,
-) -> Result<usize> {
+) -> Result<Vec<String>> {
     match incremental_base {
         Some(IncrementalBase::Directory(base_root)) => {
             let base_paths = collect_code_files(
@@ -679,16 +683,19 @@ fn deleted_count(
                     max_file_bytes: max_file_bytes(cli),
                 },
             )?;
-            Ok(relative_path_set(base_root, &base_paths)
+            let mut deleted = relative_path_set(base_root, &base_paths)
                 .difference(current_relative_paths)
-                .count())
+                .cloned()
+                .collect::<Vec<_>>();
+            deleted.sort();
+            Ok(deleted)
         }
         Some(IncrementalBase::Cache(base_cache)) if baseline_metadata_matches => {
-            Ok(base_cache.deleted_count())
+            Ok(base_cache.deleted_paths(root))
         }
-        Some(IncrementalBase::Cache(_)) => Ok(0),
-        None if cli.incremental && baseline_metadata_matches => Ok(parse_cache.deleted_count()),
-        None => Ok(0),
+        Some(IncrementalBase::Cache(_)) => Ok(Vec::new()),
+        None if cli.incremental && baseline_metadata_matches => Ok(parse_cache.deleted_paths(root)),
+        None => Ok(Vec::new()),
     }
 }
 
@@ -753,19 +760,29 @@ fn full_context_files(
         .collect()
 }
 
-fn format_context(files: &[ProcessedFile], metadata: &RepositoryMetadata, cli: &Cli) -> String {
-    let options = format_options(files, cli);
+fn format_context(
+    files: &[ProcessedFile],
+    metadata: &RepositoryMetadata,
+    cli: &Cli,
+    deleted_files: &[String],
+) -> String {
+    let options = format_options(files, cli, deleted_files);
     match cli.format {
         OutputFormat::Json => format_repository_context_json(files, metadata, &options),
         OutputFormat::Xml => format_repository_context_xml(files, metadata, &options),
     }
 }
 
-fn format_options(files: &[ProcessedFile], cli: &Cli) -> FormatOptions {
+fn format_options(files: &[ProcessedFile], cli: &Cli, deleted_files: &[String]) -> FormatOptions {
     FormatOptions {
         project_map_only: cli.project_map_only,
         include_files: !cli.project_map_only && !cli.no_content,
         include_content: !cli.project_map_only && !cli.no_content,
+        deleted_files: if cli.project_map_only {
+            Vec::new()
+        } else {
+            deleted_files.to_vec()
+        },
         directory_summaries: if cli.directory_summaries && !cli.project_map_only {
             build_directory_summaries(files)
         } else {
@@ -779,10 +796,11 @@ fn fit_formatted_context(
     metadata: &RepositoryMetadata,
     cli: &Cli,
     counter: &TokenCounter,
+    deleted_files: &[String],
 ) -> Result<(Vec<ProcessedFile>, String, usize)> {
     loop {
         sort_files(&mut files, cli.sort);
-        let context = maybe_wrap_prompt(format_context(&files, metadata, cli), cli);
+        let context = maybe_wrap_prompt(format_context(&files, metadata, cli, deleted_files), cli);
         let output_tokens = count_text_tokens(&context, counter);
 
         if output_tokens <= cli.max_tokens || !downgrade_largest_file(&mut files, counter) {
@@ -796,6 +814,7 @@ fn reserved_content_budget(
     metadata: &RepositoryMetadata,
     cli: &Cli,
     counter: &TokenCounter,
+    deleted_files: &[String],
 ) -> Result<usize> {
     let overhead_files = files
         .iter()
@@ -813,7 +832,10 @@ fn reserved_content_budget(
             overhead_file
         })
         .collect::<Vec<_>>();
-    let overhead = maybe_wrap_prompt(format_context(&overhead_files, metadata, cli), cli);
+    let overhead = maybe_wrap_prompt(
+        format_context(&overhead_files, metadata, cli, deleted_files),
+        cli,
+    );
     let overhead_tokens = count_text_tokens(&overhead, counter);
 
     Ok(cli.max_tokens.saturating_sub(overhead_tokens))
@@ -1037,7 +1059,7 @@ mod tests {
         )];
 
         let (_files, context, output_tokens) =
-            fit_formatted_context(files, &metadata, &cli, &counter).unwrap();
+            fit_formatted_context(files, &metadata, &cli, &counter, &[]).unwrap();
 
         assert_eq!(output_tokens, count_text_tokens(&context, &counter));
     }
