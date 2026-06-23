@@ -5,6 +5,20 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/bonsai-plugin-smoke.XXXXXX")"
 trap 'rm -rf "$tmp_root"' EXIT
 
+cargo_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' "$repo_root/Cargo.toml" | head -n 1)"
+plugin_version_files=(
+  "$repo_root/plugins/bonsai/.codex-plugin/plugin.json"
+  "$repo_root/claude/bonsai/.claude-plugin/plugin.json"
+  "$repo_root/.claude-plugin/marketplace.json"
+)
+
+for version_file in "${plugin_version_files[@]}"; do
+  if ! grep -Fq "\"version\": \"$cargo_version\"" "$version_file"; then
+    printf '%s version does not match Cargo.toml %s\n' "$version_file" "$cargo_version" >&2
+    exit 1
+  fi
+done
+
 make_fake_bonsai() {
   local path="$1"
   local marker="$2"

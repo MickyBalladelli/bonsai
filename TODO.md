@@ -23,7 +23,6 @@
 
 ## Agent And Editor Integrations
 
-- Keep Codex and Claude plugin versions in sync with `Cargo.toml`.
 - Add plugin smoke tests that verify generated agent instructions mention current flags.
 
 ## Testing And Release
