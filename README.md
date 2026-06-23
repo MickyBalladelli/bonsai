@@ -203,6 +203,12 @@ Show selected files:
 bonsai . --print-files
 ```
 
+Show install health:
+
+```sh
+bonsai doctor
+```
+
 Only write the project map:
 
 ```sh

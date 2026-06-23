@@ -8,7 +8,6 @@
 
 ## CLI Ergonomics
 
-- Add `bonsai doctor` to show binary path, version, cache path, tokenizer, and parser availability.
 - Add `--dry-run` to print selected files and estimated tokens without writing output.
 - Add `--quiet` for scripts that only care about exit code and output file.
 - Add shell completions for bash, zsh, and fish.

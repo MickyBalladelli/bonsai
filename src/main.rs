@@ -23,7 +23,7 @@ use formatter::{
     format_repository_context_json, format_repository_context_xml, DirectorySummary, FormatOptions,
     RepositoryMetadata,
 };
-use parser::{compress_file, CompressionLevel};
+use parser::{compress_file, parser_support_for_extension, CompressionLevel, ParserMode};
 use walker::{
     collect_code_files, is_supported_path, matches_path_filters, supported_extensions,
     WalkerOptions,
@@ -166,6 +166,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if handle_cache_command()? {
+        return Ok(());
+    }
+    if handle_doctor_command()? {
         return Ok(());
     }
 
@@ -399,6 +402,86 @@ fn handle_cache_command() -> Result<bool> {
         }
         Some(command) => bail!("unknown cache command {command}"),
     }
+}
+
+fn handle_doctor_command() -> Result<bool> {
+    let args = env::args().collect::<Vec<_>>();
+    if args.get(1).map(String::as_str) != Some("doctor") {
+        return Ok(false);
+    }
+
+    let options = doctor_options(&args[2..])?;
+    print_doctor(&options.target, options.tokenizer)?;
+    Ok(true)
+}
+
+struct DoctorOptions {
+    target: PathBuf,
+    tokenizer: TokenizerKind,
+}
+
+fn doctor_options(args: &[String]) -> Result<DoctorOptions> {
+    let mut target = PathBuf::from(".");
+    let mut tokenizer = TokenizerKind::default();
+    let mut saw_path = false;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--help" | "-h" => {
+                println!("Usage: bonsai doctor [PATH] [--tokenizer TOKENIZER]");
+                std::process::exit(0);
+            }
+            "--tokenizer" => {
+                index += 1;
+                let Some(value) = args.get(index) else {
+                    bail!("--tokenizer requires a value");
+                };
+                tokenizer = value.parse::<TokenizerKind>().map_err(anyhow::Error::msg)?;
+            }
+            value if value.starts_with('-') => bail!("unknown doctor option {value}"),
+            value => {
+                if saw_path {
+                    bail!("doctor accepts only one path");
+                }
+                target = PathBuf::from(value);
+                saw_path = true;
+            }
+        }
+        index += 1;
+    }
+
+    Ok(DoctorOptions { target, tokenizer })
+}
+
+fn print_doctor(target: &Path, tokenizer: TokenizerKind) -> Result<()> {
+    let root = fs::canonicalize(target)
+        .with_context(|| format!("cannot resolve doctor target {}", target.display()))?;
+    let binary_path = env::current_exe().context("cannot resolve current executable")?;
+    let cache_path = cache_path_for_root(&root);
+    let tokenizer_status = TokenCounter::new(tokenizer)
+        .map(|_| "ok".to_owned())
+        .unwrap_or_else(|error| format!("error: {error:#}"));
+
+    println!("bonsai doctor:");
+    println!("  binary: {}", binary_path.display());
+    println!("  version: {}", env!("CARGO_PKG_VERSION"));
+    println!("  repo_root: {}", root.display());
+    println!("  cache_path: {}", cache_path.display());
+    println!("  tokenizer: {} ({tokenizer_status})", tokenizer.as_str());
+    println!("  parsers:");
+
+    for extension in supported_extensions() {
+        let support = parser_support_for_extension(extension);
+        let mode = match support.mode {
+            ParserMode::TreeSitter => "tree-sitter",
+            ParserMode::Compact => "compact",
+        };
+        let status = if support.available { "ok" } else { "missing" };
+        println!("    .{}: {mode} ({status})", support.extension);
+    }
+
+    Ok(())
 }
 
 fn cache_command_target(args: &[String]) -> Result<PathBuf> {

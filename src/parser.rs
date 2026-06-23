@@ -18,6 +18,19 @@ pub struct FileVariants {
     pub tree_map: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParserMode {
+    TreeSitter,
+    Compact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParserSupport {
+    pub extension: String,
+    pub mode: ParserMode,
+    pub available: bool,
+}
+
 impl CompressionLevel {
     pub fn as_u8(self) -> u8 {
         self as u8
@@ -34,6 +47,26 @@ impl TryFrom<u8> for CompressionLevel {
             3 => Ok(Self::TreeMap),
             _ => bail!("level must be 1, 2, or 3"),
         }
+    }
+}
+
+pub fn parser_support_for_extension(extension: &str) -> ParserSupport {
+    let normalized = extension.trim_start_matches('.').to_ascii_lowercase();
+    let syntax = SyntaxKind::from_extension(&normalized);
+    let mode = match syntax {
+        Ok(kind) if kind.language().is_some() => ParserMode::TreeSitter,
+        Ok(_) => ParserMode::Compact,
+        Err(_) => ParserMode::Compact,
+    };
+    let available = syntax
+        .ok()
+        .map(|kind| parser_available(kind))
+        .unwrap_or(false);
+
+    ParserSupport {
+        extension: normalized,
+        mode,
+        available,
     }
 }
 
@@ -100,7 +133,14 @@ enum SyntaxKind {
 
 impl SyntaxKind {
     fn from_path(path: &Path) -> Result<Self> {
-        match extension(path).as_deref() {
+        match extension(path) {
+            Some(extension) => Self::from_extension(&extension),
+            None => bail!("file has no extension: {}", path.display()),
+        }
+    }
+
+    fn from_extension(extension: &str) -> Result<Self> {
+        match Some(extension) {
             Some("js" | "jsx") => Ok(Self::JavaScript),
             Some("ts" | "tsx") => Ok(Self::TypeScript),
             Some("py") => Ok(Self::Python),
@@ -116,7 +156,7 @@ impl SyntaxKind {
             Some("vue" | "svelte" | "astro" | "html") => Ok(Self::WebText),
             Some("md" | "json" | "yaml" | "yml" | "toml") => Ok(Self::Text),
             Some(other) => bail!("unsupported extension: {other}"),
-            None => bail!("file has no extension: {}", path.display()),
+            None => unreachable!("extension is always provided"),
         }
     }
 
@@ -138,6 +178,15 @@ impl SyntaxKind {
             Self::Text => None,
         }
     }
+}
+
+fn parser_available(syntax: SyntaxKind) -> bool {
+    let Some(language) = syntax.language() else {
+        return true;
+    };
+
+    let mut parser = Parser::new();
+    parser.set_language(&language).is_ok()
 }
 
 #[derive(Debug, Clone)]

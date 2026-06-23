@@ -58,6 +58,15 @@ if [[ "$first_path" != '"path":"Cargo.toml"' ]]; then
   exit 1
 fi
 
+"$bin" doctor "$repo" --tokenizer cl100k_base > "$tmp_root/doctor.txt"
+grep -Fq 'bonsai doctor:' "$tmp_root/doctor.txt"
+grep -Fq '  binary:' "$tmp_root/doctor.txt"
+grep -Fq '  version:' "$tmp_root/doctor.txt"
+grep -Fq '  cache_path:' "$tmp_root/doctor.txt"
+grep -Fq '  tokenizer: cl100k_base (ok)' "$tmp_root/doctor.txt"
+grep -Fq '    .rs: tree-sitter (ok)' "$tmp_root/doctor.txt"
+grep -Fq '    .md: compact (ok)' "$tmp_root/doctor.txt"
+
 if "$bin" "$repo" --max-tokens 1 --fail-over-budget --output-file "$tmp_root/over.xml" >/dev/null 2>&1; then
   printf 'fail-over-budget did not fail\n' >&2
   exit 1
