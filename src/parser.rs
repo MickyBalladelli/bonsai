@@ -1023,7 +1023,9 @@ fn compact_config_lines(path: &Path, source: &str, max_lines: usize) -> String {
         let parent_important = sections.last().is_some_and(|section| section.important);
         let in_unimportant_section = sections.last().is_some_and(|section| !section.important);
         let line_key = config_line_key(path, line);
-        let line_important = line_key.as_deref().is_some_and(is_important_config_key)
+        let line_important = line_key
+            .as_deref()
+            .is_some_and(|key| is_important_config_key(path, key))
             || is_important_config_line(line);
         let keep_nested = parent_important || line_important;
 
@@ -1171,17 +1173,19 @@ fn is_top_level_config_line(line: &str, indent: usize) -> bool {
 }
 
 fn is_important_config_line(line: &str) -> bool {
-    config_line_key_from_trimmed(line).is_some_and(|key| is_important_config_key(&key))
+    config_line_key_from_trimmed(line).is_some_and(|key| is_common_important_config_key(&key))
 }
 
-const IMPORTANT_CONFIG_KEYS: &[&str] = &[
+const COMMON_IMPORTANT_CONFIG_KEYS: &[&str] = &[
     "name",
     "version",
     "description",
+    "displayname",
     "scripts",
     "dependencies",
     "devdependencies",
     "peerdependencies",
+    "optionaldependencies",
     "workspaces",
     "jobs",
     "steps",
@@ -1200,13 +1204,188 @@ const IMPORTANT_CONFIG_KEYS: &[&str] = &[
     "matrix",
 ];
 
-fn is_important_config_key(key: &str) -> bool {
+const PACKAGE_JSON_IMPORTANT_CONFIG_KEYS: &[&str] = &[
+    "type",
+    "private",
+    "main",
+    "module",
+    "types",
+    "exports",
+    "imports",
+    "files",
+    "engines",
+    "packagemanager",
+    "repository",
+    "license",
+    "author",
+    "publisher",
+    "categories",
+    "icon",
+    "homepage",
+    "bugs",
+    "overrides",
+    "resolutions",
+];
+
+const GITHUB_WORKFLOW_IMPORTANT_CONFIG_KEYS: &[&str] = &[
+    "on",
+    "push",
+    "pull_request",
+    "workflow_dispatch",
+    "schedule",
+    "branches",
+    "paths",
+    "defaults",
+    "concurrency",
+    "needs",
+    "if",
+    "uses",
+    "run",
+    "with",
+    "strategy",
+    "timeout-minutes",
+];
+
+const CARGO_TOML_IMPORTANT_CONFIG_KEYS: &[&str] = &[
+    "workspace",
+    "features",
+    "default",
+    "lib",
+    "bin",
+    "example",
+    "test",
+    "bench",
+    "target",
+    "profile",
+    "package.metadata",
+    "build-dependencies",
+    "dev-dependencies",
+    "workspace.dependencies",
+];
+
+const CODEX_PLUGIN_IMPORTANT_CONFIG_KEYS: &[&str] = &[
+    "author",
+    "interface",
+    "shortdescription",
+    "longdescription",
+    "developername",
+    "category",
+    "capabilities",
+    "defaultprompt",
+    "mcpservers",
+    "apps",
+];
+
+const VSCODE_MANIFEST_IMPORTANT_CONFIG_KEYS: &[&str] = &[
+    "publisher",
+    "engines",
+    "vscode",
+    "categories",
+    "activationevents",
+    "main",
+    "browser",
+    "extensionkind",
+    "contributes",
+    "commands",
+    "command",
+    "title",
+    "menus",
+    "keybindings",
+    "configuration",
+    "properties",
+    "default",
+    "enum",
+];
+
+fn is_important_config_key(path: &Path, key: &str) -> bool {
+    is_key_in_allowlist(key, COMMON_IMPORTANT_CONFIG_KEYS)
+        || config_profile(path)
+            .iter()
+            .any(|profile| is_key_in_allowlist(key, profile.important_keys()))
+}
+
+fn is_common_important_config_key(key: &str) -> bool {
+    is_key_in_allowlist(key, COMMON_IMPORTANT_CONFIG_KEYS)
+}
+
+fn is_key_in_allowlist(key: &str, allowlist: &[&str]) -> bool {
     let lower = key.to_ascii_lowercase();
-    IMPORTANT_CONFIG_KEYS.iter().any(|important| {
+    allowlist.iter().any(|important| {
+        let allow_prefix = important.contains('.') || matches!(*important, "profile" | "target");
         lower == *important
+            || (allow_prefix && lower.starts_with(&format!("{important}.")))
             || lower.ends_with(&format!(".{important}"))
             || lower.ends_with(&format!("-{important}"))
     })
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ConfigProfile {
+    PackageJson,
+    GithubWorkflow,
+    CargoToml,
+    CodexPlugin,
+    VscodeManifest,
+}
+
+impl ConfigProfile {
+    fn important_keys(self) -> &'static [&'static str] {
+        match self {
+            Self::PackageJson => PACKAGE_JSON_IMPORTANT_CONFIG_KEYS,
+            Self::GithubWorkflow => GITHUB_WORKFLOW_IMPORTANT_CONFIG_KEYS,
+            Self::CargoToml => CARGO_TOML_IMPORTANT_CONFIG_KEYS,
+            Self::CodexPlugin => CODEX_PLUGIN_IMPORTANT_CONFIG_KEYS,
+            Self::VscodeManifest => VSCODE_MANIFEST_IMPORTANT_CONFIG_KEYS,
+        }
+    }
+}
+
+fn config_profile(path: &Path) -> Vec<ConfigProfile> {
+    let mut profiles = Vec::new();
+    let file_name = path.file_name().and_then(|name| name.to_str());
+
+    if file_name == Some("package.json") {
+        profiles.push(ConfigProfile::PackageJson);
+    }
+    if file_name == Some("Cargo.toml") {
+        profiles.push(ConfigProfile::CargoToml);
+    }
+    if file_name == Some("plugin.json")
+        && path
+            .components()
+            .any(|component| component.as_os_str() == ".codex-plugin")
+    {
+        profiles.push(ConfigProfile::CodexPlugin);
+    }
+    if is_github_workflow_path(path) {
+        profiles.push(ConfigProfile::GithubWorkflow);
+    }
+    if is_vscode_manifest_path(path) {
+        profiles.push(ConfigProfile::VscodeManifest);
+    }
+
+    profiles
+}
+
+fn is_github_workflow_path(path: &Path) -> bool {
+    let mut saw_github = false;
+    for component in path.components() {
+        let component = component.as_os_str();
+        if component == ".github" {
+            saw_github = true;
+        } else if saw_github && component == "workflows" {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_vscode_manifest_path(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()) == Some("package.json")
+        && path.components().any(|component| {
+            let name = component.as_os_str().to_string_lossy();
+            name.contains("vscode") || name.contains("extension")
+        })
 }
 
 fn config_line_key(path: &Path, line: &str) -> Option<String> {
@@ -1227,14 +1406,21 @@ fn config_line_key_from_trimmed(line: &str) -> Option<String> {
     }
 
     if let Some((key, _)) = line.split_once(':') {
-        return Some(key.trim().trim_matches('"').to_ascii_lowercase());
+        return Some(normalize_config_key(key));
     }
 
     if let Some((key, _)) = line.split_once('=') {
-        return Some(key.trim().trim_matches('"').to_ascii_lowercase());
+        return Some(normalize_config_key(key));
     }
 
     None
+}
+
+fn normalize_config_key(key: &str) -> String {
+    key.trim()
+        .trim_start_matches("- ")
+        .trim_matches('"')
+        .to_ascii_lowercase()
 }
 
 fn compact_non_empty_lines(source: &str, max_lines: usize) -> String {
@@ -2133,6 +2319,123 @@ large = "ignore-me"
     }
 
     #[test]
+    fn config_tunes_allowlists_for_common_manifests() {
+        let package_path = write_named_temp_source(
+            "package.json",
+            r#"
+{
+  "name": "demo",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "registry": "ignore-me"
+  }
+}
+"#,
+        );
+        let workflow_path = write_named_temp_source(
+            ".github/workflows/ci.yml",
+            r#"
+name: CI
+on:
+  pull_request:
+jobs:
+  test:
+    timeout-minutes: 10
+    steps:
+      - run: cargo test
+metadata:
+  note: ignore-me
+"#,
+        );
+        let cargo_path = write_named_temp_source(
+            "Cargo.toml",
+            r#"
+[package]
+name = "demo"
+
+[features]
+default = ["serde"]
+
+[profile.release]
+opt-level = 3
+
+[lints.rust]
+unsafe_code = "ignore-me"
+"#,
+        );
+        let plugin_path = write_named_temp_source(
+            ".codex-plugin/plugin.json",
+            r#"
+{
+  "name": "demo",
+  "interface": {
+    "displayName": "Demo",
+    "shortDescription": "Useful plugin",
+    "defaultPrompt": "Use demo"
+  },
+  "metadata": {
+    "note": "ignore-me"
+  }
+}
+"#,
+        );
+        let vscode_path = write_named_temp_source(
+            "demo-vscode/package.json",
+            r#"
+{
+  "name": "demo",
+  "extensionKind": [
+    "workspace"
+  ],
+  "contributes": {
+    "keybindings": [
+      {
+        "command": "demo.run",
+        "key": "ctrl+d"
+      }
+    ]
+  },
+  "metadata": {
+    "note": "ignore-me"
+  }
+}
+"#,
+        );
+
+        let package = compress_file(&package_path, CompressionLevel::Skeleton).unwrap();
+        let workflow = compress_file(&workflow_path, CompressionLevel::Skeleton).unwrap();
+        let cargo = compress_file(&cargo_path, CompressionLevel::Skeleton).unwrap();
+        let plugin = compress_file(&plugin_path, CompressionLevel::Skeleton).unwrap();
+        let vscode = compress_file(&vscode_path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(package.skeleton.contains("\"node\": \">=20\""));
+        assert!(package.skeleton.contains("\".\": \"./dist/index.js\""));
+        assert!(!package.skeleton.contains("ignore-me"));
+        assert!(workflow.skeleton.contains("pull_request:"));
+        assert!(workflow.skeleton.contains("timeout-minutes: 10"));
+        assert!(workflow.skeleton.contains("- run: cargo test"));
+        assert!(!workflow.skeleton.contains("ignore-me"));
+        assert!(cargo.skeleton.contains("[features]"));
+        assert!(cargo.skeleton.contains("default = [\"serde\"]"));
+        assert!(cargo.skeleton.contains("[profile.release]"));
+        assert!(cargo.skeleton.contains("opt-level = 3"));
+        assert!(!cargo.skeleton.contains("ignore-me"));
+        assert!(plugin.skeleton.contains("\"shortDescription\": \"Useful plugin\""));
+        assert!(plugin.skeleton.contains("\"defaultPrompt\": \"Use demo\""));
+        assert!(!plugin.skeleton.contains("ignore-me"));
+        assert!(vscode.skeleton.contains("\"extensionKind\""));
+        assert!(vscode.skeleton.contains("\"workspace\""));
+        assert!(vscode.skeleton.contains("\"keybindings\""));
+        assert!(vscode.skeleton.contains("\"key\": \"ctrl+d\""));
+        assert!(!vscode.skeleton.contains("ignore-me"));
+    }
+
+    #[test]
     fn tree_map_keeps_top_level_shapes() {
         let path = write_temp_source(
             "ts",
@@ -2168,6 +2471,19 @@ class Greeter {
             .unwrap()
             .as_nanos();
         let path = env::temp_dir().join(format!("bonsai-parser-{unique}.{extension}"));
+        fs::write(&path, source).unwrap();
+        path
+    }
+
+    fn write_named_temp_source(relative_path: &str, source: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = env::temp_dir()
+            .join(format!("bonsai-parser-{unique}"))
+            .join(relative_path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, source).unwrap();
         path
     }

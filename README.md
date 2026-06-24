@@ -155,7 +155,7 @@ Level 3 tree map:
 fn greet(name: &str) -> String
 ```
 
-Markdown keeps headings, useful summary text, tables, lists, links, and code fence language names. Config files keep important top-level shape and supported top-level comments. Markdown, config, and web-template line truncation is token-aware. Long Markdown tables/lists and import/include/use blocks keep the first few lines and collapse the rest.
+Markdown keeps headings, useful summary text, tables, lists, links, and code fence language names. Config files keep important top-level shape, supported top-level comments, and tuned nested sections for common manifests like `package.json`, GitHub workflows, `Cargo.toml`, Codex plugin manifests, and VS Code manifests. Markdown, config, and web-template line truncation is token-aware. Long Markdown tables/lists and import/include/use blocks keep the first few lines and collapse the rest.
 
 ## Common Commands
 
