@@ -2425,7 +2425,9 @@ unsafe_code = "ignore-me"
         assert!(cargo.skeleton.contains("[profile.release]"));
         assert!(cargo.skeleton.contains("opt-level = 3"));
         assert!(!cargo.skeleton.contains("ignore-me"));
-        assert!(plugin.skeleton.contains("\"shortDescription\": \"Useful plugin\""));
+        assert!(plugin
+            .skeleton
+            .contains("\"shortDescription\": \"Useful plugin\""));
         assert!(plugin.skeleton.contains("\"defaultPrompt\": \"Use demo\""));
         assert!(!plugin.skeleton.contains("ignore-me"));
         assert!(vscode.skeleton.contains("\"extensionKind\""));
