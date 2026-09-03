@@ -24,6 +24,8 @@ jobs:
             target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
+      - name: Check synchronized versions
+        run: ruby scripts/sync-version.rb --check
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

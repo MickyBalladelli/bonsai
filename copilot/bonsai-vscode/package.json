@@ -1,7 +1,7 @@
 {
   "name": "bonsai-vscode",
   "displayName": "Bonsai",
-  "description": "Bonsai XML for GitHub Copilot Chat and Codex.",
+  "description": "Bonsai context for GitHub Copilot Chat and Codex.",
   "version": "0.5.3",
   "publisher": "MickyBalladelli",
   "author": {
@@ -20,20 +20,23 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:bonsai.generateContext",
     "onCommand:bonsai.generateAndAsk",
     "onCommand:bonsai.copyContext",
     "onCommand:bonsai.copyChangedContext",
     "onCommand:bonsai.copyProjectMap",
     "onCommand:bonsai.previewProjectMap",
-    "onCommand:bonsai.openContext"
+    "onCommand:bonsai.openContext",
+    "onCommand:bonsai.moreActions",
+    "onCommand:bonsai.setup"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "bonsai.generateContext",
-        "title": "Bonsai: Generate Context"
+        "title": "Bonsai: Generate"
       },
       {
         "command": "bonsai.generateAndAsk",
@@ -45,7 +48,7 @@
       },
       {
         "command": "bonsai.copyChangedContext",
-        "title": "Bonsai: Copy Changed Context"
+        "title": "Bonsai: Generate Changed"
       },
       {
         "command": "bonsai.copyProjectMap",
@@ -58,15 +61,65 @@
       {
         "command": "bonsai.openContext",
         "title": "Bonsai: Open Last Context"
+      },
+      {
+        "command": "bonsai.moreActions",
+        "title": "Bonsai: More Actions"
+      },
+      {
+        "command": "bonsai.setup",
+        "title": "Bonsai: Run Setup"
       }
     ],
-    "configuration": {
-      "title": "Bonsai",
-      "properties": {
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "bonsai.generateContext",
+          "when": "true"
+        },
+        {
+          "command": "bonsai.copyChangedContext",
+          "when": "true"
+        },
+        {
+          "command": "bonsai.generateAndAsk",
+          "when": "true"
+        },
+        {
+          "command": "bonsai.moreActions",
+          "when": "true"
+        },
+        {
+          "command": "bonsai.copyContext",
+          "when": "false"
+        },
+        {
+          "command": "bonsai.copyProjectMap",
+          "when": "false"
+        },
+        {
+          "command": "bonsai.previewProjectMap",
+          "when": "false"
+        },
+        {
+          "command": "bonsai.openContext",
+          "when": "false"
+        },
+        {
+          "command": "bonsai.setup",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "Bonsai",
+        "properties": {
         "bonsai.maxTokens": {
           "type": "number",
-          "default": 12000,
+          "default": 4000,
           "minimum": 1000,
+          "order": 1,
           "description": "Token budget for generated Copilot context."
         },
         "bonsai.level": {
@@ -77,11 +130,13 @@
             2,
             3
           ],
-          "description": "Compression level: 1 full-first, 2 skeleton, 3 tree map."
+          "order": 2,
+          "description": "Compression: 1 full source first, 2 signatures and shapes, 3 names and tree map. Start with 2."
         },
         "bonsai.outputFile": {
           "type": "string",
-          "default": "/tmp/bonsai-vscode.xml",
+          "default": "bonsai.xml",
+          "order": 3,
           "description": "File path where generated context is written."
         },
         "bonsai.outputFormat": {
@@ -91,42 +146,54 @@
             "xml",
             "json"
           ],
-          "description": "Generated context format."
-        },
-        "bonsai.include": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Glob patterns to include, such as src/**."
-        },
-        "bonsai.exclude": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Glob patterns to exclude, such as **/generated/**."
-        },
-        "bonsai.respectGitignore": {
-          "type": "boolean",
-          "default": true,
-          "description": "Respect .gitignore, global gitignore, and git exclude files."
-        },
-        "bonsai.binaryPath": {
-          "type": "string",
-          "default": "",
-          "description": "Optional explicit path to the bonsai binary. When empty, Bonsai checks BONSAI_BIN, PATH, then local release builds."
+          "order": 4,
+          "description": "Generated context format. The extension supports XML and JSON. Use the CLI for text output."
         }
       }
-    }
+      },
+      {
+        "title": "Bonsai: Advanced",
+        "properties": {
+          "bonsai.include": {
+            "type": "array",
+            "default": [],
+            "order": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional glob patterns to include, such as src/**."
+          },
+          "bonsai.exclude": {
+            "type": "array",
+            "default": [],
+            "order": 2,
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional glob patterns to exclude, such as **/generated/**."
+          },
+          "bonsai.respectGitignore": {
+            "type": "boolean",
+            "default": true,
+            "order": 3,
+            "description": "Respect .gitignore, global gitignore, and git exclude files."
+          },
+          "bonsai.binaryPath": {
+            "type": "string",
+            "default": "",
+            "order": 4,
+            "description": "Optional fallback path. Bonsai first checks this path, BONSAI_BIN, PATH, and its downloaded binary."
+          }
+        }
+      }
+    ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "sync-version": "ruby ../../scripts/sync-version.rb",
+    "compile": "npm run sync-version && tsc -p ./",
     "test": "npm run compile && node dist/bonsai.smoke.test.js",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package --no-dependencies"
+    "package": "npm run sync-version && vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

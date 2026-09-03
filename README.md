@@ -5,7 +5,7 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
   <img alt="Language: Rust" src="https://img.shields.io/badge/Language-Rust-orange.svg" />
-  <img alt="Version" src="https://img.shields.io/badge/Version-0.5.3-lightgrey.svg" />
+  <img alt="Version" src="https://img.shields.io/github/v/release/MickyBalladelli/bonsai?label=Version" />
 </p>
 
 # Bonsai
@@ -18,7 +18,13 @@ Use it when you want an LLM to understand a whole project before asking for arch
 
 ## Quick Start
 
-Install Bonsai, then run it inside a repository:
+Install Bonsai, check it once, then run it inside a repository:
+
+```sh
+bonsai setup
+```
+
+Full repository context:
 
 ```sh
 bonsai .
@@ -48,6 +54,31 @@ For a paste-ready prompt:
 bonsai . --prompt --output-file /tmp/bonsai-prompt.txt
 ```
 
+Choose the right flow from [the decision table](docs/decision-table.md).
+
+Save common choices in `.bonsai.toml`. Bonsai loads this file from the target
+repository automatically. Command-line flags win over config values.
+
+## Beginner Flows
+
+Full context:
+
+```sh
+bonsai .
+```
+
+Changed context against a Git branch:
+
+```sh
+bonsai . --preset changed --changed-since main --output-file bonsai-changes.xml
+```
+
+Project map only:
+
+```sh
+bonsai . --preset map --output-file bonsai-map.xml
+```
+
 ## Quick Setup For Agents
 
 Run this once in any repo where you want agents to use Bonsai first:
@@ -65,6 +96,14 @@ CLAUDE.md
 
 Those files tell Codex, Claude Code, and similar agents to run Bonsai before answering broad project questions.
 
+Create only one file, or tune the generated instruction:
+
+```sh
+bonsai init-agent --files agents
+bonsai init-agent --files claude --style detailed
+bonsai init-agent --max-tokens 8000 --output-file /tmp/bonsai.xml
+```
+
 Overwrite existing files:
 
 ```sh
@@ -73,7 +112,8 @@ bonsai init-agent --force
 
 ## Install
 
-Download a release binary:
+Download a release binary. The commands below verify SHA-256, install to the
+standard `/usr/local/bin/bonsai` path, and leave no binary-path guessing.
 
 ```text
 https://github.com/mickyhq/bonsai/releases/latest
@@ -92,17 +132,28 @@ bonsai-vscode-*.vsix
 macOS Apple Silicon:
 
 ```sh
-curl -L -o bonsai https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-macos-arm64
-chmod +x bonsai
-sudo mv bonsai /usr/local/bin/bonsai
+curl -fL -o bonsai-macos-arm64 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-macos-arm64
+curl -fL -o bonsai-macos-arm64.sha256 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-macos-arm64.sha256
+if test "$(awk '{print $1}' bonsai-macos-arm64.sha256)" != "$(shasum -a 256 bonsai-macos-arm64 | awk '{print $1}')"; then
+  echo "SHA-256 verification failed"
+  exit 1
+fi
+chmod +x bonsai-macos-arm64
+sudo install -m 755 bonsai-macos-arm64 /usr/local/bin/bonsai
+bonsai --version
 ```
 
 Linux x64:
 
 ```sh
-curl -L -o bonsai https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-linux-x64
-chmod +x bonsai
-sudo mv bonsai /usr/local/bin/bonsai
+curl -fL -o bonsai-linux-x64 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-linux-x64
+curl -fL -o bonsai-linux-x64.sha256 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-linux-x64.sha256
+if test "$(awk '{print $1}' bonsai-linux-x64.sha256)" != "$(sha256sum bonsai-linux-x64 | awk '{print $1}')"; then
+  echo "SHA-256 verification failed"
+  exit 1
+fi
+sudo install -m 755 bonsai-linux-x64 /usr/local/bin/bonsai
+bonsai --version
 ```
 
 Install from this checkout:
@@ -117,9 +168,28 @@ Install from GitHub:
 cargo install --git https://github.com/mickyhq/bonsai.git
 ```
 
+Homebrew formula:
+
+```sh
+brew install --build-from-source ./Formula/bonsai.rb
+```
+
+For a normal `brew install bonsai` command, publish this formula in a tap named
+`homebrew-bonsai`, then run:
+
+```sh
+brew tap MickyBalladelli/bonsai
+brew install bonsai
+```
+
+The formula builds from the tagged source and needs Rust. Release binaries are
+faster when a matching macOS Apple Silicon or Linux x64 asset is available.
+See [the Homebrew guide](docs/homebrew.md) if you are publishing a tap.
+
 Check your install:
 
 ```sh
+bonsai setup
 bonsai doctor
 ```
 
@@ -159,11 +229,55 @@ Markdown keeps headings, useful summary text, tables, lists, links, and code fen
 
 ## Common Commands
 
+### Everyday output
+
 Write XML to `bonsai.xml`:
 
 ```sh
 bonsai .
 ```
+
+Use a simple flow preset:
+
+```sh
+bonsai . --preset full
+bonsai . --preset changed
+bonsai . --preset map
+bonsai . --preset prompt
+```
+
+`full` is the normal context, `changed` uses the local cache, `map` writes only
+the project map, and `prompt` wraps the context and copies it to the clipboard.
+
+## Config
+
+Create `.bonsai.toml` in a repository to keep the settings you use most:
+
+```toml
+max_tokens = 4000
+level = 2
+format = "xml"
+output = "file"
+output_file = "bonsai.xml"
+include = ["src/**"]
+exclude = ["**/generated/**"]
+respect_gitignore = true
+exclude_generated = false
+```
+
+Supported settings are `preset`, `max_tokens`, `tokenizer`, `max_file_bytes`,
+`max_file_tokens`, `level`, `output`, `output_file`, `format`,
+`project_map_only`, `incremental`, `changed_since`, `include`, `exclude`,
+`respect_gitignore`, and `exclude_generated`. Use `--config PATH` to load a
+different file.
+
+Check first-run setup:
+
+```sh
+bonsai setup
+```
+
+### Output formats and prompts
 
 Write JSON:
 
@@ -177,6 +291,8 @@ Copy a prompt to the clipboard:
 ```sh
 bonsai . --prompt --output clipboard
 ```
+
+### Selection and budget
 
 Use a model-family tokenizer:
 
@@ -289,7 +405,25 @@ Cap very large files before the global budget pass:
 bonsai . --max-file-tokens 2000
 ```
 
+Advanced options are grouped in `bonsai --help` under Budget, Output, Changes,
+Selection, Diagnostics, and Prompt.
+
+See the [generated CLI option reference](docs/cli-options.md). Refresh it after
+changing CLI flags with `sh scripts/generate-cli-reference.sh`.
+
 ## Change-Focused Context
+
+Recommended local changed-context flow:
+
+```sh
+bonsai .
+bonsai . --preset changed
+```
+
+The first command creates the local baseline. The second command includes only
+added or changed files and prints change counts. Run the normal command again
+when you want to refresh the baseline. Use `bonsai cache clear` if the baseline
+becomes stale.
 
 Only include files changed since the last cached local run:
 
@@ -313,8 +447,12 @@ bonsai . --incremental-base /path/to/base.cache
 Include tracked changes and untracked files against a git ref:
 
 ```sh
-bonsai . --changed-since main
+bonsai . --preset changed --changed-since main
 ```
+
+Use the local cache for repeated work. Use `--changed-since <git-ref>` for a
+branch comparison. Do not combine `--changed-since` with `--incremental` or an
+incremental base.
 
 Clear the local parse cache for a repo:
 
@@ -322,6 +460,9 @@ Clear the local parse cache for a repo:
 bonsai cache clear
 bonsai cache clear /path/to/repo
 ```
+
+See [the cache guide](docs/cache.md) for cache location, invalidation, and the
+three changed-context workflows.
 
 Bonsai stores file-selection options with the cache. If `--include`, `--exclude`, `--exclude-generated`, `--max-file-bytes`, or gitignore handling changes, the next incremental run includes selected files once instead of comparing against stale selection.
 
@@ -356,17 +497,10 @@ Bonsai scans:
 .md .json .yaml .yml .toml
 ```
 
-Tree-sitter parsers:
+The [supported-file table](docs/supported-files.md) shows parser-backed files
+and compact fallback files:
 
-```text
-JavaScript, TypeScript, Python, Rust, Go, Java, C#, Swift, Kotlin, C, C++
-```
-
-Compact structure extraction:
-
-```text
-Objective-C, web templates, Markdown, JSON, YAML, TOML
-```
+`bonsai doctor` reports the installed parser mode and availability.
 
 Bonsai respects `.gitignore` and `.cursorignore` by default.
 
@@ -425,20 +559,22 @@ copilot/bonsai-vscode
 Install the packaged VSIX:
 
 ```sh
-code --install-extension copilot/bonsai-vscode/bonsai-vscode-0.5.3.vsix
+code --install-extension copilot/bonsai-vscode/bonsai-vscode-*.vsix
 ```
 
-Command Palette commands:
+Primary Command Palette commands:
 
 ```text
+Bonsai: Generate
+Bonsai: Generate Changed
 Bonsai: Generate and Ask
-Bonsai: Generate Context
-Bonsai: Copy Context Prompt
-Bonsai: Copy Changed Context
-Bonsai: Copy Project Map
-Bonsai: Preview Project Map
-Bonsai: Open Last Context
+Bonsai: More Actions
 ```
+
+`More Actions` contains full-prompt copy, project-map copy and preview, opening
+the last context, and setup. The extension downloads and verifies a matching
+binary on macOS Apple Silicon and Linux x64. Other platforms need an installed
+binary configured under the advanced `bonsai.binaryPath` setting.
 
 <img src="images/vscode-flow.svg" alt="Bonsai VS Code flow" width="720">
 
@@ -457,7 +593,9 @@ Output stats:
 Binary not found:
 
 ```text
-Install Bonsai, put it on PATH, set BONSAI_BIN, or run cargo build --release.
+Run `Bonsai: Run Setup` in VS Code and choose `Download Bonsai`. Automatic
+downloads support macOS Apple Silicon and Linux x64. On other platforms, put
+Bonsai on PATH or set the advanced `bonsai.binaryPath` setting.
 ```
 
 Clipboard failure:
@@ -490,6 +628,9 @@ bonsai doctor --json
 
 It also reports the cache path, cache size, cache entry count, stored selection metadata, and stale entries.
 
+`bonsai setup` shows the CLI version and checks the binary, tokenizer, parsers,
+clipboard, repository, and output path.
+
 ## Development
 
 Check:
@@ -520,6 +661,9 @@ npm install
 npm run compile
 npm run package
 ```
+
+Maintenance notes and the release checklist live in
+[docs/maintenance.md](docs/maintenance.md).
 
 ## Names
 

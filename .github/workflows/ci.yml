@@ -13,12 +13,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Check synchronized versions
+        run: ruby scripts/sync-version.rb --check
       - name: Format check
         run: cargo fmt --check
       - name: Test
         run: cargo test
       - name: Build release binary
         run: cargo build --release
+      - name: Check generated CLI reference
+        run: target/release/bonsai docs | diff -u docs/cli-options.md -
       - name: CLI integration tests
         run: BONSAI_BIN=target/release/bonsai bash tests/cli_integration.sh
       - name: CLI output smoke test

@@ -6,6 +6,7 @@ mod walker;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
@@ -31,156 +32,262 @@ use walker::{
     WalkerOptions,
 };
 
+const DEFAULT_MAX_TOKENS: usize = 4000;
+const DEFAULT_MAX_FILE_BYTES: u64 = 1_048_576;
+const DEFAULT_LEVEL: u8 = 2;
+const DEFAULT_OUTPUT_FILE: &str = "bonsai.xml";
+
 #[derive(Debug, Parser)]
 #[command(name = "bonsai")]
 #[command(version)]
 #[command(about = "Shrink repository source context into token-efficient XML, JSON, or text")]
 struct Cli {
-    #[arg(default_value = ".")]
+    #[arg(default_value = ".", help_heading = "Basic")]
     path: PathBuf,
 
-    #[arg(long, default_value_t = 4000)]
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Read settings from this file instead of the repository's .bonsai.toml",
+        help_heading = "Basic"
+    )]
+    config: Option<PathBuf>,
+
+    #[arg(
+        long,
+        value_enum,
+        help = "Simple flow: full (default), changed (local cache), map (project map), prompt (clipboard)",
+        help_heading = "Basic"
+    )]
+    preset: Option<Preset>,
+
+    #[arg(long, default_value_t = DEFAULT_MAX_TOKENS, help_heading = "Budget")]
     max_tokens: usize,
 
     #[arg(
         long,
         default_value_t = TokenizerKind::default(),
         value_name = "TOKENIZER",
-        help = "Tokenizer family or model alias: o200k_base, cl100k_base, p50k_base, p50k_edit, r50k_base"
+        help = "Tokenizer family or model alias: o200k_base, cl100k_base, p50k_base, p50k_edit, r50k_base",
+        help_heading = "Budget"
     )]
     tokenizer: TokenizerKind,
 
     #[arg(
         long,
-        default_value_t = 1_048_576,
-        help = "Skip files larger than this many bytes; 0 disables the cap"
+        default_value_t = DEFAULT_MAX_FILE_BYTES,
+        help = "Skip files larger than this many bytes; 0 disables the cap",
+        help_heading = "Budget"
     )]
     max_file_bytes: u64,
 
     #[arg(
         long,
-        help = "Cap each file to this many tokens before global budget optimization; 0 disables the cap"
+        help = "Cap each file to this many tokens before global budget optimization; 0 disables the cap",
+        help_heading = "Budget"
     )]
     max_file_tokens: Option<usize>,
 
-    #[arg(long, default_value_t = 2)]
+    #[arg(
+        long,
+        default_value_t = DEFAULT_LEVEL,
+        help = "Compression: 1 keeps full source first, 2 keeps signatures and shapes, 3 keeps names and a tree map. Start with 2.",
+        help_heading = "Budget"
+    )]
     level: u8,
 
-    #[arg(long, value_enum, default_value_t = OutputDestination::File)]
+    #[arg(long, value_enum, default_value_t = OutputDestination::File, help_heading = "Output")]
     output: OutputDestination,
 
-    #[arg(long, default_value = "bonsai.xml")]
+    #[arg(long, default_value = DEFAULT_OUTPUT_FILE, help_heading = "Output")]
     output_file: PathBuf,
 
-    #[arg(long, value_enum, default_value_t = OutputFormat::Xml)]
+    #[arg(long, value_enum, default_value_t = OutputFormat::Xml, help_heading = "Output")]
     format: OutputFormat,
 
-    #[arg(long)]
+    #[arg(long, help = "Write only the project map", help_heading = "Output")]
     project_map_only: bool,
 
     #[arg(
         long,
         value_name = "TOKENS",
-        help = "When --max-tokens is below this value, output metadata, project map, and directory summaries only"
+        help = "When --max-tokens is below this value, output metadata, project map, and directory summaries only",
+        help_heading = "Output"
     )]
     map_only_under: Option<usize>,
 
-    #[arg(long, value_enum, default_value_t = ProjectMapMode::Flat)]
+    #[arg(long, value_enum, default_value_t = ProjectMapMode::Flat, help_heading = "Output")]
     project_map: ProjectMapMode,
 
-    #[arg(long, help = "Include stable content hashes in project map entries")]
+    #[arg(
+        long,
+        help = "Include stable content hashes in project map entries",
+        help_heading = "Output"
+    )]
     file_hashes: bool,
 
-    #[arg(long, help = "Omit token count fields from XML and JSON output")]
+    #[arg(
+        long,
+        help = "Omit token count fields from XML and JSON output",
+        help_heading = "Output"
+    )]
     no_token_counts: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Omit file bodies while keeping metadata and the project map",
+        help_heading = "Output"
+    )]
     no_content: bool,
 
     #[arg(
         long,
-        help = "Print selected files and estimated tokens without writing output"
+        help = "Print selected files and estimated tokens without writing output",
+        help_heading = "Output"
     )]
     dry_run: bool,
 
-    #[arg(long, value_enum, default_value_t = SortMode::Path)]
+    #[arg(long, value_enum, default_value_t = SortMode::Path, help_heading = "Output")]
     sort: SortMode,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Add token totals for each directory",
+        help_heading = "Output"
+    )]
     directory_summaries: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Fail if the final output is still over budget",
+        help_heading = "Output"
+    )]
     fail_over_budget: bool,
 
     #[arg(
         long,
-        help = "Omit lowest-priority files if tree-map output still exceeds --max-tokens"
+        help = "Omit lowest-priority files if tree-map output still exceeds --max-tokens",
+        help_heading = "Output"
     )]
     drop_low_priority: bool,
 
     #[arg(
         long,
-        help = "Only include files added or changed since the last cached local run"
+        help = "Changed workflow: after one normal run, include only added or changed files from the local cache",
+        help_heading = "Changes"
     )]
     incremental: bool,
 
     #[arg(
         long,
         value_name = "PATH",
-        help = "Only include files added or changed compared with a base directory or cache file"
+        help = "Only include files added or changed compared with a base directory or cache file",
+        help_heading = "Changes"
     )]
     incremental_base: Option<PathBuf>,
 
     #[arg(
         long,
         value_name = "GIT_REF",
-        help = "Only include tracked changes and untracked files compared with this git ref"
+        help = "Changed workflow: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental",
+        help_heading = "Changes"
     )]
     changed_since: Option<String>,
 
     #[arg(
         long,
-        help = "Print added, changed, unchanged, skipped, and deleted counts"
+        help = "Print added, changed, unchanged, skipped, and deleted counts",
+        help_heading = "Changes"
     )]
     incremental_summary: bool,
 
-    #[arg(long, value_name = "GLOB")]
+    #[arg(
+        long,
+        value_name = "GLOB",
+        help = "Only include matching paths",
+        help_heading = "Selection"
+    )]
     include: Vec<String>,
 
-    #[arg(long, value_name = "GLOB")]
+    #[arg(
+        long,
+        value_name = "GLOB",
+        help = "Exclude matching paths",
+        help_heading = "Selection"
+    )]
     exclude: Vec<String>,
 
-    #[arg(long = "no-respect-gitignore", action = ArgAction::SetFalse, default_value_t = true)]
+    #[arg(
+        long = "no-respect-gitignore",
+        action = ArgAction::SetFalse,
+        default_value_t = true,
+        help = "Include files ignored by Git",
+        help_heading = "Selection"
+    )]
     respect_gitignore: bool,
 
     #[arg(
         long,
-        help = "Skip minified, vendored, generated, and lockfile-like files unless --include matches them"
+        help = "Skip minified, vendored, generated, and lockfile-like files unless --include matches them",
+        help_heading = "Selection"
     )]
     exclude_generated: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Print selected files before generation",
+        help_heading = "Diagnostics"
+    )]
     print_files: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Fail when no supported files are selected",
+        help_heading = "Diagnostics"
+    )]
     fail_on_empty: bool,
 
-    #[arg(long, help = "Suppress normal stdout output for scripts")]
+    #[arg(
+        long,
+        help = "Suppress normal stdout output for scripts",
+        help_heading = "Diagnostics"
+    )]
     quiet: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Print a summary and output token count",
+        help_heading = "Diagnostics"
+    )]
     stats: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Print per-file and token distribution details",
+        help_heading = "Diagnostics"
+    )]
     detailed_stats: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Print output path and selected file count",
+        help_heading = "Diagnostics"
+    )]
     summary: bool,
 
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Wrap output in a paste-ready agent prompt",
+        help_heading = "Prompt"
+    )]
     prompt: bool,
 
-    #[arg(long, value_name = "TEXT")]
+    #[arg(
+        long,
+        value_name = "TEXT",
+        help = "Use this task text inside the prompt wrapper",
+        help_heading = "Prompt"
+    )]
     ask_template: Option<String>,
 
     #[command(subcommand)]
@@ -189,13 +296,61 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    #[command(about = "Write AGENTS.md and CLAUDE.md starter instructions")]
+    #[command(about = "Check Bonsai and prepare the first-run output path")]
+    Setup {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        #[arg(
+            long,
+            default_value_t = TokenizerKind::default(),
+            value_name = "TOKENIZER"
+        )]
+        tokenizer: TokenizerKind,
+
+        #[arg(long, default_value = "bonsai.xml")]
+        output_file: PathBuf,
+    },
+
+    #[command(about = "Write selectable AGENTS.md and CLAUDE.md starter instructions")]
     InitAgent {
         #[arg(default_value = ".")]
         path: PathBuf,
 
         #[arg(long, short)]
         force: bool,
+
+        #[arg(
+            long,
+            value_enum,
+            default_value_t = AgentFileSelection::Both,
+            value_name = "FILES",
+            help = "Create agents, claude, or both files"
+        )]
+        files: AgentFileSelection,
+
+        #[arg(
+            long,
+            value_enum,
+            default_value_t = AgentInstructionStyle::Short,
+            value_name = "STYLE",
+            help = "Use short or detailed starter instructions"
+        )]
+        style: AgentInstructionStyle,
+
+        #[arg(
+            long,
+            value_name = "TOKENS",
+            help = "Add a token budget to the generated Bonsai command"
+        )]
+        max_tokens: Option<usize>,
+
+        #[arg(
+            long,
+            value_name = "PATH",
+            help = "Add a custom output file to the generated Bonsai command"
+        )]
+        output_file: Option<PathBuf>,
     },
 
     #[command(about = "Manage Bonsai cache")]
@@ -222,6 +377,9 @@ enum Commands {
 
     #[command(about = "Generate shell completions")]
     Completions { shell: CompletionShell },
+
+    #[command(about = "Print the generated Markdown CLI option reference")]
+    Docs,
 }
 
 #[derive(Debug, Subcommand)]
@@ -238,6 +396,19 @@ enum CompletionShell {
     Bash,
     Zsh,
     Fish,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum AgentFileSelection {
+    Agents,
+    Claude,
+    Both,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum AgentInstructionStyle {
+    Short,
+    Detailed,
 }
 
 impl CompletionShell {
@@ -276,6 +447,448 @@ enum ProjectMapMode {
     Compact,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Preset {
+    Full,
+    Changed,
+    Map,
+    Prompt,
+}
+
+#[derive(Debug, Default)]
+struct BonsaiConfigFile {
+    preset: Option<Preset>,
+    max_tokens: Option<usize>,
+    tokenizer: Option<TokenizerKind>,
+    max_file_bytes: Option<u64>,
+    max_file_tokens: Option<usize>,
+    level: Option<u8>,
+    output: Option<OutputDestination>,
+    output_file: Option<PathBuf>,
+    format: Option<OutputFormat>,
+    project_map_only: Option<bool>,
+    incremental: Option<bool>,
+    changed_since: Option<String>,
+    include: Option<Vec<String>>,
+    exclude: Option<Vec<String>>,
+    respect_gitignore: Option<bool>,
+    exclude_generated: Option<bool>,
+}
+
+fn apply_config(cli: &mut Cli, root: &Path, args: &[OsString]) -> Result<()> {
+    let Some(path) = config_path(cli, root)? else {
+        return Ok(());
+    };
+    let contents = fs::read_to_string(&path)
+        .with_context(|| format!("cannot read config file {}", path.display()))?;
+    let config = parse_config(&contents, &path)?;
+
+    if !option_was_provided(args, "--preset") {
+        if let Some(value) = config.preset {
+            cli.preset = Some(value);
+        }
+    }
+    if !option_was_provided(args, "--max-tokens") {
+        if let Some(value) = config.max_tokens {
+            cli.max_tokens = value;
+        }
+    }
+    if !option_was_provided(args, "--tokenizer") {
+        if let Some(value) = config.tokenizer {
+            cli.tokenizer = value;
+        }
+    }
+    if !option_was_provided(args, "--max-file-bytes") {
+        if let Some(value) = config.max_file_bytes {
+            cli.max_file_bytes = value;
+        }
+    }
+    if !option_was_provided(args, "--max-file-tokens") {
+        if let Some(value) = config.max_file_tokens {
+            cli.max_file_tokens = Some(value);
+        }
+    }
+    if !option_was_provided(args, "--level") {
+        if let Some(value) = config.level {
+            cli.level = value;
+        }
+    }
+    if !option_was_provided(args, "--output") {
+        if let Some(value) = config.output {
+            cli.output = value;
+        }
+    }
+    if !option_was_provided(args, "--output-file") {
+        if let Some(value) = config.output_file {
+            cli.output_file = value;
+        }
+    }
+    if !option_was_provided(args, "--format") {
+        if let Some(value) = config.format {
+            cli.format = value;
+        }
+    }
+    if !option_was_provided(args, "--project-map-only") {
+        if let Some(value) = config.project_map_only {
+            cli.project_map_only = value;
+        }
+    }
+    if !option_was_provided(args, "--incremental") {
+        if let Some(value) = config.incremental {
+            cli.incremental = value;
+        }
+    }
+    if !option_was_provided(args, "--changed-since") {
+        if let Some(value) = config.changed_since {
+            cli.changed_since = Some(value);
+        }
+    }
+    if !option_was_provided(args, "--include") {
+        if let Some(value) = config.include {
+            cli.include = value;
+        }
+    }
+    if !option_was_provided(args, "--exclude") {
+        if let Some(value) = config.exclude {
+            cli.exclude = value;
+        }
+    }
+    if !option_was_provided(args, "--no-respect-gitignore") {
+        if let Some(value) = config.respect_gitignore {
+            cli.respect_gitignore = value;
+        }
+    }
+    if !option_was_provided(args, "--exclude-generated") {
+        if let Some(value) = config.exclude_generated {
+            cli.exclude_generated = value;
+        }
+    }
+
+    Ok(())
+}
+
+fn apply_preset(cli: &mut Cli, args: &[OsString]) {
+    let Some(preset) = cli.preset else {
+        return;
+    };
+
+    match preset {
+        Preset::Full => {}
+        Preset::Changed => {
+            if cli.changed_since.is_none() && cli.incremental_base.is_none() {
+                cli.incremental = true;
+            }
+            if !option_was_provided(args, "--incremental-summary") {
+                cli.incremental_summary = true;
+            }
+        }
+        Preset::Map => {
+            if !option_was_provided(args, "--project-map-only") {
+                cli.project_map_only = true;
+            }
+        }
+        Preset::Prompt => {
+            cli.prompt = true;
+            if !option_was_provided(args, "--output") {
+                cli.output = OutputDestination::Clipboard;
+            }
+        }
+    }
+}
+
+fn config_path(cli: &Cli, root: &Path) -> Result<Option<PathBuf>> {
+    if let Some(path) = &cli.config {
+        let path = if path.is_absolute() {
+            path.clone()
+        } else {
+            env::current_dir()
+                .context("cannot resolve current directory")?
+                .join(path)
+        };
+        if !path.is_file() {
+            bail!("config file does not exist: {}", path.display());
+        }
+        return Ok(Some(path));
+    }
+
+    let path = root.join(".bonsai.toml");
+    if path.exists() && !path.is_file() {
+        bail!("config path exists but is not a file: {}", path.display());
+    }
+
+    Ok(path.is_file().then_some(path))
+}
+
+fn option_was_provided(args: &[OsString], option: &str) -> bool {
+    args.iter().skip(1).any(|argument| {
+        let argument = argument.to_string_lossy();
+        argument == option || argument.starts_with(&format!("{option}="))
+    })
+}
+
+fn parse_config(contents: &str, path: &Path) -> Result<BonsaiConfigFile> {
+    let mut config = BonsaiConfigFile::default();
+
+    for (line_index, raw_line) in contents.lines().enumerate() {
+        let line_number = line_index + 1;
+        let line = strip_config_comment(raw_line).trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        let Some((key, value)) = line.split_once('=') else {
+            bail!(
+                "invalid config {}:{}: expected key = value",
+                path.display(),
+                line_number
+            );
+        };
+        let key = key.trim();
+        let value = value.trim();
+
+        match key {
+            "preset" => config.preset = Some(parse_config_preset(value, path, line_number)?),
+            "max_tokens" => {
+                config.max_tokens = Some(parse_config_usize(value, key, path, line_number)?)
+            }
+            "tokenizer" => {
+                config.tokenizer = Some(parse_config_tokenizer(value, path, line_number)?)
+            }
+            "max_file_bytes" => {
+                config.max_file_bytes = Some(parse_config_u64(value, key, path, line_number)?)
+            }
+            "max_file_tokens" => {
+                config.max_file_tokens = Some(parse_config_usize(value, key, path, line_number)?)
+            }
+            "level" => config.level = Some(parse_config_u8(value, key, path, line_number)?),
+            "output" => config.output = Some(parse_config_output(value, path, line_number)?),
+            "output_file" => {
+                config.output_file = Some(PathBuf::from(parse_config_string(
+                    value,
+                    key,
+                    path,
+                    line_number,
+                )?))
+            }
+            "format" => config.format = Some(parse_config_format(value, path, line_number)?),
+            "project_map_only" => {
+                config.project_map_only = Some(parse_config_bool(value, key, path, line_number)?)
+            }
+            "incremental" => {
+                config.incremental = Some(parse_config_bool(value, key, path, line_number)?)
+            }
+            "changed_since" => {
+                config.changed_since = Some(parse_config_string(value, key, path, line_number)?)
+            }
+            "include" => {
+                config.include = Some(parse_config_strings(value, key, path, line_number)?)
+            }
+            "exclude" => {
+                config.exclude = Some(parse_config_strings(value, key, path, line_number)?)
+            }
+            "respect_gitignore" => {
+                config.respect_gitignore = Some(parse_config_bool(value, key, path, line_number)?)
+            }
+            "exclude_generated" => {
+                config.exclude_generated = Some(parse_config_bool(value, key, path, line_number)?)
+            }
+            _ => bail!(
+                "unknown config key `{key}` in {}:{}",
+                path.display(),
+                line_number
+            ),
+        }
+    }
+
+    Ok(config)
+}
+
+fn strip_config_comment(line: &str) -> &str {
+    let mut in_quotes = false;
+    let mut escaped = false;
+
+    for (index, character) in line.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if in_quotes && character == '\\' {
+            escaped = true;
+            continue;
+        }
+        match character {
+            '"' => in_quotes = !in_quotes,
+            '#' if !in_quotes => return &line[..index],
+            _ => {}
+        }
+    }
+
+    line
+}
+
+fn parse_config_string(value: &str, key: &str, path: &Path, line_number: usize) -> Result<String> {
+    let value = value.trim();
+    if value.len() < 2 || !value.starts_with('"') || !value.ends_with('"') {
+        bail!(
+            "invalid config {}:{}: {key} must be a quoted string",
+            path.display(),
+            line_number
+        );
+    }
+
+    let mut parsed = String::new();
+    let mut characters = value[1..value.len() - 1].chars();
+    while let Some(character) = characters.next() {
+        if character != '\\' {
+            parsed.push(character);
+            continue;
+        }
+
+        let Some(escaped) = characters.next() else {
+            bail!(
+                "invalid config {}:{}: unfinished escape in {key}",
+                path.display(),
+                line_number
+            );
+        };
+        match escaped {
+            '"' => parsed.push('"'),
+            '\\' => parsed.push('\\'),
+            'n' => parsed.push('\n'),
+            'r' => parsed.push('\r'),
+            't' => parsed.push('\t'),
+            _ => bail!(
+                "invalid config {}:{}: unsupported escape in {key}",
+                path.display(),
+                line_number
+            ),
+        }
+    }
+
+    Ok(parsed)
+}
+
+fn parse_config_strings(
+    value: &str,
+    key: &str,
+    path: &Path,
+    line_number: usize,
+) -> Result<Vec<String>> {
+    let value = value.trim();
+    if value.len() < 2 || !value.starts_with('[') || !value.ends_with(']') {
+        bail!(
+            "invalid config {}:{}: {key} must be an array of quoted strings",
+            path.display(),
+            line_number
+        );
+    }
+
+    let values = value[1..value.len() - 1].trim();
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    values
+        .split(',')
+        .map(|item| parse_config_string(item.trim(), key, path, line_number))
+        .collect()
+}
+
+fn parse_config_bool(value: &str, key: &str, path: &Path, line_number: usize) -> Result<bool> {
+    match value.trim() {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => bail!(
+            "invalid config {}:{}: {key} must be true or false",
+            path.display(),
+            line_number
+        ),
+    }
+}
+
+fn parse_config_usize(value: &str, key: &str, path: &Path, line_number: usize) -> Result<usize> {
+    value.trim().parse().map_err(|_| {
+        anyhow::anyhow!(
+            "invalid config {}:{}: {key} must be a positive integer",
+            path.display(),
+            line_number
+        )
+    })
+}
+
+fn parse_config_u64(value: &str, key: &str, path: &Path, line_number: usize) -> Result<u64> {
+    value.trim().parse().map_err(|_| {
+        anyhow::anyhow!(
+            "invalid config {}:{}: {key} must be a positive integer",
+            path.display(),
+            line_number
+        )
+    })
+}
+
+fn parse_config_u8(value: &str, key: &str, path: &Path, line_number: usize) -> Result<u8> {
+    value.trim().parse().map_err(|_| {
+        anyhow::anyhow!(
+            "invalid config {}:{}: {key} must be a number",
+            path.display(),
+            line_number
+        )
+    })
+}
+
+fn parse_config_tokenizer(value: &str, path: &Path, line_number: usize) -> Result<TokenizerKind> {
+    let value = parse_config_string(value, "tokenizer", path, line_number)?;
+    value.parse().map_err(|error: String| {
+        anyhow::anyhow!(
+            "invalid config {}:{}: invalid tokenizer `{value}` ({error})",
+            path.display(),
+            line_number
+        )
+    })
+}
+
+fn parse_config_output(value: &str, path: &Path, line_number: usize) -> Result<OutputDestination> {
+    let value = parse_config_string(value, "output", path, line_number)?.to_ascii_lowercase();
+    match value.as_str() {
+        "file" => Ok(OutputDestination::File),
+        "clipboard" => Ok(OutputDestination::Clipboard),
+        _ => bail!(
+            "invalid config {}:{}: output must be file or clipboard",
+            path.display(),
+            line_number
+        ),
+    }
+}
+
+fn parse_config_format(value: &str, path: &Path, line_number: usize) -> Result<OutputFormat> {
+    let value = parse_config_string(value, "format", path, line_number)?.to_ascii_lowercase();
+    match value.as_str() {
+        "xml" => Ok(OutputFormat::Xml),
+        "json" => Ok(OutputFormat::Json),
+        "text" => Ok(OutputFormat::Text),
+        _ => bail!(
+            "invalid config {}:{}: format must be xml, json, or text",
+            path.display(),
+            line_number
+        ),
+    }
+}
+
+fn parse_config_preset(value: &str, path: &Path, line_number: usize) -> Result<Preset> {
+    let value = parse_config_string(value, "preset", path, line_number)?.to_ascii_lowercase();
+    match value.as_str() {
+        "full" => Ok(Preset::Full),
+        "changed" => Ok(Preset::Changed),
+        "map" => Ok(Preset::Map),
+        "prompt" => Ok(Preset::Prompt),
+        _ => bail!(
+            "invalid config {}:{}: preset must be full, changed, map, or prompt",
+            path.display(),
+            line_number
+        ),
+    }
+}
+
 impl From<ProjectMapMode> for FormatProjectMapMode {
     fn from(mode: ProjectMapMode) -> Self {
         match mode {
@@ -286,15 +899,18 @@ impl From<ProjectMapMode> for FormatProjectMapMode {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let raw_args = env::args_os().collect::<Vec<_>>();
+    let mut cli = Cli::parse_from(raw_args.clone());
     if let Some(command) = &cli.command {
         handle_command(command)?;
         return Ok(());
     }
 
-    validate_delta_options(&cli)?;
     let root = fs::canonicalize(&cli.path)
         .with_context(|| format!("cannot resolve target path {}", cli.path.display()))?;
+    apply_config(&mut cli, &root, &raw_args)?;
+    apply_preset(&mut cli, &raw_args);
+    validate_delta_options(&cli)?;
     let requested_level = CompressionLevel::try_from(cli.level)?;
     let token_counter = TokenCounter::new(cli.tokenizer)?;
     let mut parse_cache = ParseCache::load(cache_path_for_root(&root));
@@ -459,8 +1075,7 @@ fn main() -> Result<()> {
                     .context("cannot write clipboard")?;
             }
             OutputDestination::File => {
-                fs::write(&cli.output_file, context)
-                    .with_context(|| format!("cannot write {}", cli.output_file.display()))?;
+                write_output_file(&cli.output_file, &context, cli.quiet)?;
             }
         }
     }
@@ -471,6 +1086,10 @@ fn main() -> Result<()> {
                 eprintln!("warning: cannot write parse cache: {error:#}");
             }
         }
+    }
+
+    if !cli.dry_run && !cli.quiet {
+        print_success(&run_stats);
     }
 
     if cli.summary && !cli.quiet {
@@ -494,7 +1113,26 @@ fn main() -> Result<()> {
 
 fn handle_command(command: &Commands) -> Result<()> {
     match command {
-        Commands::InitAgent { path, force } => init_agent_files(path, *force),
+        Commands::Setup {
+            path,
+            tokenizer,
+            output_file,
+        } => run_setup(path, *tokenizer, output_file),
+        Commands::InitAgent {
+            path,
+            force,
+            files,
+            style,
+            max_tokens,
+            output_file,
+        } => init_agent_files(
+            path,
+            *force,
+            *files,
+            *style,
+            *max_tokens,
+            output_file.as_deref(),
+        ),
         Commands::Cache { command } => match command {
             CacheCommands::Clear { path } => clear_cache(path),
         },
@@ -513,6 +1151,91 @@ fn handle_command(command: &Commands) -> Result<()> {
             );
             Ok(())
         }
+        Commands::Docs => {
+            print_cli_reference();
+            Ok(())
+        }
+    }
+}
+
+fn run_setup(target: &Path, tokenizer: TokenizerKind, output_file: &Path) -> Result<()> {
+    let root = fs::canonicalize(target)
+        .with_context(|| format!("cannot resolve setup target {}", target.display()))?;
+    let mut required_checks_ok = true;
+
+    println!("bonsai setup:");
+    println!("  version: {}", env!("CARGO_PKG_VERSION"));
+    match env::current_exe() {
+        Ok(binary_path) => match fs::metadata(&binary_path) {
+            Ok(metadata) if metadata.is_file() => {
+                println!("  binary: ok ({})", binary_path.display());
+            }
+            Ok(_) => {
+                println!("  binary: failed ({}) is not a file", binary_path.display());
+                required_checks_ok = false;
+            }
+            Err(error) => {
+                println!("  binary: failed ({error})");
+                required_checks_ok = false;
+            }
+        },
+        Err(error) => {
+            println!("  binary: failed ({error})");
+            required_checks_ok = false;
+        }
+    }
+
+    match TokenCounter::new(tokenizer) {
+        Ok(_) => println!("  tokenizer: ok ({})", tokenizer.as_str()),
+        Err(error) => {
+            println!("  tokenizer: failed ({error:#})");
+            required_checks_ok = false;
+        }
+    }
+
+    let parser_reports = supported_extensions()
+        .iter()
+        .map(|extension| parser_support_for_extension(extension))
+        .collect::<Vec<_>>();
+    let unavailable_parsers = parser_reports
+        .iter()
+        .filter(|parser| !parser.available)
+        .map(|parser| format!(".{}", parser.extension))
+        .collect::<Vec<_>>();
+    if unavailable_parsers.is_empty() {
+        println!("  parsers: ok ({} available)", parser_reports.len());
+    } else {
+        println!(
+            "  parsers: failed (unavailable: {})",
+            unavailable_parsers.join(", ")
+        );
+        required_checks_ok = false;
+    }
+
+    match arboard::Clipboard::new() {
+        Ok(_) => println!("  clipboard: ok"),
+        Err(error) => println!("  clipboard: warning ({error:#}); file output still works"),
+    }
+
+    let output_exists = output_file.is_file();
+    match prepare_output_path(output_file) {
+        Ok(()) if output_exists => println!(
+            "  output: ok ({} exists; the next write will warn before replacing it)",
+            output_file.display()
+        ),
+        Ok(()) => println!("  output: ok ({})", output_file.display()),
+        Err(error) => {
+            println!("  output: failed ({error:#})");
+            required_checks_ok = false;
+        }
+    }
+
+    println!("  repository: {}", root.display());
+    if required_checks_ok {
+        println!("Ready. Run `bonsai .`.");
+        Ok(())
+    } else {
+        bail!("setup found failed checks; fix them and run `bonsai setup` again")
     }
 }
 
@@ -777,16 +1500,34 @@ fn clear_cache(target: &Path) -> Result<()> {
     Ok(())
 }
 
-fn init_agent_files(target: &Path, force: bool) -> Result<()> {
+fn init_agent_files(
+    target: &Path,
+    force: bool,
+    selection: AgentFileSelection,
+    style: AgentInstructionStyle,
+    max_tokens: Option<usize>,
+    output_file: Option<&Path>,
+) -> Result<()> {
+    if max_tokens == Some(0) {
+        bail!("--max-tokens must be greater than zero");
+    }
+
     fs::create_dir_all(target)
         .with_context(|| format!("cannot create agent target {}", target.display()))?;
 
-    let agent_path = target.join("AGENTS.md");
-    let claude_path = target.join("CLAUDE.md");
+    let file_names = match selection {
+        AgentFileSelection::Agents => vec!["AGENTS.md"],
+        AgentFileSelection::Claude => vec!["CLAUDE.md"],
+        AgentFileSelection::Both => vec!["AGENTS.md", "CLAUDE.md"],
+    };
+    let paths = file_names
+        .iter()
+        .map(|file_name| target.join(file_name))
+        .collect::<Vec<_>>();
 
     if !force {
-        let existing = [agent_path.as_path(), claude_path.as_path()]
-            .into_iter()
+        let existing = paths
+            .iter()
             .filter(|path| path.exists())
             .map(|path| path.display().to_string())
             .collect::<Vec<_>>();
@@ -799,9 +1540,21 @@ fn init_agent_files(target: &Path, force: bool) -> Result<()> {
         }
     }
 
-    write_agent_file(&agent_path, AGENTS_TEMPLATE)?;
-    write_agent_file(&claude_path, CLAUDE_TEMPLATE)?;
-    println!("wrote AGENTS.md and CLAUDE.md in {}", target.display());
+    let output_name = output_file
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| DEFAULT_OUTPUT_FILE.to_owned());
+    let command = agent_command(max_tokens, &output_name);
+    for (file_name, path) in file_names.iter().zip(paths.iter()) {
+        let (runner, title) = match *file_name {
+            "AGENTS.md" => ("You run", "AGENTS.md"),
+            "CLAUDE.md" => ("Claude runs", "CLAUDE.md"),
+            _ => unreachable!("agent file selection only contains known files"),
+        };
+        let contents = agent_template(title, runner, &command, &output_name, style);
+        write_agent_file(path, &contents)?;
+    }
+
+    println!("wrote {} in {}", file_names.join(" and "), target.display());
     Ok(())
 }
 
@@ -809,45 +1562,70 @@ fn write_agent_file(path: &Path, contents: &str) -> Result<()> {
     fs::write(path, contents).with_context(|| format!("cannot write {}", path.display()))
 }
 
-const AGENTS_TEMPLATE: &str = r#"# AGENTS.md
+fn agent_command(max_tokens: Option<usize>, output_file: &str) -> String {
+    let mut command = String::from("bonsai .");
+    if let Some(max_tokens) = max_tokens {
+        command.push_str(&format!(" --max-tokens {max_tokens}"));
+    }
+    if output_file != DEFAULT_OUTPUT_FILE {
+        command.push_str(" --output-file ");
+        command.push_str(&shell_quote(output_file));
+    }
+    command
+}
 
-For repo-wide analysis, first run Bonsai. This is required for full project summaries, architecture review, onboarding, broad bug hunting, and any question that needs many files. Do not answer from ordinary file browsing until this command succeeds:
+fn agent_template(
+    title: &str,
+    runner: &str,
+    command: &str,
+    output_file: &str,
+    style: AgentInstructionStyle,
+) -> String {
+    match style {
+        AgentInstructionStyle::Short => format!(
+            "# {title}\n\nFor broad repository questions, run Bonsai first:\n\n```sh\n{command}\n```\n\nInspect `{output_file}` before answering.\n"
+        ),
+        AgentInstructionStyle::Detailed => format!(
+            "# {title}\n\nFor repo-wide analysis, first run Bonsai. Use it for project summaries, architecture review, onboarding, broad bug hunting, and questions that need many files:\n\n```sh\n{command}\n```\n\nThen inspect `{output_file}` before answering.\n\nExpected behavior example:\n\n```text\nUser asks: summarize this whole project\n{runner}: {command}\nYou inspect: {output_file}\nThen answer from that context.\n```\n"
+        ),
+    }
+}
 
-```sh
-bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
-```
+fn shell_quote(value: &str) -> String {
+    if value
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || "/._-".contains(character))
+    {
+        value.to_owned()
+    } else {
+        format!("'{}'", value.replace('\'', "'\\''"))
+    }
+}
 
-Then inspect `/tmp/bonsai.xml` before answering.
+fn print_cli_reference() {
+    let command = Cli::command();
+    println!("# Bonsai CLI option reference\n");
+    println!(
+        "Generated from the Rust CLI schema. Regenerate this file with `scripts/generate-cli-reference.sh`.\n"
+    );
+    print_command_reference(&command, "bonsai");
+}
 
-Expected behavior example:
+fn print_command_reference(command: &clap::Command, command_path: &str) {
+    let mut rendered_command = command.clone();
+    println!("## `{command_path}`\n");
+    println!("```text\n{}\n```", rendered_command.render_long_help());
 
-```text
-User asks: summarize this whole project
-You run: bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
-You inspect: /tmp/bonsai.xml
-Then answer from that context.
-```
-"#;
-
-const CLAUDE_TEMPLATE: &str = r#"# CLAUDE.md
-
-For repo-wide analysis, first run Bonsai. This is required for full project summaries, architecture review, onboarding, broad bug hunting, and any question that needs many files. Do not answer from ordinary file browsing until this command succeeds:
-
-```sh
-bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
-```
-
-Then inspect `/tmp/bonsai.xml` before answering.
-
-Expected behavior example:
-
-```text
-User asks: summarize this whole project
-Claude runs: bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
-Claude inspects: /tmp/bonsai.xml
-Claude answers from that context.
-```
-"#;
+    let subcommands = command
+        .get_subcommands()
+        .map(|subcommand| (subcommand.get_name().to_owned(), subcommand.clone()))
+        .collect::<Vec<_>>();
+    for (name, subcommand) in subcommands {
+        let path = format!("{command_path} {name}");
+        println!();
+        print_command_reference(&subcommand, &path);
+    }
+}
 
 fn max_file_bytes(cli: &Cli) -> Option<u64> {
     if cli.max_file_bytes == 0 {
@@ -863,7 +1641,9 @@ fn max_file_tokens(cli: &Cli) -> Option<usize> {
 
 fn validate_delta_options(cli: &Cli) -> Result<()> {
     if cli.changed_since.is_some() && (cli.incremental || cli.incremental_base.is_some()) {
-        bail!("--changed-since cannot be combined with --incremental or --incremental-base");
+        bail!(
+            "choose one changed workflow: --preset changed/--incremental for the local cache, or --changed-since <git-ref> for a Git comparison"
+        );
     }
     Ok(())
 }
@@ -1505,6 +2285,46 @@ fn output_target(cli: &Cli) -> String {
     match cli.output {
         OutputDestination::Clipboard => "clipboard".to_owned(),
         OutputDestination::File => cli.output_file.display().to_string(),
+    }
+}
+
+fn prepare_output_path(path: &Path) -> Result<()> {
+    if path.exists() && !path.is_file() {
+        bail!("output path exists but is not a file: {}", path.display());
+    }
+
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("cannot create output directory {}", parent.display()))?;
+    }
+
+    Ok(())
+}
+
+fn write_output_file(path: &Path, context: &str, quiet: bool) -> Result<()> {
+    let output_exists = path.is_file();
+    prepare_output_path(path)?;
+
+    if output_exists && !quiet {
+        eprintln!("warning: replacing existing output file {}", path.display());
+    }
+
+    fs::write(path, context).with_context(|| format!("cannot write {}", path.display()))
+}
+
+fn print_success(stats: &RunStats) {
+    match stats.output_target.as_str() {
+        "clipboard" => println!(
+            "Bonsai copied context to the clipboard ({} files, {} tokens).",
+            stats.files_scanned, stats.shrunk_tokens
+        ),
+        output => println!(
+            "Bonsai wrote {} ({} files, {} tokens).",
+            output, stats.files_scanned, stats.shrunk_tokens
+        ),
     }
 }
 
