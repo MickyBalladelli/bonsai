@@ -36,14 +36,14 @@ completion_snippets() {
   grep -F -- "'--project-map=[]:PROJECT_MAP:(flat compact)' \\" "$zsh_file"
   grep -F -- "'--max-file-tokens=[Cap each file to this many tokens before global budget optimization; 0 disables the cap]:MAX_FILE_TOKENS:_default' \\" "$zsh_file"
   grep -F -- "'--no-token-counts[Omit token count fields from XML and JSON output]' \\" "$zsh_file"
-  grep -F -- "'--changed-since=[Only include tracked changes and untracked files compared with this git ref]:GIT_REF:_default' \\" "$zsh_file"
+  grep -F -- "'--changed-since=[Changed workflow\\: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental]:GIT_REF:_default' \\" "$zsh_file"
   grep -F -- "'--exclude-generated[Skip minified, vendored, generated, and lockfile-like files unless --include matches them]' \\" "$zsh_file"
   grep -F -- "'--drop-low-priority[Omit lowest-priority files if tree-map output still exceeds --max-tokens]' \\" "$zsh_file"
   grep -F -- "'--json[]' \\" "$zsh_file"
   grep -F -- "'completions:Generate shell completions' \\" "$zsh_file" | head -n 1
   printf '[fish]\n'
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l max-file-tokens -d '"'"'Cap each file to this many tokens before global budget optimization; 0 disables the cap'"'"' -r' "$fish_file"
-  grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l changed-since -d '"'"'Only include tracked changes and untracked files compared with this git ref'"'"' -r' "$fish_file"
+  grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l changed-since -d '"'"'Changed workflow: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental'"'"' -r' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l no-token-counts -d '"'"'Omit token count fields from XML and JSON output'"'"'' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l exclude-generated -d '"'"'Skip minified, vendored, generated, and lockfile-like files unless --include matches them'"'"'' "$fish_file"
   grep -F 'complete -c bonsai -n "__fish_bonsai_needs_command" -l drop-low-priority -d '"'"'Omit lowest-priority files if tree-map output still exceeds --max-tokens'"'"'' "$fish_file"
@@ -236,7 +236,7 @@ if grep -Fxq 'ignored.rs' "$tmp_root/respect.txt"; then
   exit 1
 fi
 
-"$bin" "$flag_repo" --exclude-generated --print-files --output-file "$tmp_root/exclude-generated.xml" > "$tmp_root/exclude-generated.txt"
+"$bin" "$flag_repo" --exclude-generated --print-files --output-file "$tmp_root/exclude.xml" > "$tmp_root/exclude-generated.txt"
 grep -Fxq 'src/lib.rs' "$tmp_root/exclude-generated.txt"
 if grep -Eq 'package-lock.json|generated|vendor/|dist/|\.min\.' "$tmp_root/exclude-generated.txt"; then
   printf 'exclude-generated selected generated-like files\n' >&2
@@ -251,7 +251,8 @@ grep -Fxq 'ignored.rs' "$tmp_root/no-respect.txt"
 
 token_cost_repo="$tmp_root/token-cost-repo"
 make_token_cost_repo "$token_cost_repo"
-"$bin" "$token_cost_repo" --max-tokens 12000 --level 2 --sort path --detailed-stats --tokenizer cl100k_base --output-file "$tmp_root/token-cost.xml" > "$tmp_root/token-cost.txt"
+"$bin" "$token_cost_repo" --max-tokens 12000 --level 2 --sort path --detailed-stats --tokenizer cl100k_base --output-file "$tmp_root/token-cost.xml" > "$tmp_root/token-cost.raw.txt"
+sed '/^Bonsai wrote /d' "$tmp_root/token-cost.raw.txt" > "$tmp_root/token-cost.txt"
 diff -u "$repo_root/tests/golden/token-costs.txt" "$tmp_root/token-cost.txt"
 
 "$bin" "$golden_repo" --prompt --output-file "$tmp_root/prompt.txt"
@@ -382,7 +383,8 @@ RS
   git add src/new.rs
 )
 rm "$changed_since_repo/Cargo.toml"
-"$bin" "$changed_since_repo" --changed-since HEAD --incremental-summary --output-file "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.txt"
+"$bin" "$changed_since_repo" --changed-since HEAD --incremental-summary --output-file "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.raw.txt"
+sed '/^Bonsai wrote /d' "$tmp_root/changed-since.raw.txt" > "$tmp_root/changed-since.txt"
 normalize_xml "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.normalized.xml"
 diff -u "$repo_root/tests/golden/changed-since.xml" "$tmp_root/changed-since.normalized.xml"
 diff -u "$repo_root/tests/golden/changed-since-summary.txt" "$tmp_root/changed-since.txt"

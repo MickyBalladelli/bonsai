@@ -203,16 +203,15 @@ agents="$tmp_root/agents"
 "$bin" init-agent "$agents"
 test -f "$agents/AGENTS.md"
 test -f "$agents/CLAUDE.md"
-grep -Fq 'bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml' "$agents/AGENTS.md"
-grep -Fq -- '--max-tokens' "$agents/AGENTS.md"
-grep -Fq -- '--level' "$agents/AGENTS.md"
-grep -Fq -- '--output file' "$agents/AGENTS.md"
-grep -Fq -- '--output-file' "$agents/AGENTS.md"
-grep -Fq -- '--max-tokens' "$agents/CLAUDE.md"
-grep -Fq -- '--level' "$agents/CLAUDE.md"
-grep -Fq -- '--output file' "$agents/CLAUDE.md"
-grep -Fq -- '--output-file' "$agents/CLAUDE.md"
-grep -Fq 'Do not answer from ordinary file browsing until this command succeeds' "$agents/AGENTS.md"
+grep -Fq 'bonsai .' "$agents/AGENTS.md"
+grep -Fq 'Inspect `bonsai.xml` before answering.' "$agents/AGENTS.md"
+grep -Fq 'bonsai .' "$agents/CLAUDE.md"
+grep -Fq 'Inspect `bonsai.xml` before answering.' "$agents/CLAUDE.md"
+
+detailed_agents="$tmp_root/detailed-agents"
+"$bin" init-agent "$detailed_agents" --style detailed --max-tokens 12000 --output-file /tmp/bonsai.xml
+grep -Fq 'For repo-wide analysis, first run Bonsai.' "$detailed_agents/AGENTS.md"
+grep -Fq 'bonsai . --max-tokens 12000 --output-file /tmp/bonsai.xml' "$detailed_agents/AGENTS.md"
 if grep -Fq 'target/release/bonsai' "$agents/AGENTS.md"; then
   printf 'init-agent wrote repo-local binary path\n' >&2
   exit 1

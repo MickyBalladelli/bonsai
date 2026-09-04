@@ -7,7 +7,7 @@
 '--project-map=[]:PROJECT_MAP:(flat compact)' \
 '--max-file-tokens=[Cap each file to this many tokens before global budget optimization; 0 disables the cap]:MAX_FILE_TOKENS:_default' \
 '--no-token-counts[Omit token count fields from XML and JSON output]' \
-'--changed-since=[Changed workflow: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental]:GIT_REF:_default' \
+'--changed-since=[Changed workflow\: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental]:GIT_REF:_default' \
 '--exclude-generated[Skip minified, vendored, generated, and lockfile-like files unless --include matches them]' \
 '--drop-low-priority[Omit lowest-priority files if tree-map output still exceeds --max-tokens]' \
 '--json[]' \
