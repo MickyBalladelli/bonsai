@@ -26,6 +26,7 @@ export type RunReport = {
 }
 
 export type BonsaiFilePriority = {
+  includeComments?: boolean
   level: number
   path: string
   reason?: string
@@ -112,6 +113,18 @@ export function buildProjectMapText(entries: ProjectMapEntry[]): string {
   return entries
     .map(entry => `${entry.tokens.toString().padStart(5, ' ')} tokens  L${entry.level}  ${entry.path}`)
     .join('\n')
+}
+
+export function buildProjectMapDecisionLines(entries: ProjectMapEntry[], limit = 40): string[] {
+  const prioritized = entries.filter(entry =>
+    entry.reason !== 'background module' || entry.level < 3
+  )
+  const decisions = prioritized.slice(0, limit)
+    .map(entry => `- L${entry.level} ${entry.path} (${entry.reason ?? 'background module'})`)
+  if (prioritized.length > limit) {
+    decisions.push(`- ...${prioritized.length - limit} more decisions are in the generated project map.`)
+  }
+  return decisions
 }
 
 export function buildContextPrompt(outputFile: string, contextText?: string): string {

@@ -1,13 +1,13 @@
 import * as vscode from 'vscode'
 
-import { BonsaiFilePriority, ProjectMapEntry, RunReport } from './bonsai'
+import { BonsaiFilePriority, buildProjectMapDecisionLines, ProjectMapEntry, RunReport } from './bonsai'
 
 export const BONSAI_CONTEXT_TOOL_NAME = 'bonsai_generate_context'
 
 export type BonsaiToolInput = {
   workspacePath?: string
   request: string
-  filePriorities: BonsaiFilePriority[]
+  filePriorities?: BonsaiFilePriority[]
 }
 
 export type BonsaiToolGeneration = {
@@ -50,16 +50,19 @@ export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<Bonsa
     if (!request) {
       throw new Error('A repository question or task is required for task-aware Bonsai generation.')
     }
-    const filePriorities = options.input.filePriorities
-    if (!Array.isArray(filePriorities) || filePriorities.length === 0) {
-      throw new Error('Inspect the workspace first, then provide a non-empty filePriorities plan with paths and levels 1, 2, or 3.')
+    const filePriorities = options.input.filePriorities ?? []
+    if (!Array.isArray(filePriorities)) {
+      throw new Error('filePriorities must be an array when provided.')
     }
-    const invalidPriority = filePriorities.find(priority =>
-      !priority || typeof priority.path !== 'string' || !priority.path.trim() ||
-      !Number.isInteger(priority.level) || priority.level < 1 || priority.level > 3
-    )
-    if (invalidPriority) {
-      throw new Error('Every file priority needs a workspace-relative path and an integer level from 1 to 3.')
+    if (filePriorities.length > 0) {
+      const invalidPriority = filePriorities.find(priority =>
+        !priority || typeof priority.path !== 'string' || !priority.path.trim() ||
+        !Number.isInteger(priority.level) || priority.level < 1 || priority.level > 3 ||
+        (priority.includeComments !== undefined && typeof priority.includeComments !== 'boolean')
+      )
+      if (invalidPriority) {
+        throw new Error('Every file priority needs a workspace-relative path and an integer level from 1 to 3.')
+      }
     }
     const generated = await this.generate(options.input.workspacePath, request, filePriorities)
     if (token.isCancellationRequested) {
@@ -72,8 +75,9 @@ export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<Bonsa
   }
 }
 
-function buildToolResult(generated: BonsaiToolGeneration): string {
+export function buildToolResult(generated: BonsaiToolGeneration): string {
   const files = generated.outputFiles.map(file => `- ${file}`).join('\n')
+  const decisions = buildProjectMapDecisionLines(generated.projectMap)
   const saved = generated.report.savingPercent === undefined
     ? 'unknown'
     : `${generated.report.savingPercent.toFixed(2)}%`
@@ -85,9 +89,9 @@ function buildToolResult(generated: BonsaiToolGeneration): string {
   return [
     'Bonsai generated repository context successfully.',
     `Overall compression saved ${saved} of tokens.`,
-    'The agent priority plan was applied when provided. Level 1 keeps full source, level 2 keeps signatures and structure, and level 3 keeps a compact map. Unlisted files are compressed harder first.',
+    'The agent priority plan was applied when provided. Level 1 keeps source code and drops comments by default, level 2 keeps signatures and structure, and level 3 keeps a compact map. Unlisted files are compressed harder first.',
     'Project map detail decisions:',
-    generated.projectMap.map(entry => `- L${entry.level} ${entry.path} (${entry.reason ?? 'background module'})`).join('\n'),
+    decisions.join('\n') || '- Full project map is in the generated context file.',
     'Context files written:',
     files,
     '',

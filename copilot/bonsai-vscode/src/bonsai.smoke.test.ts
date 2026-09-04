@@ -2,6 +2,7 @@ import * as assert from 'assert'
 
 import {
   buildBonsaiArgs,
+  buildProjectMapDecisionLines,
   buildProjectMapText,
   buildStatusText,
   buildSuccessMessage,
@@ -93,5 +94,18 @@ const jsonMap = extractProjectMap(
 assert.deepStrictEqual(jsonMap, [{ path: 'src/main.rs', level: 2, tokens: 123 }])
 assert.ok(buildProjectMapText(jsonMap).includes('src/main.rs'))
 assert.ok(buildSuccessMessage('/tmp/context.xml', report, 'Done.').includes('saved 70.00%'))
+
+const decisionLines = buildProjectMapDecisionLines(
+  Array.from({ length: 42 }, (_entry, index) => ({
+    path: `src/file-${index}.ts`,
+    level: 2,
+    tokens: 10,
+    reason: 'task match'
+  }))
+)
+
+assert.strictEqual(decisionLines.length, 41)
+assert.ok(decisionLines[39].includes('src/file-39.ts'))
+assert.strictEqual(decisionLines[40], '- ...2 more decisions are in the generated project map.')
 
 console.log('bonsai extension smoke ok')

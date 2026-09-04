@@ -1,6 +1,6 @@
 [package]
 name = "bonsai"
-version = "0.5.27"
+version = "0.5.29"
 edition = "2021"
 description = "Local-first AST context compressor for LLM ingestion"
 license = "MIT"

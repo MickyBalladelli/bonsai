@@ -61,11 +61,12 @@ level 2 keeps signatures and shapes; level 3 keeps a compact tree map.
 
 In VS Code 1.99 or newer, agent mode can use `#bonsai_generate_context` to
 generate or refresh context automatically. Pass the user's repository question
-or task as `request`, plus a non-empty `filePriorities` plan: level 1 for primary
-files, level 2 for supporting files, and level 3 for background files. Bonsai
-checks that planned files exist, applies the plan, keeps selected files protected,
-and compresses unlisted modules harder. A bad or missing plan makes the agent
-retry after inspecting the workspace. The tool writes the context files,
+or task as `request`. Bonsai derives likely files from the request, code symbols,
+imports, callers, and nearby tests. The agent can optionally pass
+`filePriorities`: level 1 for primary code, level 2 for supporting files, and
+level 3 for compact background context. Planned paths are validated, but Bonsai
+also protects request-derived files so a weak plan cannot hide them. Level 1
+drops comments by default; set `includeComments` only when comments matter. The tool writes the context files,
 returns their paths, and gives the agent the first context file contents. It
 asks for confirmation before writing files.
 

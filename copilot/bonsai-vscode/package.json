@@ -2,7 +2,7 @@
   "name": "bonsai-vscode",
   "displayName": "Bonsai Context Manager",
   "description": "Bonsai context for GitHub Copilot Chat and Codex.",
-  "version": "0.5.27",
+  "version": "0.5.29",
   "publisher": "MickyBalladelli",
   "author": {
     "name": "Micky Balladelli"
@@ -121,7 +121,7 @@
         "canBeReferencedInPrompt": true,
         "icon": "$(file-code)",
         "userDescription": "Generate self-contained Bonsai context files for the current workspace.",
-        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. The request field and filePriorities field are required. Pass the user's repository question or task as request. Before calling, inspect the workspace enough to decide which files the task needs and pass a non-empty filePriorities plan with exact workspace-relative paths: level 1 for primary files that need nearly full source, level 2 for supporting files where signatures and structure are enough, and level 3 for background files where a compact map is enough. Give each selected file a short reason. Bonsai validates that planned paths exist, keeps selected files protected while fitting the budget, starts unlisted files one level more compressed, and compresses them harder first. If the plan is missing or names files that do not exist, inspect the workspace and retry. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
+        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. The request field is required. Bonsai ranks likely files from request terms, declared symbols, imports, callers, and nearby tests; it works even before the agent knows exact files. When the agent has inspected likely files, it may pass filePriorities with exact workspace-relative paths: level 1 for primary code, level 2 for supporting structure, and level 3 for compact background context. Treat a plan as a hint, not proof: Bonsai keeps request-derived candidates and related dependencies protected too. Level 1 drops comments by default; set includeComments true only when comments are needed. Bonsai validates any planned paths before writing. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -135,8 +135,7 @@
             },
             "filePriorities": {
               "type": "array",
-              "minItems": 1,
-              "description": "Required agent-selected workspace-relative files and requested detail levels. Inspect the workspace first and include at least one real file.",
+              "description": "Optional agent-selected workspace-relative files and requested detail levels. Bonsai also derives candidates from the request.",
               "items": {
                 "type": "object",
                 "properties": {
@@ -152,6 +151,10 @@
                   "reason": {
                     "type": "string",
                     "description": "Why this file matters for the user's request."
+                  },
+                  "includeComments": {
+                    "type": "boolean",
+                    "description": "Keep comments for this file at level 1. Defaults to false for agent-selected primary files."
                   }
                 },
                 "required": [
@@ -164,8 +167,7 @@
           },
           "additionalProperties": false,
           "required": [
-            "request",
-            "filePriorities"
+            "request"
           ]
         }
       }
@@ -244,7 +246,7 @@
   "scripts": {
     "sync-version": "ruby ../../scripts/sync-version.rb",
     "compile": "npm run sync-version && tsc -p ./",
-    "test": "npm run compile && node dist/bonsai.smoke.test.js",
+    "test": "npm run compile && node dist/bonsai.smoke.test.js && node dist/internalGenerator.smoke.test.js",
     "watch": "tsc -watch -p ./",
     "package": "npm run sync-version && vsce package --dependencies"
   },

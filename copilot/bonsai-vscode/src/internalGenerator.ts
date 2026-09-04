@@ -54,6 +54,7 @@ type FileCandidate = {
 
 type FileVariants = {
   full: string
+  withoutComments: string
   skeleton: string
   treeMap: string
 }
@@ -67,6 +68,7 @@ type WorkingFile = {
   taskRelevance: number
   taskDistance?: number
   explicitPriority?: BonsaiFilePriority
+  includeComments: boolean
   level: CompressionLevel
   tokenCount: number
   contentHash: string
@@ -76,6 +78,11 @@ type IgnoreRule = {
   base: string
   pattern: string
   negated: boolean
+}
+
+type ImportReference = {
+  kind: 'include' | 'module' | 'rustModule' | 'rustUse'
+  value: string
 }
 
 export type InternalGenerationOptions = {
@@ -123,24 +130,26 @@ export async function generateRepository(
   const requestedLevel = normalizeLevel(config.level)
   const focusTerms = extractFocusTerms(options.focus)
   const filePriorities = normalizeFilePriorities(options.filePriorities)
-  const hasExplicitPlan = filePriorities.size > 0
+  const hasTaskFocus = Boolean(options.focus?.trim())
   const files = await Promise.all(selectedCandidates.map(async candidate => {
     const source = await fs.readFile(candidate.absolutePath, 'utf8')
     const variants = buildVariants(candidate.relativePath, source)
     const rawTokenCount = countTokens(source)
     const taskRelevance = calculateTaskRelevance(candidate.relativePath, source, focusTerms)
     const explicitPriority = filePriorities.get(candidate.relativePath)
+    const priorityLevel = explicitPriority ? normalizeLevel(explicitPriority.level) : undefined
+    const level = priorityLevel ?? initialFileLevelForRequest(requestedLevel, taskRelevance, hasTaskFocus)
+    const includeComments = explicitPriority?.includeComments ?? !(hasTaskFocus && level === 1)
     const file: WorkingFile = {
       path: candidate.relativePath,
       rawTokenCount,
       variants,
-      tokenCounts: { 1: rawTokenCount },
-      priorityScore: baseFilePriority(candidate.relativePath) + taskRelevance * 4000 + explicitPriorityBoost(explicitPriority),
+      tokenCounts: includeComments ? { 1: rawTokenCount } : {},
+      priorityScore: baseFilePriority(candidate.relativePath) + taskRelevance * 4000 + explicitPriorityBoost(explicitPriority, taskRelevance),
       taskRelevance,
       explicitPriority,
-      level: explicitPriority
-        ? normalizeLevel(explicitPriority.level)
-        : initialFileLevelForRequest(requestedLevel, taskRelevance, hasExplicitPlan),
+      includeComments,
+      level,
       tokenCount: rawTokenCount,
       contentHash: createHash('sha256').update(source).digest('hex')
     }
@@ -159,6 +168,7 @@ export async function generateRepository(
   }
   const rawFiles = files.map(file => ({
     ...file,
+    includeComments: true,
     level: 1 as CompressionLevel,
     tokenCount: file.rawTokenCount
   }))
@@ -412,6 +422,7 @@ function toRelativePath(root: string, value: string): string {
 
 function buildVariants(relativePath: string, source: string): FileVariants {
   const extension = path.posix.extname(relativePath).slice(1).toLowerCase()
+  const withoutComments = isPlainText(extension) ? source : stripComments(source, extension)
   const skeleton = isPlainText(extension)
     ? compactTextContext(relativePath, source)
     : stripCallableBodies(source, extension)
@@ -421,6 +432,7 @@ function buildVariants(relativePath: string, source: string): FileVariants {
 
   return {
     full: source,
+    withoutComments,
     skeleton: collapseImportBlocks(skeleton, extension),
     treeMap: collapseImportBlocks(treeMap, extension)
   }
@@ -436,9 +448,13 @@ function normalizeLevel(value: number): CompressionLevel {
   return 2
 }
 
-function contentForLevel(variants: FileVariants, level: CompressionLevel): string {
+function contentForLevel(
+  variants: FileVariants,
+  level: CompressionLevel,
+  includeComments = true
+): string {
   if (level === 1) {
-    return variants.full
+    return includeComments ? variants.full : variants.withoutComments
   }
   return level === 2 ? variants.skeleton : variants.treeMap
 }
@@ -468,12 +484,26 @@ function calculateTaskRelevance(relativePath: string, source: string, terms: str
   }
   const pathText = relativePath.toLowerCase()
   const sourceText = source.toLowerCase()
+  const symbolText = extractDeclaredSymbols(source).join(' ').toLowerCase()
   return terms.reduce((score, term) => {
     if (pathText.includes(term)) {
-      return score + 3
+      return score + 6
     }
-    return sourceText.includes(term) ? score + 1 : score
+    if (symbolText.includes(term)) {
+      return score + 5
+    }
+    return sourceText.includes(term) ? score + 2 : score
   }, 0)
+}
+
+function extractDeclaredSymbols(source: string): string[] {
+  const patterns = [
+    /\b(?:async\s+)?(?:function|class|interface|enum|type|const|let|var)\s+([A-Za-z_][\w$]*)/g,
+    /\b(?:pub\s+)?(?:fn|struct|enum|trait|mod)\s+([A-Za-z_]\w*)/g,
+    /^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/gm,
+    /^\s*class\s+([A-Za-z_]\w*)/gm
+  ]
+  return [...new Set(patterns.flatMap(pattern => [...source.matchAll(pattern)].map(match => match[1])))]
 }
 
 function baseFilePriority(relativePath: string): number {
@@ -492,7 +522,7 @@ function baseFilePriority(relativePath: string): number {
 }
 
 function initialFileLevel(requestedLevel: CompressionLevel, taskRelevance: number): CompressionLevel {
-  if (taskRelevance >= 3) {
+  if (taskRelevance >= 5) {
     return Math.max(1, requestedLevel - 1) as CompressionLevel
   }
   return requestedLevel
@@ -505,9 +535,9 @@ function backgroundFileLevel(requestedLevel: CompressionLevel): CompressionLevel
 function initialFileLevelForRequest(
   requestedLevel: CompressionLevel,
   taskRelevance: number,
-  hasExplicitPlan: boolean
+  hasTaskFocus: boolean
 ): CompressionLevel {
-  if (taskRelevance >= 3 || !hasExplicitPlan) {
+  if (taskRelevance > 0 || !hasTaskFocus) {
     return initialFileLevel(requestedLevel, taskRelevance)
   }
   return backgroundFileLevel(requestedLevel)
@@ -548,7 +578,7 @@ function applyTaskPriorities(files: WorkingFile[], focusTerms: string[]): void {
       file.level = relatedLevel
       file.tokenCount = countFileTokens(file, file.level)
     }
-    file.priorityScore = baseFilePriority(file.path) + file.taskRelevance * 4000 + relatedPriority + explicitPriorityBoost(file.explicitPriority)
+    file.priorityScore = baseFilePriority(file.path) + file.taskRelevance * 4000 + relatedPriority + explicitPriorityBoost(file.explicitPriority, file.taskRelevance)
   }
 }
 
@@ -565,6 +595,7 @@ function normalizeFilePriorities(priorities: BonsaiFilePriority[] | undefined): 
     normalized.set(relativePath, {
       path: relativePath,
       level: normalizeLevel(priority.level),
+      includeComments: typeof priority.includeComments === 'boolean' ? priority.includeComments : undefined,
       reason: typeof priority.reason === 'string' ? priority.reason.trim().slice(0, 240) : undefined
     })
   }
@@ -579,15 +610,19 @@ function normalizePriorityPath(value: string): string | undefined {
   return normalized
 }
 
-function explicitPriorityBoost(priority: BonsaiFilePriority | undefined): number {
-  return priority ? 100000 + (3 - normalizeLevel(priority.level)) * 1000 : 0
+function explicitPriorityBoost(priority: BonsaiFilePriority | undefined, taskRelevance: number): number {
+  if (!priority) {
+    return 0
+  }
+  const alignmentBoost = taskRelevance > 0 ? 40000 : 2000
+  return alignmentBoost + (3 - normalizeLevel(priority.level)) * 1000
 }
 
 function buildDependencyGraph(files: WorkingFile[]): Map<string, Set<string>> {
   const paths = new Set(files.map(file => file.path))
   const graph = new Map(files.map(file => [file.path, new Set<string>()]))
   for (const file of files) {
-    for (const reference of extractImportReferences(file.path, file.variants.full)) {
+    for (const reference of extractImportReferences(file.path, file.variants.withoutComments)) {
       const target = resolveImportPath(file.path, reference, paths)
       if (!target || target === file.path) {
         continue
@@ -646,14 +681,20 @@ function findTaskContext(
 function connectMatchingTests(files: WorkingFile[], graph: Map<string, Set<string>>): void {
   const testFiles = files.filter(file => isTestPath(file.path))
   const sourceFiles = files.filter(file => !isTestPath(file.path))
+  const sourceByStem = new Map<string, WorkingFile[]>()
+  for (const sourceFile of sourceFiles) {
+    const stem = sourceFileStem(sourceFile.path)
+    const matches = sourceByStem.get(stem) ?? []
+    matches.push(sourceFile)
+    sourceByStem.set(stem, matches)
+  }
   for (const testFile of testFiles) {
     const testStem = testFileStem(testFile.path)
     if (!testStem) {
       continue
     }
-    for (const sourceFile of sourceFiles) {
-      const sourceStem = path.posix.basename(sourceFile.path).split('.')[0].toLowerCase()
-      if (sourceStem === testStem || testFile.path.toLowerCase().includes(`/${sourceStem}.`)) {
+    for (const sourceFile of sourceByStem.get(testStem) ?? []) {
+      if (isLikelyTestPair(testFile.path, sourceFile.path)) {
         graph.get(testFile.path)?.add(sourceFile.path)
         graph.get(sourceFile.path)?.add(testFile.path)
       }
@@ -663,41 +704,108 @@ function connectMatchingTests(files: WorkingFile[], graph: Map<string, Set<strin
 
 function isTestPath(relativePath: string): boolean {
   return /(^|\/)(test|tests|spec|specs|__tests__)(\/|$)/i.test(relativePath) ||
-    /(?:\.test|\.spec|_test|_spec)\.[^.]+$/i.test(relativePath)
+    /(?:^test_|^spec_|\.test|\.spec|_test|_spec)\.[^.]+$/i.test(path.posix.basename(relativePath))
 }
 
 function testFileStem(relativePath: string): string {
   const name = path.posix.basename(relativePath).toLowerCase()
   return name
     .replace(/\.[^.]+$/, '')
+    .replace(/^(?:test_|spec_)/, '')
     .replace(/(?:\.test|\.spec|_test|_spec)$/, '')
 }
 
-function extractImportReferences(relativePath: string, source: string): string[] {
+function sourceFileStem(relativePath: string): string {
+  return path.posix.basename(relativePath).toLowerCase().replace(/\.[^.]+$/, '')
+}
+
+function isLikelyTestPair(testPath: string, sourcePath: string): boolean {
+  const testDirectory = path.posix.dirname(testPath)
+  const sourceDirectory = path.posix.dirname(sourcePath)
+  if (testDirectory === sourceDirectory) {
+    return true
+  }
+
+  const testSegments = testDirectory.split('/').filter(Boolean)
+  let markerIndex = -1
+  for (const [index, segment] of testSegments.entries()) {
+    if (['__tests__', 'tests', 'test', 'spec', 'specs'].includes(segment.toLowerCase())) {
+      markerIndex = index
+    }
+  }
+  if (markerIndex >= 0) {
+    const testContext = testSegments.slice(markerIndex + 1).join('/')
+    if (testContext && (sourceDirectory === testContext || sourceDirectory.endsWith(`/${testContext}`))) {
+      return true
+    }
+    return !testContext && (
+      ['.', 'src', 'lib'].includes(sourceDirectory) ||
+      path.posix.dirname(testDirectory) === sourceDirectory
+    )
+  }
+
+  return false
+}
+
+function extractImportReferences(relativePath: string, source: string): ImportReference[] {
   const extension = path.posix.extname(relativePath).slice(1).toLowerCase()
-  const patterns: RegExp[] = []
+  const references: ImportReference[] = []
+  const addMatches = (kind: ImportReference['kind'], pattern: RegExp) => {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1]) {
+        references.push({ kind, value: match[1] })
+      }
+    }
+  }
   if (['js', 'jsx', 'ts', 'tsx'].includes(extension)) {
-    patterns.push(
+    for (const pattern of [
       /\bfrom\s*['"]([^'"]+)['"]/g,
       /\bimport\s*(?:\(\s*)?['"]([^'"]+)['"]/g,
       /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g
-    )
+    ]) {
+      addMatches('module', pattern)
+    }
   } else if (extension === 'py') {
-    patterns.push(/^\s*(?:from|import)\s+([.\w/]+)/gm)
+    for (const match of source.matchAll(/^\s*from\s+(\.+)\s+import\s+([A-Za-z_]\w*)/gm)) {
+      references.push({ kind: 'module', value: `${match[1]}${match[2]}` })
+    }
+    addMatches('module', /^\s*from\s+([.\w/]+)\s+import\b/gm)
+    addMatches('module', /^\s*import\s+([.\w/]+)/gm)
   } else if (extension === 'rs') {
-    patterns.push(/\b(?:use|mod)\s+([A-Za-z_][\w:]*)/g)
+    addMatches('rustModule', /\bmod\s+([A-Za-z_]\w*)\s*;/g)
+    addMatches('rustUse', /\buse\s+([A-Za-z_][\w:]*)/g)
+  } else if (['c', 'h', 'cpp', 'hpp', 'm', 'mm'].includes(extension)) {
+    addMatches('include', /^\s*#include\s*[<"]([^">]+)[">]/gm)
   } else {
-    patterns.push(/^\s*(?:import|using|#include|#import)\s*[<"]?([^">;\s]+)/gm)
+    addMatches('module', /^\s*(?:import|using|#import)\s*[<"]?([^">;\s]+)/gm)
   }
 
-  return [...new Set(patterns.flatMap(pattern => [...source.matchAll(pattern)].map(match => match[1])))]
+  const seen = new Set<string>()
+  return references.filter(reference => {
+    const key = `${reference.kind}:${reference.value}`
+    if (seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
 }
 
-function resolveImportPath(fromPath: string, reference: string, paths: Set<string>): string | undefined {
+function resolveImportPath(fromPath: string, reference: ImportReference, paths: Set<string>): string | undefined {
   const extension = path.posix.extname(fromPath).slice(1).toLowerCase()
-  const normalizedReference = reference.replace(/::$/, '')
+  const normalizedReference = reference.value.replace(/::$/, '')
   let baseCandidates: string[]
-  if (normalizedReference.startsWith('.') && extension === 'py') {
+  if (reference.kind === 'rustModule') {
+    baseCandidates = [path.posix.join(path.posix.dirname(fromPath), normalizedReference)]
+  } else if (reference.kind === 'rustUse') {
+    baseCandidates = rustUseCandidates(fromPath, normalizedReference)
+  } else if (reference.kind === 'include') {
+    baseCandidates = [
+      path.posix.join(path.posix.dirname(fromPath), normalizedReference),
+      normalizedReference,
+      path.posix.join('include', normalizedReference)
+    ]
+  } else if (normalizedReference.startsWith('.') && extension === 'py') {
     const dots = normalizedReference.match(/^\.+/)?.[0].length ?? 0
     let directory = path.posix.dirname(fromPath)
     for (let index = 1; index < dots; index += 1) {
@@ -706,8 +814,6 @@ function resolveImportPath(fromPath: string, reference: string, paths: Set<strin
     baseCandidates = [path.posix.join(directory, normalizedReference.slice(dots).replace(/\./g, '/'))]
   } else if (normalizedReference.startsWith('.')) {
     baseCandidates = [path.posix.normalize(path.posix.join(path.posix.dirname(fromPath), normalizedReference))]
-  } else if (extension === 'rs' && normalizedReference.startsWith('crate::')) {
-    baseCandidates = [`src/${normalizedReference.slice('crate::'.length).replace(/::/g, '/')}`]
   } else {
     baseCandidates = [normalizedReference.replace(/::/g, '/').replace(/\./g, '/')]
   }
@@ -715,17 +821,56 @@ function resolveImportPath(fromPath: string, reference: string, paths: Set<strin
   const candidates = baseCandidates.flatMap(base => [
     base,
     ...['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt'].map(ext => `${base}.${ext}`),
-    ...['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt'].map(ext => `${base}/index.${ext}`)
+    ...['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt'].map(ext => `${base}/index.${ext}`),
+    `${base}/mod.rs`
   ])
   return candidates.find(candidate => paths.has(candidate))
 }
 
+function rustUseCandidates(fromPath: string, reference: string): string[] {
+  if (reference.startsWith('crate::')) {
+    return rustModulePrefixes(
+      path.posix.join(rustSourceRoot(fromPath), reference.slice('crate::'.length).replace(/::/g, '/'))
+    )
+  }
+  const directory = path.posix.dirname(fromPath)
+  if (reference.startsWith('self::')) {
+    return rustModulePrefixes(path.posix.join(directory, reference.slice('self::'.length).replace(/::/g, '/')))
+  }
+  if (reference.startsWith('super::')) {
+    let parent = directory
+    let remaining = reference
+    while (remaining.startsWith('super::')) {
+      parent = path.posix.dirname(parent)
+      remaining = remaining.slice('super::'.length)
+    }
+    return rustModulePrefixes(path.posix.join(parent, remaining.replace(/::/g, '/')))
+  }
+  return rustModulePrefixes(path.posix.join(directory, reference.replace(/::/g, '/')))
+}
+
+function rustSourceRoot(fromPath: string): string {
+  const segments = fromPath.split('/')
+  const sourceIndex = segments.lastIndexOf('src')
+  if (sourceIndex >= 0) {
+    return segments.slice(0, sourceIndex + 1).join('/')
+  }
+  return 'src'
+}
+
+function rustModulePrefixes(value: string): string[] {
+  const segments = value.split('/').filter(Boolean)
+  return Array.from({ length: segments.length }, (_entry, index) => segments.slice(0, segments.length - index).join('/'))
+}
+
 function fileTaskReason(file: WorkingFile): string {
   if (file.explicitPriority?.reason) {
-    return `agent: ${file.explicitPriority.reason}`
+    return file.taskRelevance > 0
+      ? `agent: ${file.explicitPriority.reason}`
+      : `agent: ${file.explicitPriority.reason} (unverified)`
   }
   if (file.explicitPriority) {
-    return 'agent-selected'
+    return file.taskRelevance > 0 ? 'agent-selected' : 'agent-selected (unverified)'
   }
   if (file.taskRelevance > 0) {
     return 'task match'
@@ -772,13 +917,17 @@ function fitBudget(
       break
     }
     const target = Math.max(8, Math.floor(largest.tokenCount * 0.8))
-    const content = contentForLevel(largest.variants, largest.level)
+    const content = contentForLevel(largest.variants, largest.level, largest.includeComments)
     const truncated = truncateText(content, target, largest.tokenCount)
     if (truncated === content) {
       break
     }
     if (largest.level === 1) {
-      largest.variants.full = truncated
+      if (largest.includeComments) {
+        largest.variants.full = truncated
+      } else {
+        largest.variants.withoutComments = truncated
+      }
     } else if (largest.level === 2) {
       largest.variants.skeleton = truncated
     } else {
@@ -840,13 +989,17 @@ function fitChunkByteLimit(
     if (!largest || largest.tokenCount <= 8) {
       break
     }
-    const content = contentForLevel(largest.variants, largest.level)
+    const content = contentForLevel(largest.variants, largest.level, largest.includeComments)
     const truncated = truncateText(content, Math.max(8, Math.floor(largest.tokenCount * 0.75)), largest.tokenCount)
     if (truncated === content) {
       break
     }
     if (largest.level === 1) {
-      largest.variants.full = truncated
+      if (largest.includeComments) {
+        largest.variants.full = truncated
+      } else {
+        largest.variants.withoutComments = truncated
+      }
     } else if (largest.level === 2) {
       largest.variants.skeleton = truncated
     } else {
@@ -898,7 +1051,7 @@ function countFileTokens(file: WorkingFile, level: CompressionLevel): number {
   if (cached !== undefined) {
     return cached
   }
-  const tokenCount = countTokens(contentForLevel(file.variants, level))
+  const tokenCount = countTokens(contentForLevel(file.variants, level, file.includeComments))
   file.tokenCounts[level] = tokenCount
   return tokenCount
 }
@@ -908,6 +1061,112 @@ function calculateSavingPercent(rawTokens: number, compressedTokens: number): nu
     return 0
   }
   return Math.max(0, (rawTokens - compressedTokens) / rawTokens * 100)
+}
+
+function stripComments(source: string, extension: string): string {
+  return extension === 'py'
+    ? stripHashComments(source)
+    : stripSlashComments(source)
+}
+
+function stripSlashComments(source: string): string {
+  let output = ''
+  let quote = ''
+  let index = 0
+  while (index < source.length) {
+    const character = source[index]
+    if (quote) {
+      output += character
+      if (character === '\\' && index + 1 < source.length) {
+        output += source[index + 1]
+        index += 2
+        continue
+      }
+      if (character === quote) {
+        quote = ''
+      }
+      index += 1
+      continue
+    }
+    if (character === '"' || character === "'" || character === '`') {
+      quote = character
+      output += character
+      index += 1
+      continue
+    }
+    if (character === '/' && source[index + 1] === '/') {
+      index += 2
+      while (index < source.length && source[index] !== '\n') {
+        index += 1
+      }
+      continue
+    }
+    if (character === '/' && source[index + 1] === '*') {
+      index += 2
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        if (source[index] === '\n') {
+          output += '\n'
+        }
+        index += 1
+      }
+      index = Math.min(source.length, index + 2)
+      continue
+    }
+    output += character
+    index += 1
+  }
+  return output
+}
+
+function stripHashComments(source: string): string {
+  let output = ''
+  let quote = ''
+  let index = 0
+  while (index < source.length) {
+    const character = source[index]
+    const tripleQuote = quote.length === 3
+    if (quote) {
+      if (tripleQuote && source.startsWith(quote, index)) {
+        output += quote
+        index += 3
+        quote = ''
+        continue
+      }
+      output += character
+      if (!tripleQuote && character === '\\' && index + 1 < source.length) {
+        output += source[index + 1]
+        index += 2
+        continue
+      }
+      if (!tripleQuote && character === quote) {
+        quote = ''
+      }
+      index += 1
+      continue
+    }
+    const triple = source.slice(index, index + 3)
+    if (triple === "'''" || triple === '"""') {
+      quote = triple
+      output += triple
+      index += 3
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      output += character
+      index += 1
+      continue
+    }
+    if (character === '#') {
+      while (index < source.length && source[index] !== '\n') {
+        index += 1
+      }
+      continue
+    }
+    output += character
+    index += 1
+  }
+  return output
 }
 
 function stripCallableBodies(source: string, extension: string): string {
@@ -1232,7 +1491,7 @@ function formatContext(
         path: file.path,
         level: file.level,
         tokens: file.tokenCount,
-        content: contentForLevel(file.variants, file.level)
+        content: contentForLevel(file.variants, file.level, file.includeComments)
       }))
     }, null, 2)}\n`
   }
@@ -1246,7 +1505,7 @@ function formatContext(
     ? ''
     : `\n<deleted_files>\n${deletedFiles.map(file => `<file path="${escapeXml(file)}" />`).join('\n')}\n</deleted_files>`
   const fileContent = files.map(file => {
-    const content = escapeXml(contentForLevel(file.variants, file.level))
+    const content = escapeXml(contentForLevel(file.variants, file.level, file.includeComments))
     return `<file path="${escapeXml(file.path)}" level="${file.level}" tokens="${file.tokenCount}">${content}</file>`
   }).join('\n')
 
