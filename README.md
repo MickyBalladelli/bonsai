@@ -116,7 +116,7 @@ Download a release binary. The commands below verify SHA-256, install to the
 standard `/usr/local/bin/bonsai` path, and leave no binary-path guessing.
 
 ```text
-https://github.com/mickyhq/bonsai/releases/latest
+https://github.com/MickyBalladelli/bonsai/releases/latest
 ```
 
 Release assets:
@@ -132,8 +132,8 @@ bonsai-vscode-*.vsix
 macOS Apple Silicon:
 
 ```sh
-curl -fL -o bonsai-macos-arm64 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-macos-arm64
-curl -fL -o bonsai-macos-arm64.sha256 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-macos-arm64.sha256
+curl -fL -o bonsai-macos-arm64 https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-macos-arm64
+curl -fL -o bonsai-macos-arm64.sha256 https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-macos-arm64.sha256
 if test "$(awk '{print $1}' bonsai-macos-arm64.sha256)" != "$(shasum -a 256 bonsai-macos-arm64 | awk '{print $1}')"; then
   echo "SHA-256 verification failed"
   exit 1
@@ -146,8 +146,8 @@ bonsai --version
 Linux x64:
 
 ```sh
-curl -fL -o bonsai-linux-x64 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-linux-x64
-curl -fL -o bonsai-linux-x64.sha256 https://github.com/mickyhq/bonsai/releases/latest/download/bonsai-linux-x64.sha256
+curl -fL -o bonsai-linux-x64 https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-linux-x64
+curl -fL -o bonsai-linux-x64.sha256 https://github.com/MickyBalladelli/bonsai/releases/latest/download/bonsai-linux-x64.sha256
 if test "$(awk '{print $1}' bonsai-linux-x64.sha256)" != "$(sha256sum bonsai-linux-x64 | awk '{print $1}')"; then
   echo "SHA-256 verification failed"
   exit 1
@@ -165,7 +165,7 @@ cargo install --path .
 Install from GitHub:
 
 ```sh
-cargo install --git https://github.com/mickyhq/bonsai.git
+cargo install --git https://github.com/MickyBalladelli/bonsai.git
 ```
 
 Homebrew formula:

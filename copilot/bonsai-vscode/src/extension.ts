@@ -34,8 +34,8 @@ let extensionVersion = 'unknown'
 let cliVersion = 'unknown'
 let lastBinaryPath: string | undefined
 
-const RELEASE_DOWNLOAD_URL = 'https://github.com/mickyhq/bonsai/releases/download'
-const INSTALL_URL = 'https://github.com/mickyhq/bonsai#install'
+const RELEASE_DOWNLOAD_URL = 'https://github.com/MickyBalladelli/bonsai/releases/download'
+const INSTALL_URL = 'https://github.com/MickyBalladelli/bonsai#install'
 
 export function activate(context: vscode.ExtensionContext) {
   extensionVersion = String(context.extension.packageJSON.version ?? 'unknown')
