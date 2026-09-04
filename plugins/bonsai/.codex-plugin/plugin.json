@@ -1,6 +1,6 @@
 {
   "name": "bonsai",
-  "version": "0.5.3",
+  "version": "0.5.20",
   "description": "Compress local repositories into token-budgeted XML context for Codex.",
   "author": {
     "name": "Local developer"

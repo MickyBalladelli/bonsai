@@ -10,8 +10,8 @@ sh scripts/generate-cli-reference.sh
 ```
 
 The same schema drives `bonsai --help`, shell completions, and `bonsai docs`.
-The VS Code extension intentionally exposes only the core settings; its README
-lists the supported mapping and points to the CLI for advanced controls.
+The VS Code extension has its own self-contained TypeScript generator and
+intentionally exposes only its core settings.
 
 ## Keep versions current
 

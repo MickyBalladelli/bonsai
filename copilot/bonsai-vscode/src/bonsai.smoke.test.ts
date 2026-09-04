@@ -10,7 +10,6 @@ import {
 } from './bonsai'
 
 const args = buildBonsaiArgs('/repo', {
-  binaryPath: '',
   exclude: ['**/generated/**'],
   include: ['src/**'],
   level: 2,
@@ -42,7 +41,6 @@ assert.deepStrictEqual(args, [
 ])
 
 const changedArgs = buildBonsaiArgs('/repo', {
-  binaryPath: '',
   exclude: [],
   include: [],
   level: 2,

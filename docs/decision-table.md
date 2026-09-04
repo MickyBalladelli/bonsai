@@ -13,5 +13,5 @@ Pick the row that matches the job:
 | Check installation health | `bonsai doctor` | Terminal or JSON | Diagnose the binary, tokenizer, parsers, and cache |
 | Add agent instructions | `bonsai init-agent --files agents` | `AGENTS.md` | Make Codex-style agents run Bonsai first |
 
-In VS Code, start with `Bonsai: Generate`. Use `Bonsai: Generate Changed` for
-the local cache workflow and `Bonsai: Generate and Ask` when chat should open.
+In VS Code, start with `Bonsai Context Manager: Generate`. Use `Bonsai Context Manager: Generate Changed` for
+the local cache workflow and `Bonsai Context Manager: Generate and Ask` when chat should open.

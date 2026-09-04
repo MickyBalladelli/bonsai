@@ -16,6 +16,13 @@ It scans source files, compresses code with syntax-aware summaries, respects you
 
 Use it when you want an LLM to understand a whole project before asking for architecture, onboarding, review, or branch-change help.
 
+## Install with Homebrew
+
+```sh
+brew tap MickyBalladelli/bonsai https://github.com/MickyBalladelli/bonsai.git
+brew install bonsai
+```
+
 ## Quick Start
 
 Install Bonsai, check it once, then run it inside a repository:
@@ -174,11 +181,11 @@ Homebrew formula:
 brew install --build-from-source ./Formula/bonsai.rb
 ```
 
-For a normal `brew install bonsai` command, publish this formula in a tap named
-`homebrew-bonsai`, then run:
+To install this repository as a tap, use the explicit URL because the
+repository is named `bonsai`, not `homebrew-bonsai`:
 
 ```sh
-brew tap MickyBalladelli/bonsai
+brew tap MickyBalladelli/bonsai https://github.com/MickyBalladelli/bonsai.git
 brew install bonsai
 ```
 
@@ -565,16 +572,15 @@ code --install-extension copilot/bonsai-vscode/bonsai-vscode-*.vsix
 Primary Command Palette commands:
 
 ```text
-Bonsai: Generate
-Bonsai: Generate Changed
-Bonsai: Generate and Ask
-Bonsai: More Actions
+Bonsai Context Manager: Generate
+Bonsai Context Manager: Generate Changed
+Bonsai Context Manager: Generate and Ask
+Bonsai Context Manager: More Actions
 ```
 
 `More Actions` contains full-prompt copy, project-map copy and preview, opening
-the last context, and setup. The extension downloads and verifies a matching
-binary on macOS Apple Silicon and Linux x64. Other platforms need an installed
-binary configured under the advanced `bonsai.binaryPath` setting.
+the last context, and information about the internal engine. The extension
+scans, compresses, and writes context itself. No Bonsai binary is required.
 
 <img src="images/vscode-flow.svg" alt="Bonsai VS Code flow" width="720">
 
@@ -590,12 +596,11 @@ Output stats:
 
 ## Troubleshooting
 
-Binary not found:
+VS Code extension:
 
 ```text
-Run `Bonsai: Run Setup` in VS Code and choose `Download Bonsai`. Automatic
-downloads support macOS Apple Silicon and Linux x64. On other platforms, put
-Bonsai on PATH or set the advanced `bonsai.binaryPath` setting.
+Install the latest VSIX. The VS Code extension is self-contained and does not
+need Bonsai installed separately.
 ```
 
 Clipboard failure:

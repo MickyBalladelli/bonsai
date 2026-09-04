@@ -1,8 +1,8 @@
 {
   "name": "bonsai-vscode",
-  "displayName": "Bonsai",
+  "displayName": "Bonsai Context Manager",
   "description": "Bonsai context for GitHub Copilot Chat and Codex.",
-  "version": "0.5.3",
+  "version": "0.5.20",
   "publisher": "MickyBalladelli",
   "author": {
     "name": "Micky Balladelli"
@@ -11,10 +11,11 @@
   "icon": "images/bonsai.png",
   "repository": {
     "type": "git",
-    "url": "file:../.."
+    "url": "https://github.com/MickyBalladelli/bonsai.git"
   },
+  "homepage": "https://github.com/MickyBalladelli/bonsai",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.99.0"
   },
   "categories": [
     "Other"
@@ -23,52 +24,43 @@
     "onStartupFinished",
     "onCommand:bonsai.generateContext",
     "onCommand:bonsai.generateAndAsk",
-    "onCommand:bonsai.copyContext",
-    "onCommand:bonsai.copyChangedContext",
-    "onCommand:bonsai.copyProjectMap",
+    "onCommand:bonsai.generateChangedContext",
     "onCommand:bonsai.previewProjectMap",
     "onCommand:bonsai.openContext",
     "onCommand:bonsai.moreActions",
-    "onCommand:bonsai.setup"
+    "onCommand:bonsai.initAgent",
+    "onLanguageModelTool:bonsai_generate_context"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "bonsai.generateContext",
-        "title": "Bonsai: Generate"
+        "title": "Bonsai Context Manager: Generate"
       },
       {
         "command": "bonsai.generateAndAsk",
-        "title": "Bonsai: Generate and Ask"
+        "title": "Bonsai Context Manager: Generate and Ask"
       },
       {
-        "command": "bonsai.copyContext",
-        "title": "Bonsai: Copy Context Prompt"
-      },
-      {
-        "command": "bonsai.copyChangedContext",
-        "title": "Bonsai: Generate Changed"
-      },
-      {
-        "command": "bonsai.copyProjectMap",
-        "title": "Bonsai: Copy Project Map"
+        "command": "bonsai.generateChangedContext",
+        "title": "Bonsai Context Manager: Generate Changed"
       },
       {
         "command": "bonsai.previewProjectMap",
-        "title": "Bonsai: Preview Project Map"
+        "title": "Bonsai Context Manager: Preview Project Map"
       },
       {
         "command": "bonsai.openContext",
-        "title": "Bonsai: Open Last Context"
+        "title": "Bonsai Context Manager: Open Last Context"
       },
       {
         "command": "bonsai.moreActions",
-        "title": "Bonsai: More Actions"
+        "title": "Bonsai Context Manager: More Actions"
       },
       {
-        "command": "bonsai.setup",
-        "title": "Bonsai: Run Setup"
+        "command": "bonsai.initAgent",
+        "title": "Bonsai Context Manager: Add Agent Instructions"
       }
     ],
     "menus": {
@@ -78,7 +70,7 @@
           "when": "true"
         },
         {
-          "command": "bonsai.copyChangedContext",
+          "command": "bonsai.generateChangedContext",
           "when": "true"
         },
         {
@@ -86,34 +78,46 @@
           "when": "true"
         },
         {
+          "command": "bonsai.previewProjectMap",
+          "when": "true"
+        },
+        {
           "command": "bonsai.moreActions",
           "when": "true"
         },
         {
-          "command": "bonsai.copyContext",
-          "when": "false"
-        },
-        {
-          "command": "bonsai.copyProjectMap",
-          "when": "false"
-        },
-        {
-          "command": "bonsai.previewProjectMap",
-          "when": "false"
+          "command": "bonsai.initAgent",
+          "when": "true"
         },
         {
           "command": "bonsai.openContext",
           "when": "false"
-        },
-        {
-          "command": "bonsai.setup",
-          "when": "false"
         }
       ]
     },
+    "languageModelTools": [
+      {
+        "name": "bonsai_generate_context",
+        "displayName": "Generate Bonsai Context",
+        "toolReferenceName": "bonsai_generate_context",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(file-code)",
+        "userDescription": "Generate self-contained Bonsai context files for the current workspace.",
+        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "workspacePath": {
+              "type": "string",
+              "description": "Optional absolute path of an open workspace folder. Omit it to use the active workspace."
+            }
+          }
+        }
+      }
+    ],
     "configuration": [
       {
-        "title": "Bonsai",
+        "title": "Bonsai Context Manager",
         "properties": {
         "bonsai.maxTokens": {
           "type": "number",
@@ -139,20 +143,20 @@
           "order": 3,
           "description": "File path where generated context is written."
         },
-        "bonsai.outputFormat": {
-          "type": "string",
-          "default": "xml",
-          "enum": [
-            "xml",
-            "json"
-          ],
-          "order": 4,
-          "description": "Generated context format. The extension supports XML and JSON. Use the CLI for text output."
-        }
+          "bonsai.outputFormat": {
+            "type": "string",
+            "default": "xml",
+            "enum": [
+              "xml",
+              "json"
+            ],
+            "order": 4,
+            "description": "Generated context format. The extension supports XML and JSON."
+          }
       }
       },
       {
-        "title": "Bonsai: Advanced",
+        "title": "Bonsai Context Manager: Advanced",
         "properties": {
           "bonsai.include": {
             "type": "array",
@@ -176,13 +180,7 @@
             "type": "boolean",
             "default": true,
             "order": 3,
-            "description": "Respect .gitignore, global gitignore, and git exclude files."
-          },
-          "bonsai.binaryPath": {
-            "type": "string",
-            "default": "",
-            "order": 4,
-            "description": "Optional fallback path. Bonsai first checks this path, BONSAI_BIN, PATH, and its downloaded binary."
+            "description": "Respect .gitignore and .cursorignore files."
           }
         }
       }

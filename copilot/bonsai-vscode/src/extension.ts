@@ -1,86 +1,83 @@
-import * as cp from 'child_process'
-import { createHash } from 'crypto'
 import * as fs from 'fs/promises'
-import * as https from 'https'
-import * as os from 'os'
 import * as path from 'path'
 import * as vscode from 'vscode'
 
 import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_OUTPUT_FILE,
+  BonsaiConfig,
   buildContextPrompt,
-  buildBonsaiArgs,
-  buildProjectMapText,
   buildStatusText,
   buildSuccessMessage,
-  BonsaiConfig,
-  extractProjectMap,
-  parseRunReport,
   ProjectMapEntry,
   RunReport
 } from './bonsai'
+import { generateRepository } from './internalGenerator'
+import {
+  BONSAI_CONTEXT_TOOL_NAME,
+  BonsaiGenerateContextTool
+} from './languageModelTool'
 
 type GeneratedContext = {
   contextText: string
   outputFile: string
+  outputFiles: string[]
   projectMap: ProjectMapEntry[]
+  repositoryUrl?: string
   report: RunReport
+}
+
+type GenerateMode = {
+  incremental?: boolean
 }
 
 let statusItem: vscode.StatusBarItem | undefined
 let outputChannel: vscode.OutputChannel | undefined
 let extensionVersion = 'unknown'
-let cliVersion = 'unknown'
-let lastBinaryPath: string | undefined
-
-const RELEASE_DOWNLOAD_URL = 'https://github.com/MickyBalladelli/bonsai/releases/download'
-const INSTALL_URL = 'https://github.com/MickyBalladelli/bonsai#install'
 
 export function activate(context: vscode.ExtensionContext) {
   extensionVersion = String(context.extension.packageJSON.version ?? 'unknown')
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
   statusItem.command = 'bonsai.moreActions'
-  statusItem.text = `Bonsai v${extensionVersion}: checking`
-  statusItem.tooltip = 'Checking Bonsai binary health'
+  statusItem.text = `Bonsai v${extensionVersion}: ready`
+  statusItem.tooltip = 'Bonsai Context Manager uses its self-contained TypeScript engine'
   statusItem.show()
   outputChannel = vscode.window.createOutputChannel('Bonsai')
 
   context.subscriptions.push(statusItem, outputChannel)
-  void refreshHealth(context)
+
+  if (typeof vscode.lm?.registerTool === 'function') {
+    context.subscriptions.push(
+      vscode.lm.registerTool(BONSAI_CONTEXT_TOOL_NAME, new BonsaiGenerateContextTool(async workspacePath => {
+        const workspaceRoot = getToolWorkspaceRoot(workspacePath)
+        const generated = await generateContext(context, {}, workspaceRoot)
+        return {
+          contextText: generated.contextText,
+          outputFiles: generated.outputFiles,
+          report: generated.report
+        }
+      }))
+    )
+  }
 
   registerCommand(context, 'bonsai.generateContext', async () => {
     const generated = await generateContext(context)
     await openContextFile(generated.outputFile)
-    await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile))
-    showSuccessMessage(generated, 'Prompt copied. Paste it into Copilot Chat, ChatGPT, or Codex in VS Code.')
+    showSuccessMessage(generated, 'Context files generated and opened.')
   })
 
   registerCommand(context, 'bonsai.generateAndAsk', async () => {
     const generated = await generateContext(context)
-    const prompt = buildContextPrompt(generated.outputFile, generated.contextText)
+    const prompt = buildGeneratedPrompt(generated, true)
     await openContextFile(generated.outputFile)
-    await vscode.env.clipboard.writeText(prompt)
     await openChat(prompt)
-    showSuccessMessage(generated, 'Chat opened when available. Prompt also copied.')
+    showSuccessMessage(generated, 'Chat opened with instructions to read the generated context files.')
   })
 
-  registerCommand(context, 'bonsai.copyChangedContext', async () => {
+  registerCommand(context, 'bonsai.generateChangedContext', async () => {
     const generated = await generateContext(context, { incremental: true })
-    await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile, generated.contextText))
-    showSuccessMessage(generated, 'Changed context prompt copied.')
-  })
-
-  registerCommand(context, 'bonsai.copyContext', async () => {
-    const generated = await generateContext(context)
-    await vscode.env.clipboard.writeText(buildContextPrompt(generated.outputFile, generated.contextText))
-    showSuccessMessage(generated, 'Full context prompt copied. Paste it into Copilot Chat, ChatGPT, or Codex in VS Code.')
-  })
-
-  registerCommand(context, 'bonsai.copyProjectMap', async () => {
-    const generated = await generateContext(context)
-    await vscode.env.clipboard.writeText(buildProjectMapText(generated.projectMap))
-    showSuccessMessage(generated, 'Project map copied.')
+    await openContextFile(generated.outputFile)
+    showSuccessMessage(generated, 'Changed context files generated and opened.')
   })
 
   registerCommand(context, 'bonsai.previewProjectMap', async () => {
@@ -98,9 +95,10 @@ export function activate(context: vscode.ExtensionContext) {
     await showMoreActions()
   })
 
-  registerCommand(context, 'bonsai.setup', async () => {
-    await runSetup(context)
+  registerCommand(context, 'bonsai.initAgent', async () => {
+    await addAgentInstructions()
   })
+
 }
 
 export function deactivate() {}
@@ -123,29 +121,9 @@ function registerCommand(
 async function showMoreActions(): Promise<void> {
   const actions: Array<vscode.QuickPickItem & { command: string }> = [
     {
-      label: 'Copy Full Context Prompt',
-      description: 'Copy the complete context prompt to the clipboard',
-      command: 'bonsai.copyContext'
-    },
-    {
-      label: 'Copy Project Map',
-      description: 'Copy the compact project map to the clipboard',
-      command: 'bonsai.copyProjectMap'
-    },
-    {
-      label: 'Preview Project Map',
-      description: 'Open the project map in a table',
-      command: 'bonsai.previewProjectMap'
-    },
-    {
       label: 'Open Last Context',
       description: 'Open the most recent generated context file',
       command: 'bonsai.openContext'
-    },
-    {
-      label: 'Run Setup',
-      description: 'Check or download the Bonsai binary',
-      command: 'bonsai.setup'
     }
   ]
   const selected = await vscode.window.showQuickPick(actions, {
@@ -156,50 +134,127 @@ async function showMoreActions(): Promise<void> {
   }
 }
 
-async function runSetup(context: vscode.ExtensionContext): Promise<void> {
-  const binaryPath = await ensureBinary(context)
-  const folders = vscode.workspace.workspaceFolders ?? []
-  if (folders.length === 0) {
-    vscode.window.showInformationMessage(`Bonsai is ready at ${binaryPath}. Open a workspace to check a repository.`)
-    return
+const AGENT_SECTION_START = '<!-- BONSAI_CONTEXT_MANAGER_START -->'
+const AGENT_SECTION_END = '<!-- BONSAI_CONTEXT_MANAGER_END -->'
+
+async function addAgentInstructions(): Promise<void> {
+  const workspaceRoot = await getWorkspaceRoot()
+  const agentPath = path.join(workspaceRoot, 'AGENTS.md')
+  let existing = ''
+  try {
+    existing = await fs.readFile(agentPath, 'utf8')
+  } catch {
+    existing = ''
   }
 
-  const workspaceRoot = await getWorkspaceRoot()
-  const config = getConfig(workspaceRoot)
-  const stdout = await runBonsai(
-    binaryPath,
-    ['setup', workspaceRoot, '--output-file', config.outputFile],
-    workspaceRoot
+  const section = [
+    AGENT_SECTION_START,
+    '# Mandatory Repository Preflight',
+    '',
+    'Before answering any broad question, performing a repository-wide review or',
+    'making cross-cutting changes, you MUST complete the preflight:',
+    '',
+    '1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered',
+    '   files such as `bonsai-2.xml` and `bonsai-2.json`.',
+    '2. If any exist, read all of them before continuing.',
+    '3. If none exist, invoke the `Generate Bonsai Context` tool',
+    '   (`#bonsai_generate_context`).',
+    '4. Do not begin the repository-wide task until the context has been read or',
+    '   generated.',
+    '5. If the generation tool is unavailable, stop and tell the user that Bonsai',
+    '   context must be generated or the tool enabled.',
+    '',
+    'This preflight is required for broad repository tasks. It may be skipped for',
+    'narrow questions limited to a named file or symbol.',
+    AGENT_SECTION_END
+  ].join('\n')
+  const sectionPattern = new RegExp(
+    `${escapeRegExp(AGENT_SECTION_START)}[\\s\\S]*?${escapeRegExp(AGENT_SECTION_END)}`
   )
-  appendOutput(stdout)
-  await refreshHealth(context)
-  vscode.window.showInformationMessage(`Bonsai is ready for ${workspaceRoot}.`)
+  const updated = sectionPattern.test(existing)
+    ? existing.replace(sectionPattern, section)
+    : `${existing.trimEnd()}${existing.trim() ? '\n\n' : ''}${section}\n`
+
+  await fs.writeFile(agentPath, updated, 'utf8')
+  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(agentPath), { preview: false })
+  vscode.window.showInformationMessage(`Bonsai instructions added to ${agentPath}.`)
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
 }
 
 async function generateContext(
   context: vscode.ExtensionContext,
-  mode: { incremental?: boolean } = {}
+  mode: GenerateMode = {},
+  workspaceRootOverride?: string
 ): Promise<GeneratedContext> {
-  const workspaceRoot = await getWorkspaceRoot()
+  const workspaceRoot = workspaceRootOverride ?? await getWorkspaceRoot()
   const config = getConfig(workspaceRoot)
-  const binaryPath = await ensureBinary(context)
-  const stdout = await runBonsai(
-    binaryPath,
-    buildBonsaiArgs(workspaceRoot, config, mode),
-    workspaceRoot
+  const stateKey = `bonsai.fileSignatures:${workspaceRoot}`
+  const previousSignatures = context.workspaceState.get<Record<string, string>>(stateKey)
+  const generated = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: mode.incremental ? 'Generating changed Bonsai context' : 'Generating Bonsai context',
+      cancellable: false
+    },
+    () => generateRepository(workspaceRoot, config, {
+      incremental: mode.incremental,
+      previousSignatures
+    })
   )
-  const contextText = await fs.readFile(config.outputFile, 'utf8')
-  const report = parseRunReport(stdout)
 
-  const generated = {
-    contextText,
+  for (const output of generated.contextFiles) {
+    await fs.mkdir(path.dirname(output.outputFile), { recursive: true })
+    await fs.writeFile(output.outputFile, output.contextText, 'utf8')
+  }
+  await context.workspaceState.update(stateKey, generated.signatures)
+  appendOutput(`Generated ${generated.contextFiles.length} context file${generated.contextFiles.length === 1 ? '' : 's'} with the internal engine`)
+
+  const result = {
+    contextText: generated.contextFiles[0].contextText,
     outputFile: config.outputFile,
-    projectMap: extractProjectMap(contextText, config.outputFormat),
-    report
+    outputFiles: generated.contextFiles.map(output => output.outputFile),
+    projectMap: generated.projectMap,
+    repositoryUrl: generated.repositoryUrl,
+    report: generated.report
+  }
+  updateStatus(result)
+  return result
+}
+
+function getToolWorkspaceRoot(workspacePath?: string): string {
+  const folders = vscode.workspace.workspaceFolders ?? []
+  if (folders.length === 0) {
+    throw new Error('Open a workspace folder before asking Bonsai to generate context.')
   }
 
-  updateStatus(generated, binaryPath)
-  return generated
+  if (workspacePath) {
+    if (!path.isAbsolute(workspacePath)) {
+      throw new Error('workspacePath must be an absolute workspace folder path.')
+    }
+    const requestedPath = path.resolve(workspacePath)
+    const matchingFolder = folders.find(folder => {
+      const folderPath = path.resolve(folder.uri.fsPath)
+      const relativePath = path.relative(folderPath, requestedPath)
+      return relativePath === '' || (
+        relativePath !== '..' &&
+        !relativePath.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativePath)
+      )
+    })
+    if (!matchingFolder) {
+      throw new Error('workspacePath must point inside an open VS Code workspace folder.')
+    }
+    return matchingFolder.uri.fsPath
+  }
+
+  const activeEditor = vscode.window.activeTextEditor
+  const activeFolder = activeEditor
+    ? vscode.workspace.getWorkspaceFolder(activeEditor.document.uri)
+    : undefined
+  return activeFolder?.uri.fsPath ?? folders[0].uri.fsPath
 }
 
 async function getWorkspaceRoot(): Promise<string> {
@@ -229,9 +284,8 @@ async function getWorkspaceRoot(): Promise<string> {
 
 function getConfig(workspaceRoot: string): BonsaiConfig {
   const config = vscode.workspace.getConfiguration('bonsai')
-  const configuredOutputFile = expandHome(config.get<string>('outputFile', DEFAULT_OUTPUT_FILE))
+  const configuredOutputFile = config.get<string>('outputFile', DEFAULT_OUTPUT_FILE)
   return {
-    binaryPath: config.get<string>('binaryPath', ''),
     exclude: config.get<string[]>('exclude', []),
     include: config.get<string[]>('include', []),
     level: config.get<number>('level', 2),
@@ -241,219 +295,6 @@ function getConfig(workspaceRoot: string): BonsaiConfig {
       : path.join(workspaceRoot, configuredOutputFile),
     outputFormat: config.get<'json' | 'xml'>('outputFormat', 'xml'),
     respectGitignore: config.get<boolean>('respectGitignore', true)
-  }
-}
-
-async function ensureBinary(context: vscode.ExtensionContext): Promise<string> {
-  const configuredPath = vscode.workspace.getConfiguration('bonsai').get<string>('binaryPath', '')
-  const binaryPath = await resolveBinaryPath(context, configuredPath)
-  if (binaryPath) {
-    lastBinaryPath = binaryPath
-    return binaryPath
-  }
-
-  const choice = await vscode.window.showErrorMessage(
-    'Bonsai binary not found. Download a matching binary or set bonsai.binaryPath.',
-    'Download Bonsai',
-    'Open Install Guide',
-    'Set Binary Path'
-  )
-
-  if (choice === 'Download Bonsai') {
-    const downloadedPath = await downloadBinary(context)
-    lastBinaryPath = downloadedPath
-    await refreshHealth(context)
-    vscode.window.showInformationMessage(`Bonsai downloaded to ${downloadedPath}.`)
-    return downloadedPath
-  }
-  if (choice === 'Open Install Guide') {
-    await vscode.env.openExternal(vscode.Uri.parse(INSTALL_URL))
-  }
-  if (choice === 'Set Binary Path') {
-    await vscode.commands.executeCommand('workbench.action.openSettings', 'bonsai.binaryPath')
-  }
-
-  throw new Error('Bonsai is not ready. Run Bonsai: More Actions and choose Run Setup.')
-}
-
-async function resolveBinaryPath(
-  context: vscode.ExtensionContext,
-  configuredPath: string
-): Promise<string | undefined> {
-  const expandedConfiguredPath = expandHome(configuredPath.trim())
-  if (expandedConfiguredPath) {
-    return (await isExecutable(expandedConfiguredPath)) ? expandedConfiguredPath : undefined
-  }
-
-  const envBinary = expandHome(process.env.BONSAI_BIN?.trim() ?? '')
-  if (envBinary) {
-    if (await isExecutable(envBinary)) {
-      return envBinary
-    }
-  }
-
-  const pathBinary = await findExecutableOnPath('bonsai')
-  if (pathBinary) {
-    return pathBinary
-  }
-
-  const downloadedBinary = downloadedBinaryPath(context)
-  if (await isExecutable(downloadedBinary)) {
-    return downloadedBinary
-  }
-
-  return undefined
-}
-
-function downloadedBinaryPath(context: vscode.ExtensionContext): string {
-  const name = process.platform === 'win32' ? 'bonsai.exe' : 'bonsai'
-  return path.join(context.globalStorageUri.fsPath, 'bin', name)
-}
-
-function releaseAsset(): string {
-  if (process.platform === 'darwin' && process.arch === 'arm64') {
-    return 'bonsai-macos-arm64'
-  }
-  if (process.platform === 'linux' && process.arch === 'x64') {
-    return 'bonsai-linux-x64'
-  }
-  throw new Error(
-    `Automatic Bonsai download is not available for ${process.platform}/${process.arch}. Install Bonsai manually and set bonsai.binaryPath.`
-  )
-}
-
-async function downloadBinary(context: vscode.ExtensionContext): Promise<string> {
-  const asset = releaseAsset()
-  const extension = vscode.extensions.getExtension(context.extension.id)
-  const version = String(extension?.packageJSON.version ?? '').replace(/^v/, '')
-  const releasePath = version ? `v${version}` : 'latest'
-  const baseUrl = `${RELEASE_DOWNLOAD_URL}/${releasePath}`
-  const [binary, checksum] = await Promise.all([
-    downloadUrl(`${baseUrl}/${asset}`),
-    downloadUrl(`${baseUrl}/${asset}.sha256`)
-  ])
-  const expectedHash = checksum.toString('utf8').trim().split(/\s+/)[0]
-  const actualHash = createHash('sha256').update(binary).digest('hex')
-  if (!expectedHash || expectedHash !== actualHash) {
-    throw new Error(`SHA-256 verification failed for ${asset}`)
-  }
-
-  const binaryPath = downloadedBinaryPath(context)
-  await fs.mkdir(path.dirname(binaryPath), { recursive: true })
-  await fs.writeFile(binaryPath, binary)
-  if (process.platform !== 'win32') {
-    await fs.chmod(binaryPath, 0o755)
-  }
-  appendOutput(`Downloaded and verified ${asset} to ${binaryPath}`)
-  return binaryPath
-}
-
-function downloadUrl(url: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const request = https.get(url, response => {
-      const status = response.statusCode ?? 0
-      const location = response.headers.location
-      if (status >= 300 && status < 400 && location) {
-        response.resume()
-        downloadUrl(new URL(location, url).toString()).then(resolve, reject)
-        return
-      }
-      if (status !== 200) {
-        response.resume()
-        reject(new Error(`Download failed with HTTP ${status}: ${url}`))
-        return
-      }
-
-      const chunks: Buffer[] = []
-      response.on('data', chunk => chunks.push(Buffer.from(chunk)))
-      response.on('end', () => resolve(Buffer.concat(chunks)))
-      response.on('error', reject)
-    })
-    request.setTimeout(15000, () => request.destroy(new Error(`Download timed out: ${url}`)))
-    request.on('error', reject)
-  })
-}
-
-async function isExecutable(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath, fs.constants.X_OK)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function findExecutableOnPath(name: string): Promise<string | undefined> {
-  const pathValue = process.env.PATH ?? ''
-  for (const directory of pathValue.split(path.delimiter)) {
-    if (!directory) {
-      continue
-    }
-
-    const candidate = path.join(directory, name)
-    if (await isExecutable(candidate)) {
-      return candidate
-    }
-  }
-
-  return undefined
-}
-
-function expandHome(value: string): string {
-  if (value === '~') {
-    return os.homedir()
-  }
-  if (value.startsWith('~/')) {
-    return path.join(os.homedir(), value.slice(2))
-  }
-  return value
-}
-
-function runBonsai(binaryPath: string, args: string[], cwd: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = cp.spawn(binaryPath, args, {
-      cwd,
-      env: process.env
-    })
-
-    appendOutput(`$ ${[binaryPath, ...args].map(formatCommandArgument).join(' ')}`)
-
-    let stderr = ''
-    let stdout = ''
-
-    child.stdout.on('data', chunk => {
-      stdout += chunk.toString()
-    })
-
-    child.stderr.on('data', chunk => {
-      stderr += chunk.toString()
-    })
-
-    child.on('error', error => {
-      appendOutput(`ERROR: ${error.message}`)
-      reject(new Error(`Could not run Bonsai: ${error.message}`))
-    })
-
-    child.on('close', code => {
-      appendOutput(stdout)
-      appendOutput(stderr)
-      if (code === 0) {
-        resolve(stdout)
-        return
-      }
-      reject(new Error(`Bonsai failed with exit code ${code}: ${stderr.trim() || 'no error details'}`))
-    })
-  })
-}
-
-function formatCommandArgument(value: string): string {
-  return /\s/.test(value) ? JSON.stringify(value) : value
-}
-
-function appendOutput(value: string): void {
-  const text = value.trim()
-  if (text) {
-    outputChannel?.appendLine(text)
   }
 }
 
@@ -484,61 +325,21 @@ async function openChat(prompt: string): Promise<void> {
 }
 
 function showSuccessMessage(generated: GeneratedContext, nextStep: string): void {
+  if (generated.outputFiles.length > 1) {
+    nextStep = `${nextStep} Output split across ${generated.outputFiles.length} files under 10 MB each.`
+  }
   vscode.window.showInformationMessage(buildSuccessMessage(generated.outputFile, generated.report, nextStep))
 }
 
-async function refreshHealth(context: vscode.ExtensionContext): Promise<void> {
-  if (!statusItem) {
-    return
+function buildGeneratedPrompt(generated: GeneratedContext, includeContent = false): string {
+  const prompt = generated.outputFiles.length === 1 && includeContent
+    ? buildContextPrompt(generated.outputFile, generated.contextText)
+    : buildContextPrompt(generated.outputFile)
+  if (generated.outputFiles.length === 1) {
+    return prompt
   }
 
-  setHealthStatus('checking', `Bonsai extension v${extensionVersion}\nChecking for the CLI binary`)
-  const configuredPath = vscode.workspace.getConfiguration('bonsai').get<string>('binaryPath', '')
-  const binaryPath = await resolveBinaryPath(context, configuredPath)
-  if (!binaryPath) {
-    lastBinaryPath = undefined
-    cliVersion = 'unknown'
-    setHealthStatus(
-      'setup needed',
-      `Bonsai extension v${extensionVersion}\nCLI binary not found\nRun Bonsai: More Actions > Run Setup`
-    )
-    return
-  }
-
-  lastBinaryPath = binaryPath
-  try {
-    cliVersion = await readBinaryVersion(binaryPath)
-    setHealthStatus(
-      'ready',
-      `Bonsai extension v${extensionVersion}\nCLI ${cliVersion}\nBinary: ${binaryPath}`
-    )
-  } catch (error) {
-    cliVersion = 'unknown'
-    const message = error instanceof Error ? error.message : String(error)
-    appendOutput(`Health check failed: ${message}`)
-    setHealthStatus(
-      'check failed',
-      `Bonsai extension v${extensionVersion}\nBinary: ${binaryPath}\n${message}`
-    )
-  }
-}
-
-function readBinaryVersion(binaryPath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    cp.execFile(binaryPath, ['--version'], { env: process.env, timeout: 5000 }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(stderr.trim() || error.message))
-        return
-      }
-
-      const version = stdout.trim().split(/\r?\n/)[0]
-      if (!version) {
-        reject(new Error('Bonsai returned no version'))
-        return
-      }
-      resolve(version)
-    })
-  })
+  return `${prompt}\n\nRead these additional Bonsai context files too before answering:\n${generated.outputFiles.slice(1).join('\n')}`
 }
 
 function setHealthStatus(state: string, tooltip: string): void {
@@ -550,22 +351,26 @@ function setHealthStatus(state: string, tooltip: string): void {
   statusItem.show()
 }
 
-function updateStatus(generated: GeneratedContext, binaryPath: string): void {
+function updateStatus(generated: GeneratedContext): void {
   if (!statusItem) {
     return
   }
 
-  lastBinaryPath = binaryPath
   const reportText = buildStatusText(generated.report).replace(/^Bonsai:\s*/, '')
   statusItem.text = `Bonsai v${extensionVersion}: ${reportText}`
   statusItem.tooltip = [
     `Bonsai extension v${extensionVersion}`,
-    `CLI ${cliVersion}`,
-    `Health: ${lastBinaryPath ? 'ready' : 'unknown'}`,
-    `Binary: ${lastBinaryPath ?? 'not found'}`,
+    'Engine: self-contained TypeScript',
     `Output: ${generated.outputFile}`
   ].join('\n')
   statusItem.show()
+}
+
+function appendOutput(value: string): void {
+  const text = value.trim()
+  if (text) {
+    outputChannel?.appendLine(text)
+  }
 }
 
 function showProjectMapPreview(context: vscode.ExtensionContext, generated: GeneratedContext): void {
@@ -581,8 +386,11 @@ function showProjectMapPreview(context: vscode.ExtensionContext, generated: Gene
 
 function buildProjectMapHtml(generated: GeneratedContext): string {
   const rows = generated.projectMap
-    .map(entry => `<tr><td>${escapeHtml(entry.path)}</td><td>${entry.level}</td><td>${entry.tokens}</td></tr>`)
+    .map(entry => `<tr><td>${escapeHtml(entry.path)}</td><td>${entry.level}</td><td>${entry.tokens}</td><td>${formatSavedPercent(entry.savedPercent)}</td></tr>`)
     .join('')
+  const repositoryLink = generated.repositoryUrl
+    ? `<p>Repository: <a href="${escapeHtml(generated.repositoryUrl)}" target="_blank" rel="noopener">${escapeHtml(generated.repositoryUrl)}</a></p>`
+    : ''
 
   return `<!doctype html>
 <html>
@@ -593,18 +401,24 @@ function buildProjectMapHtml(generated: GeneratedContext): string {
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: left; }
     th { position: sticky; top: 0; background: var(--vscode-editor-background); }
-    td:nth-child(2), td:nth-child(3) { text-align: right; white-space: nowrap; }
+    td:nth-child(2), td:nth-child(3), td:nth-child(4) { text-align: right; white-space: nowrap; }
   </style>
 </head>
 <body>
   <h1>Bonsai Project Map</h1>
   <p>${escapeHtml(generated.outputFile)}</p>
+  ${repositoryLink}
+  <p>Saved = original source tokens versus compressed output tokens.</p>
   <table>
-    <thead><tr><th>Path</th><th>Level</th><th>Tokens</th></tr></thead>
+    <thead><tr><th>Path</th><th>Level</th><th>Tokens</th><th>Saved</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
 </body>
 </html>`
+}
+
+function formatSavedPercent(value: number | undefined): string {
+  return value === undefined ? '—' : `${value.toFixed(2)}%`
 }
 
 function escapeHtml(value: string): string {

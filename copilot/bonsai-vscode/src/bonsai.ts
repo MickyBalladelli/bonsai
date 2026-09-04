@@ -2,7 +2,6 @@ export const DEFAULT_MAX_TOKENS = 4000
 export const DEFAULT_OUTPUT_FILE = 'bonsai.xml'
 
 export type BonsaiConfig = {
-  binaryPath: string
   exclude: string[]
   include: string[]
   level: number
@@ -29,6 +28,7 @@ export type RunReport = {
 export type ProjectMapEntry = {
   level: number
   path: string
+  savedPercent?: number
   tokens: number
 }
 
@@ -108,10 +108,10 @@ export function buildProjectMapText(entries: ProjectMapEntry[]): string {
 
 export function buildContextPrompt(outputFile: string, contextText?: string): string {
   if (contextText) {
-    return `Use this Bonsai context as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.\n\n${contextText}`
+    return `Read and use this Bonsai context as compressed repository context before answering my next question. Treat it as the repository source of truth for this request.\n\n${contextText}`
   }
 
-  return `Use the Bonsai context opened at ${outputFile} as compressed repository context for Copilot Chat, ChatGPT, or Codex in VS Code, then answer my next question.`
+  return `Before answering my next question, read and use the generated Bonsai context at ${outputFile}. Treat that XML or JSON file as compressed repository context and use it as the source of truth for this request.`
 }
 
 export function buildSuccessMessage(outputFile: string, report: RunReport, nextStep: string): string {
