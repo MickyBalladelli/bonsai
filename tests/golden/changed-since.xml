@@ -1,5 +1,5 @@
 <repository_context>
-<metadata generated_at="TIMESTAMP" repo_root="/REPO" max_tokens="4000" compression_level="2" file_count="3" />
+<metadata generated_at="TIMESTAMP" repo_root="/REPO" max_tokens="12000" compression_level="2" file_count="3" />
 <project_map>
 <entry path="src/lib.rs" level="2" tokens="21" />
 <entry path="src/new.rs" level="2" tokens="8" />

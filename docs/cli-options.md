@@ -39,7 +39,7 @@ Basic:
 
 Budget:
       --max-tokens <MAX_TOKENS>
-          [default: 4000]
+          [default: 12000]
 
       --tokenizer <TOKENIZER>
           Tokenizer family or model alias: o200k_base, cl100k_base, p50k_base, p50k_edit, r50k_base
