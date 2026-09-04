@@ -2614,6 +2614,8 @@ mod tests {
         Cli {
             command: None,
             path: PathBuf::from("."),
+            config: None,
+            preset: None,
             max_tokens: 12000,
             tokenizer: TokenizerKind::default(),
             max_file_bytes: 1_048_576,
