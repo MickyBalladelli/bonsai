@@ -18,10 +18,12 @@ generated context file.
 ## Commands
 
 - `Bonsai Context Manager: Generate` creates and opens the context file.
+- `Bonsai Context Manager: Generate for Request` asks what to focus on, then keeps matching modules at higher detail.
 - `Bonsai Context Manager: Generate Changed` creates and opens context from the local incremental cache.
 - `Bonsai Context Manager: Generate and Ask` creates context, then opens chat with instructions to read it.
 - `Bonsai Context Manager: Preview Project Map` shows paths, compression levels, token counts, and savings.
 - `Bonsai Context Manager: Add Agent Instructions` adds an `AGENTS.md` section telling agents to read all generated context files.
+- `Bonsai Context Manager: Create Project Config` creates and opens `.bonsai.toml`.
 - `Bonsai Context Manager: More Actions` opens the secondary menu with `Open Last Context`.
 
 ## Settings
@@ -33,10 +35,34 @@ behavior control which workspace files are scanned.
 The extension supports XML and JSON output. The extension handles scanning,
 compression, and token budgeting itself.
 
+The VSIX bundles the real `cl100k_base` tokenizer used by the Rust CLI default,
+so token counts and token budgets use the same tokenizer in both cases.
+
+## Project config
+
+Put a `.bonsai.toml` file at the repository root to keep settings with the
+project. The extension reads `max_tokens`, `level`, `format`, `output_file`,
+`include`, `exclude`, and `respect_gitignore` from it.
+
+```toml
+max_tokens = 12000
+level = 1
+format = "xml"
+output_file = "bonsai.xml"
+include = ["src/**", "Cargo.toml"]
+exclude = ["**/generated/**"]
+respect_gitignore = true
+```
+
+Project settings override the VS Code defaults. Level 1 keeps more source;
+level 2 keeps signatures and shapes; level 3 keeps a compact tree map.
+
 ## Agent tool
 
 In VS Code 1.99 or newer, agent mode can use `#bonsai_generate_context` to
-generate or refresh context automatically. The tool writes the context files,
+generate or refresh context automatically. Pass the user's repository question
+or task as `request`; matching modules stay detailed while unrelated modules are
+compressed harder. The tool writes the context files,
 returns their paths, and gives the agent the first context file contents. It
 asks for confirmation before writing files.
 

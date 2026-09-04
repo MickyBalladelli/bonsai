@@ -1,0 +1,6 @@
+max_tokens = 12000
+tokenizer = "cl100k_base"
+level = 2
+format = "xml"
+output_file = "bonsai.xml"
+respect_gitignore = true

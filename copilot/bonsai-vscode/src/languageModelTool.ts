@@ -6,6 +6,7 @@ export const BONSAI_CONTEXT_TOOL_NAME = 'bonsai_generate_context'
 
 export type BonsaiToolInput = {
   workspacePath?: string
+  request?: string
 }
 
 export type BonsaiToolGeneration = {
@@ -14,7 +15,7 @@ export type BonsaiToolGeneration = {
   report: RunReport
 }
 
-export type BonsaiToolGenerator = (workspacePath?: string) => Promise<BonsaiToolGeneration>
+export type BonsaiToolGenerator = (workspacePath?: string, request?: string) => Promise<BonsaiToolGeneration>
 
 export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<BonsaiToolInput> {
   constructor(private readonly generate: BonsaiToolGenerator) {}
@@ -43,7 +44,7 @@ export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<Bonsa
       throw new Error('Bonsai context generation was cancelled.')
     }
 
-    const generated = await this.generate(options.input.workspacePath)
+    const generated = await this.generate(options.input.workspacePath, options.input.request)
     if (token.isCancellationRequested) {
       throw new Error('Bonsai context generation was cancelled.')
     }

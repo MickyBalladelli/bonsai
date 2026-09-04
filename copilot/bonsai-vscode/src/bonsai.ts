@@ -1,4 +1,4 @@
-export const DEFAULT_MAX_TOKENS = 4000
+export const DEFAULT_MAX_TOKENS = 12000
 export const DEFAULT_OUTPUT_FILE = 'bonsai.xml'
 
 export type BonsaiConfig = {

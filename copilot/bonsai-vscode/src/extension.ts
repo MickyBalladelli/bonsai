@@ -17,6 +17,7 @@ import {
   BONSAI_CONTEXT_TOOL_NAME,
   BonsaiGenerateContextTool
 } from './languageModelTool'
+import { readProjectConfig } from './projectConfig'
 
 type GeneratedContext = {
   contextText: string
@@ -48,9 +49,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   if (typeof vscode.lm?.registerTool === 'function') {
     context.subscriptions.push(
-      vscode.lm.registerTool(BONSAI_CONTEXT_TOOL_NAME, new BonsaiGenerateContextTool(async workspacePath => {
+      vscode.lm.registerTool(BONSAI_CONTEXT_TOOL_NAME, new BonsaiGenerateContextTool(async (workspacePath, request) => {
         const workspaceRoot = getToolWorkspaceRoot(workspacePath)
-        const generated = await generateContext(context, {}, workspaceRoot)
+        const generated = await generateContext(context, {}, workspaceRoot, request)
         return {
           contextText: generated.contextText,
           outputFiles: generated.outputFiles,
@@ -74,6 +75,19 @@ export function activate(context: vscode.ExtensionContext) {
     showSuccessMessage(generated, 'Chat opened with instructions to read the generated context files.')
   })
 
+  registerCommand(context, 'bonsai.generateForRequest', async () => {
+    const request = await vscode.window.showInputBox({
+      prompt: 'What should Bonsai preserve in more detail?',
+      placeHolder: 'Example: fix authentication flow or review database migrations'
+    })
+    if (!request?.trim()) {
+      return
+    }
+    const generated = await generateContext(context, {}, undefined, request.trim())
+    await openContextFile(generated.outputFile)
+    showSuccessMessage(generated, 'Context files generated with request-aware detail.')
+  })
+
   registerCommand(context, 'bonsai.generateChangedContext', async () => {
     const generated = await generateContext(context, { incremental: true })
     await openContextFile(generated.outputFile)
@@ -88,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   registerCommand(context, 'bonsai.openContext', async () => {
     const workspaceRoot = await getWorkspaceRoot()
-    await openContextFile(getConfig(workspaceRoot).outputFile)
+    await openContextFile((await getConfig(workspaceRoot)).outputFile)
   })
 
   registerCommand(context, 'bonsai.moreActions', async () => {
@@ -97,6 +111,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   registerCommand(context, 'bonsai.initAgent', async () => {
     await addAgentInstructions()
+  })
+
+  registerCommand(context, 'bonsai.createProjectConfig', async () => {
+    await createProjectConfig()
   })
 
 }
@@ -180,6 +198,35 @@ async function addAgentInstructions(): Promise<void> {
   vscode.window.showInformationMessage(`Bonsai instructions added to ${agentPath}.`)
 }
 
+async function createProjectConfig(): Promise<void> {
+  const workspaceRoot = await getWorkspaceRoot()
+  const configPath = path.join(workspaceRoot, '.bonsai.toml')
+  try {
+    await fs.access(configPath)
+    await openContextFile(configPath)
+    vscode.window.showInformationMessage(`${configPath} already exists.`)
+    return
+  } catch {
+    // Create the file below.
+  }
+
+  const contents = [
+    '# Bonsai project settings. This file is used by the CLI and VS Code extension.',
+    'max_tokens = 12000',
+    'tokenizer = "cl100k_base"',
+    'level = 2',
+    'format = "xml"',
+    'output_file = "bonsai.xml"',
+    'include = []',
+    'exclude = []',
+    'respect_gitignore = true',
+    ''
+  ].join('\n')
+  await fs.writeFile(configPath, contents, { encoding: 'utf8', flag: 'wx' })
+  await openContextFile(configPath)
+  vscode.window.showInformationMessage(`Created ${configPath}.`)
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
 }
@@ -187,10 +234,11 @@ function escapeRegExp(value: string): string {
 async function generateContext(
   context: vscode.ExtensionContext,
   mode: GenerateMode = {},
-  workspaceRootOverride?: string
+  workspaceRootOverride?: string,
+  focus?: string
 ): Promise<GeneratedContext> {
   const workspaceRoot = workspaceRootOverride ?? await getWorkspaceRoot()
-  const config = getConfig(workspaceRoot)
+  const config = await getConfig(workspaceRoot)
   const stateKey = `bonsai.fileSignatures:${workspaceRoot}`
   const previousSignatures = context.workspaceState.get<Record<string, string>>(stateKey)
   const generated = await vscode.window.withProgress(
@@ -201,7 +249,8 @@ async function generateContext(
     },
     () => generateRepository(workspaceRoot, config, {
       incremental: mode.incremental,
-      previousSignatures
+      previousSignatures,
+      focus
     })
   )
 
@@ -282,19 +331,20 @@ async function getWorkspaceRoot(): Promise<string> {
   return selected.folder.uri.fsPath
 }
 
-function getConfig(workspaceRoot: string): BonsaiConfig {
+async function getConfig(workspaceRoot: string): Promise<BonsaiConfig> {
   const config = vscode.workspace.getConfiguration('bonsai')
-  const configuredOutputFile = config.get<string>('outputFile', DEFAULT_OUTPUT_FILE)
+  const projectConfig = await readProjectConfig(workspaceRoot)
+  const configuredOutputFile = projectConfig.outputFile ?? config.get<string>('outputFile', DEFAULT_OUTPUT_FILE)
   return {
-    exclude: config.get<string[]>('exclude', []),
-    include: config.get<string[]>('include', []),
-    level: config.get<number>('level', 2),
-    maxTokens: config.get<number>('maxTokens', DEFAULT_MAX_TOKENS),
+    exclude: projectConfig.exclude ?? config.get<string[]>('exclude', []),
+    include: projectConfig.include ?? config.get<string[]>('include', []),
+    level: projectConfig.level ?? config.get<number>('level', 2),
+    maxTokens: projectConfig.maxTokens ?? config.get<number>('maxTokens', DEFAULT_MAX_TOKENS),
     outputFile: path.isAbsolute(configuredOutputFile)
       ? configuredOutputFile
       : path.join(workspaceRoot, configuredOutputFile),
-    outputFormat: config.get<'json' | 'xml'>('outputFormat', 'xml'),
-    respectGitignore: config.get<boolean>('respectGitignore', true)
+    outputFormat: projectConfig.outputFormat ?? config.get<'json' | 'xml'>('outputFormat', 'xml'),
+    respectGitignore: projectConfig.respectGitignore ?? config.get<boolean>('respectGitignore', true)
   }
 }
 

@@ -32,7 +32,7 @@ use walker::{
     WalkerOptions,
 };
 
-const DEFAULT_MAX_TOKENS: usize = 4000;
+const DEFAULT_MAX_TOKENS: usize = 12000;
 const DEFAULT_MAX_FILE_BYTES: u64 = 1_048_576;
 const DEFAULT_LEVEL: u8 = 2;
 const DEFAULT_OUTPUT_FILE: &str = "bonsai.xml";

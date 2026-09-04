@@ -1,14 +1,25 @@
 import { createHash } from 'crypto'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { Tiktoken } from 'js-tiktoken/lite'
+import cl100kBase from 'js-tiktoken/ranks/cl100k_base'
 
 import { BonsaiConfig, ProjectMapEntry, RunReport } from './bonsai'
 
+const TOKENIZER = new Tiktoken(cl100kBase)
 const DEFAULT_MAX_FILE_BYTES = 1_048_576
 const MAX_CONTEXT_FILE_BYTES = 10_000_000
 const IMPORT_BLOCK_KEEP = 5
 const MAX_TREE_LINES = 120
 const MAX_TEXT_LINES = 180
+const IMPORTANT_FILE_NAMES = new Set([
+  'Cargo.toml', 'package.json', 'package-lock.json', 'tsconfig.json', 'README.md',
+  'AGENTS.md', 'CLAUDE.md', 'Dockerfile', 'Makefile'
+])
+const ENTRY_FILE_NAMES = new Set([
+  'main.rs', 'main.ts', 'main.js', 'main.py', 'index.ts', 'index.js', 'app.ts',
+  'app.js', 'server.ts', 'server.js'
+])
 const ALWAYS_IGNORED_DIRECTORIES = new Set([
   '.git',
   'node_modules',
@@ -51,6 +62,8 @@ type WorkingFile = {
   path: string
   rawTokenCount: number
   variants: FileVariants
+  tokenCounts: Partial<Record<CompressionLevel, number>>
+  priorityScore: number
   level: CompressionLevel
   tokenCount: number
   contentHash: string
@@ -65,6 +78,7 @@ type IgnoreRule = {
 export type InternalGenerationOptions = {
   incremental?: boolean
   previousSignatures?: Record<string, string>
+  focus?: string
 }
 
 export type InternalGenerationResult = {
@@ -103,17 +117,24 @@ export async function generateRepository(
   }
 
   const requestedLevel = normalizeLevel(config.level)
+  const focusTerms = extractFocusTerms(options.focus)
   const files = await Promise.all(selectedCandidates.map(async candidate => {
     const source = await fs.readFile(candidate.absolutePath, 'utf8')
     const variants = buildVariants(candidate.relativePath, source)
-    return {
+    const rawTokenCount = countTokens(source)
+    const taskRelevance = calculateTaskRelevance(candidate.relativePath, source, focusTerms)
+    const file: WorkingFile = {
       path: candidate.relativePath,
-      rawTokenCount: estimateTokens(source),
+      rawTokenCount,
       variants,
-      level: requestedLevel,
-      tokenCount: estimateTokens(contentForLevel(variants, requestedLevel)),
+      tokenCounts: { 1: rawTokenCount },
+      priorityScore: baseFilePriority(candidate.relativePath) + taskRelevance * 4000,
+      level: initialFileLevel(requestedLevel, taskRelevance),
+      tokenCount: rawTokenCount,
       contentHash: createHash('sha256').update(source).digest('hex')
-    } satisfies WorkingFile
+    }
+    file.tokenCount = countFileTokens(file, requestedLevel)
+    return file
   }))
 
   const metadata = {
@@ -126,10 +147,10 @@ export async function generateRepository(
   const rawFiles = files.map(file => ({
     ...file,
     level: 1 as CompressionLevel,
-    tokenCount: estimateTokens(file.variants.full)
+    tokenCount: file.rawTokenCount
   }))
   const rawContext = formatContext(rawFiles, metadata, config.outputFormat, deletedFiles)
-  const rawTokens = estimateTokens(rawContext)
+  const rawTokens = countTokens(rawContext)
   const optimizedFiles = files.map(file => ({ ...file, variants: { ...file.variants } }))
   const { contextText: fullContextText, outputTokens } = fitBudget(
     optimizedFiles,
@@ -408,6 +429,80 @@ function contentForLevel(variants: FileVariants, level: CompressionLevel): strin
   return level === 2 ? variants.skeleton : variants.treeMap
 }
 
+const FOCUS_STOP_WORDS = new Set([
+  'about', 'after', 'also', 'and', 'before', 'can', 'change', 'code', 'create',
+  'file', 'files', 'fix', 'for', 'from', 'get', 'give', 'how', 'into', 'make',
+  'module', 'modules', 'need', 'please', 'project', 'repo', 'repository', 'show',
+  'tell', 'that', 'the', 'this', 'use', 'what', 'when', 'where', 'which', 'with',
+  'why'
+])
+
+function extractFocusTerms(focus: string | undefined): string[] {
+  if (!focus?.trim()) {
+    return []
+  }
+  return [...new Set(
+    focus.toLowerCase()
+      .split(/[^a-z0-9_]+/)
+      .filter(term => term.length >= 3 && !FOCUS_STOP_WORDS.has(term))
+  )].slice(0, 16)
+}
+
+function calculateTaskRelevance(relativePath: string, source: string, terms: string[]): number {
+  if (terms.length === 0) {
+    return 0
+  }
+  const pathText = relativePath.toLowerCase()
+  const sourceText = source.toLowerCase()
+  return terms.reduce((score, term) => {
+    if (pathText.includes(term)) {
+      return score + 3
+    }
+    return sourceText.includes(term) ? score + 1 : score
+  }, 0)
+}
+
+function baseFilePriority(relativePath: string): number {
+  const name = path.posix.basename(relativePath)
+  const extension = path.posix.extname(name).slice(1).toLowerCase()
+  if (IMPORTANT_FILE_NAMES.has(name)) {
+    return 5000
+  }
+  if (ENTRY_FILE_NAMES.has(name)) {
+    return 4000
+  }
+  if (relativePath.includes('/.github/workflows/')) {
+    return 3000
+  }
+  return ['toml', 'json', 'yaml', 'yml', 'md'].includes(extension) ? 2000 : 0
+}
+
+function initialFileLevel(requestedLevel: CompressionLevel, taskRelevance: number): CompressionLevel {
+  if (taskRelevance >= 3) {
+    return Math.max(1, requestedLevel - 1) as CompressionLevel
+  }
+  return requestedLevel
+}
+
+function compressionScore(file: WorkingFile): number {
+  const leafScore = file.path.split('/').length * 1000 + file.path.length
+  return leafScore + file.tokenCount - file.priorityScore
+}
+
+function pickCompressionCandidate(files: WorkingFile[]): WorkingFile | undefined {
+  return files.slice().sort((left, right) => {
+    const scoreDifference = compressionScore(right) - compressionScore(left)
+    if (scoreDifference !== 0) {
+      return scoreDifference
+    }
+    const tokenDifference = right.tokenCount - left.tokenCount
+    if (tokenDifference !== 0) {
+      return tokenDifference
+    }
+    return left.path.localeCompare(right.path)
+  })[0]
+}
+
 function fitBudget(
   files: WorkingFile[],
   metadata: { generatedAt: string; repoRoot: string; maxTokens: number; compressionLevel: number; fileCount: number },
@@ -419,29 +514,27 @@ function fitBudget(
 
   for (let attempt = 0; attempt < 200; attempt += 1) {
     for (const file of files) {
-      file.tokenCount = estimateTokens(contentForLevel(file.variants, file.level))
+      file.tokenCount = countFileTokens(file, file.level)
     }
     contextText = formatContext(files, metadata, config.outputFormat, deletedFiles)
-    outputTokens = estimateTokens(contextText)
+    outputTokens = countTokens(contextText)
     if (outputTokens <= metadata.maxTokens) {
       return { contextText, outputTokens }
     }
 
-    const downgrade = files
-      .filter(file => file.level < 3)
-      .sort((left, right) => right.tokenCount - left.tokenCount)[0]
+    const downgrade = pickCompressionCandidate(files.filter(file => file.level < 3))
     if (downgrade) {
       downgrade.level = (downgrade.level + 1) as CompressionLevel
       continue
     }
 
-    const largest = files.slice().sort((left, right) => right.tokenCount - left.tokenCount)[0]
+    const largest = pickCompressionCandidate(files)
     if (!largest || largest.tokenCount <= 8) {
       break
     }
     const target = Math.max(8, Math.floor(largest.tokenCount * 0.8))
     const content = contentForLevel(largest.variants, largest.level)
-    const truncated = truncateText(content, target)
+    const truncated = truncateText(content, target, largest.tokenCount)
     if (truncated === content) {
       break
     }
@@ -452,6 +545,8 @@ function fitBudget(
     } else {
       largest.variants.treeMap = truncated
     }
+    largest.tokenCount = countTokens(truncated)
+    largest.tokenCounts[largest.level] = largest.tokenCount
   }
 
   return { contextText, outputTokens }
@@ -502,12 +597,12 @@ function fitChunkByteLimit(
 ): string {
   let contextText = formatContext(files, metadata, outputFormat, deletedFiles)
   for (let attempt = 0; attempt < 100 && Buffer.byteLength(contextText, 'utf8') > MAX_CONTEXT_FILE_BYTES; attempt += 1) {
-    const largest = files.slice().sort((left, right) => right.tokenCount - left.tokenCount)[0]
+    const largest = pickCompressionCandidate(files)
     if (!largest || largest.tokenCount <= 8) {
       break
     }
     const content = contentForLevel(largest.variants, largest.level)
-    const truncated = truncateText(content, Math.max(8, Math.floor(largest.tokenCount * 0.75)))
+    const truncated = truncateText(content, Math.max(8, Math.floor(largest.tokenCount * 0.75)), largest.tokenCount)
     if (truncated === content) {
       break
     }
@@ -518,7 +613,8 @@ function fitChunkByteLimit(
     } else {
       largest.variants.treeMap = truncated
     }
-    largest.tokenCount = estimateTokens(truncated)
+    largest.tokenCount = countTokens(truncated)
+    largest.tokenCounts[largest.level] = largest.tokenCount
     contextText = formatContext(files, metadata, outputFormat, deletedFiles)
   }
   return contextText
@@ -533,8 +629,8 @@ function chunkOutputPath(outputFile: string, index: number): string {
   return `${base}-${index + 1}${extension}`
 }
 
-function truncateText(text: string, maxTokens: number): string {
-  if (estimateTokens(text) <= maxTokens) {
+function truncateText(text: string, maxTokens: number, knownTokenCount?: number): string {
+  if ((knownTokenCount ?? countTokens(text)) <= maxTokens) {
     return text
   }
 
@@ -543,7 +639,7 @@ function truncateText(text: string, maxTokens: number): string {
   while (low < high) {
     const middle = Math.ceil((low + high) / 2)
     const candidate = `${text.slice(0, middle).trimEnd()}...`
-    if (estimateTokens(candidate) <= maxTokens) {
+    if (countTokens(candidate) <= maxTokens) {
       low = middle
     } else {
       high = middle - 1
@@ -554,11 +650,18 @@ function truncateText(text: string, maxTokens: number): string {
   return result ? `${result}...` : '...'
 }
 
-function estimateTokens(text: string): number {
-  if (!text.trim()) {
-    return 0
+function countTokens(text: string): number {
+  return TOKENIZER.encode(text, [], []).length
+}
+
+function countFileTokens(file: WorkingFile, level: CompressionLevel): number {
+  const cached = file.tokenCounts[level]
+  if (cached !== undefined) {
+    return cached
   }
-  return Math.max(1, Math.ceil(text.trim().length / 4))
+  const tokenCount = countTokens(contentForLevel(file.variants, level))
+  file.tokenCounts[level] = tokenCount
+  return tokenCount
 }
 
 function calculateSavingPercent(rawTokens: number, compressedTokens: number): number {

@@ -2,7 +2,7 @@
   "name": "bonsai-vscode",
   "displayName": "Bonsai Context Manager",
   "description": "Bonsai context for GitHub Copilot Chat and Codex.",
-  "version": "0.5.20",
+  "version": "0.5.24",
   "publisher": "MickyBalladelli",
   "author": {
     "name": "Micky Balladelli"
@@ -29,6 +29,8 @@
     "onCommand:bonsai.openContext",
     "onCommand:bonsai.moreActions",
     "onCommand:bonsai.initAgent",
+    "onCommand:bonsai.createProjectConfig",
+    "onCommand:bonsai.generateForRequest",
     "onLanguageModelTool:bonsai_generate_context"
   ],
   "main": "./dist/extension.js",
@@ -61,6 +63,14 @@
       {
         "command": "bonsai.initAgent",
         "title": "Bonsai Context Manager: Add Agent Instructions"
+      },
+      {
+        "command": "bonsai.createProjectConfig",
+        "title": "Bonsai Context Manager: Create Project Config"
+      },
+      {
+        "command": "bonsai.generateForRequest",
+        "title": "Bonsai Context Manager: Generate for Request"
       }
     ],
     "menus": {
@@ -90,6 +100,14 @@
           "when": "true"
         },
         {
+          "command": "bonsai.createProjectConfig",
+          "when": "true"
+        },
+        {
+          "command": "bonsai.generateForRequest",
+          "when": "true"
+        },
+        {
           "command": "bonsai.openContext",
           "when": "false"
         }
@@ -103,13 +121,17 @@
         "canBeReferencedInPrompt": true,
         "icon": "$(file-code)",
         "userDescription": "Generate self-contained Bonsai context files for the current workspace.",
-        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
+        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. Pass the user's repository question or task in request so Bonsai can preserve matching modules at higher detail and compress unrelated modules more aggressively. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
         "inputSchema": {
           "type": "object",
           "properties": {
             "workspacePath": {
               "type": "string",
               "description": "Optional absolute path of an open workspace folder. Omit it to use the active workspace."
+            },
+            "request": {
+              "type": "string",
+              "description": "Short summary of the user's repository question or task. Matching modules receive more detail."
             }
           }
         }
@@ -119,30 +141,30 @@
       {
         "title": "Bonsai Context Manager",
         "properties": {
-        "bonsai.maxTokens": {
-          "type": "number",
-          "default": 4000,
-          "minimum": 1000,
-          "order": 1,
-          "description": "Token budget for generated Copilot context."
-        },
-        "bonsai.level": {
-          "type": "number",
-          "default": 2,
-          "enum": [
-            1,
-            2,
-            3
-          ],
-          "order": 2,
-          "description": "Compression: 1 full source first, 2 signatures and shapes, 3 names and tree map. Start with 2."
-        },
-        "bonsai.outputFile": {
-          "type": "string",
-          "default": "bonsai.xml",
-          "order": 3,
-          "description": "File path where generated context is written."
-        },
+          "bonsai.maxTokens": {
+            "type": "number",
+            "default": 12000,
+            "minimum": 1000,
+            "order": 1,
+            "description": "Token budget for generated Copilot context. Project .bonsai.toml can set max_tokens."
+          },
+          "bonsai.level": {
+            "type": "number",
+            "default": 2,
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "order": 2,
+            "description": "Compression: 1 full source first, 2 signatures and shapes, 3 names and tree map. Start with 2."
+          },
+          "bonsai.outputFile": {
+            "type": "string",
+            "default": "bonsai.xml",
+            "order": 3,
+            "description": "File path where generated context is written."
+          },
           "bonsai.outputFormat": {
             "type": "string",
             "default": "xml",
@@ -153,7 +175,7 @@
             "order": 4,
             "description": "Generated context format. The extension supports XML and JSON."
           }
-      }
+        }
       },
       {
         "title": "Bonsai Context Manager: Advanced",
@@ -191,12 +213,15 @@
     "compile": "npm run sync-version && tsc -p ./",
     "test": "npm run compile && node dist/bonsai.smoke.test.js",
     "watch": "tsc -watch -p ./",
-    "package": "npm run sync-version && vsce package --no-dependencies"
+    "package": "npm run sync-version && vsce package --dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.99.0",
     "@vscode/vsce": "^2.15.0",
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "js-tiktoken": "^1.0.21"
   }
 }
