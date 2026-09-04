@@ -27,14 +27,11 @@ answer from ordinary file browsing until the tool returns the generated context.
 Before answering any broad question, performing a repository-wide review or
 making cross-cutting changes, you MUST complete the preflight:
 
-1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered files
-   such as `bonsai-2.xml` and `bonsai-2.json`.
+1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered
+   files such as `bonsai-2.xml` and `bonsai-2.json`.
 2. If any exist, read all of them before continuing.
 3. If none exist, invoke the `Generate Bonsai Context` tool
-   (`#bonsai_generate_context`) with the user request. Bonsai derives likely
-   files itself. If you already know exact files, pass optional `filePriorities`:
-   level 1 for primary files, level 2 for supporting files, and level 3 for
-   background files.
+   (`#bonsai_generate_context`).
 4. Do not begin the repository-wide task until the context has been read or
    generated.
 5. If the generation tool is unavailable, stop and tell the user that Bonsai

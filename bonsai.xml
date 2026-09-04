@@ -1,0 +1,1341 @@
+<repository_context>
+<metadata generated_at="2026-09-04T19:06:27.212Z" repo_root="/Users/micky/dev/bonsai" max_tokens="12000" compression_level="2" file_count="44" />
+<project_map>
+<entry path=".agents/plugins/marketplace.json" level="3" tokens="78" hash="8ca9510584ba27564e1bc22d3935dd7275d7e8e9f9de39408d5238fddca28192" />
+<entry path=".bonsai.toml" level="3" tokens="38" hash="95e4ae5a156dddd7ad503d4243590baa97b0dae3a27fa4c5d0fb86f172654367" />
+<entry path=".claude-plugin/marketplace.json" level="3" tokens="110" hash="ef4ee366e9b9b0abb532c0b440c5a3f2e8dd7caa2dd53cef1cd80407911ff9a7" />
+<entry path=".github/copilot-instructions.md" level="3" tokens="4" hash="e7452543b2ab5b379437b3ae9da40d3f9af9ba8a7d6fc032eeb6afc245c3f8f1" />
+<entry path=".github/workflows/ci.yml" level="3" tokens="300" hash="1cd6e7c76f8958140412fe92fa5f629900c812ca225a839c591b95f20334eb27" />
+<entry path=".github/workflows/release.yml" level="3" tokens="369" hash="87952071d383964fbff324602c2e828e5a501063de3b071801675a65f3c7b4c7" />
+<entry path="AGENTS.md" level="3" tokens="212" hash="adec30c177172e8aa39961b91d0000515d403e723c479cee0f8d1b70712d47ff" />
+<entry path="Cargo.toml" level="3" tokens="263" hash="ea668e46b664b58da4094a203638c4abd196e6ddef8e735884d97eb0636a18aa" />
+<entry path="CLAUDE.md" level="3" tokens="158" hash="a5d0a62ec8eaac5e11abdeb0fa52699fb67c6d845e6af7cf8d19c618a28a40d8" />
+<entry path="claude/bonsai/.claude-plugin/plugin.json" level="3" tokens="69" hash="de350c739141793a72434f139b3ceb2deb4a5cd44ce9ca6557835bac8fea3dee" />
+<entry path="claude/bonsai/README.md" level="3" tokens="7" hash="f3e7c8ecaf6549b5cf37016d344de120628de647e19fe4fd04b405e2954c8143" />
+<entry path="claude/bonsai/skills/bonsai/SKILL.md" level="3" tokens="165" hash="a7845b5ba843158ddd71123e1997fa2ef43c65b25f4213b7973f832894b8b7ba" />
+<entry path="copilot/bonsai-vscode/package-lock.json" level="3" tokens="1467" hash="6381c5212bd007ed2c2a453a1714a49caaca27ed6074ac4a927cade5e3fa7106" />
+<entry path="copilot/bonsai-vscode/package.json" level="3" tokens="1003" hash="ca9ec05b9ab9785c5fd0087d4541abd8901c0b20ed89e805e12cb608d8b86fe5" />
+<entry path="copilot/bonsai-vscode/README.md" level="3" tokens="237" hash="9ee93f604e58a36a229ebc8e25165323eb3ffdc45810c4770ee7830d734b1cee" />
+<entry path="copilot/bonsai-vscode/src/bonsai.smoke.test.ts" level="3" tokens="17" hash="e1e7f1760d2b55d6d1b11bbee1f9ee65e10096fd5891986c6efbd8697088055a" />
+<entry path="copilot/bonsai-vscode/src/bonsai.ts" level="3" tokens="28" hash="9800ad7215aba7b8202e7b68346a27232341b22710ec5b219c0d1e1c8eb8459d" />
+<entry path="copilot/bonsai-vscode/src/extension.ts" level="3" tokens="23" hash="b6e6d832c7ca68d946576f143be5ed720a9a1f7a7f0d04fd66a554bb1ef4c2fa" />
+<entry path="copilot/bonsai-vscode/src/internalGenerator.smoke.test.ts" level="3" tokens="8" hash="c0c840e7b9597dbbe802ccb7f0cefa4132bd60e43cc2153fdec8ff661d62a4f7" />
+<entry path="copilot/bonsai-vscode/src/internalGenerator.ts" level="3" tokens="18" hash="2782e24a1a3c8042a588d1af0f0a08a35dd93db954296027957009fb02571a3a" />
+<entry path="copilot/bonsai-vscode/src/js-tiktoken.d.ts" level="3" tokens="4" hash="a4f053fac2544bda80365438919abd44377737061d8f361623c1bbbe8b5b5485" />
+<entry path="copilot/bonsai-vscode/src/languageModelTool.ts" level="3" tokens="16" hash="2b9ea18fdeed11352dffef21329f6ff7900d6a81ee59d5f9b7bfcd5de84c920d" />
+<entry path="copilot/bonsai-vscode/src/projectConfig.ts" level="3" tokens="20" hash="8a6e3055f760f4757be0094ed14e430a06920dda14df7824df8ce3717117c273" />
+<entry path="copilot/bonsai-vscode/tsconfig.json" level="3" tokens="71" hash="b80d53c18e132f66040d875388f8786b36f6a13b86830ed1378e04ef61ad9351" />
+<entry path="docs/cache.md" level="3" tokens="21" hash="0d33bb239fdd83316ed491d2c08003770316d20cd7325ca0abd6a33726968042" />
+<entry path="docs/cli-options.md" level="3" tokens="58" hash="0d3841cc2427df636926d501733c23c4a816c646fa21d0b997b88805f98a93ad" />
+<entry path="docs/decision-table.md" level="3" tokens="295" hash="ca29fe10f2c6d52089d7c3ad213cdc918dedd4e71888379aca4ab272524bddfe" />
+<entry path="docs/homebrew.md" level="3" tokens="3" hash="9d6cf095e413ece8f4cde510280de9bfe2f907338102958ee6f99f9e97d1ddb6" />
+<entry path="docs/maintenance.md" level="3" tokens="111" hash="6ab8e98d8294c0dc6f6b1f21c8bc61c52125d4391f1e4567b21b2d5542db8e86" />
+<entry path="docs/output-schema.md" level="3" tokens="15" hash="f58467f3feb1f6d3ad4389b318a0d797b2573951a09fceb03aca6daa92a1cc7a" />
+<entry path="docs/supported-files.md" level="3" tokens="218" hash="11db353591c80cee2745d5f5a4477f2780396af6e1431792c8c595e342cc10c9" />
+<entry path="plugins/bonsai/.codex-plugin/plugin.json" level="3" tokens="155" hash="b0f00f3a38e8cadaeee1bcbc95285d7fedce894ca88825552a7bd0861e39a6e3" />
+<entry path="plugins/bonsai/skills/bonsai/agents/openai.yaml" level="3" tokens="16" hash="5026926ea5b92a3893aa51716190721a82707231aca8f6fb9ab06b6bed3412d5" />
+<entry path="plugins/bonsai/skills/bonsai/SKILL.md" level="3" tokens="151" hash="321d17be11982ce6f1179a84a1a0e094c33e7343f34fdc4f536e0211e11365aa" />
+<entry path="README.md" level="3" tokens="108" hash="eb33761b0f84e3eac95bdd765a726f368df4b5aa12761b66377c857a650d6002" />
+<entry path="src/budget.rs" level="3" tokens="1015" hash="78cd141b23fbedab12db3d8da5e3bd6fc1499d11890a34fef66f16e24b8ca8bc" />
+<entry path="src/cache.rs" level="3" tokens="1289" hash="71d3993c7fcb032599559f7f3cf0f9c12777a7a695f7db30eb02c694d9b764f2" />
+<entry path="src/formatter.rs" level="3" tokens="1175" hash="67811a99d958678a1144a8b4e028d7954c77a121dda807650b2070a3301024ff" />
+<entry path="src/main.rs" level="3" tokens="1278" hash="5620aa0f16c8106ec972399d009f7fea94cdbf5a96a2d315924f677da9e77cd8" />
+<entry path="src/parser.rs" level="3" tokens="1376" hash="a81265b91e65abbd307f7e38d4ccc00c37249d41ae0bae9dd2c7719f086050f3" />
+<entry path="src/walker.rs" level="3" tokens="813" hash="5cc156736210e154289cf954fc8b620d4bba2f86b8a8ed430d845684eaec241a" />
+<entry path="tests/golden/context.json" level="3" tokens="144" hash="f46e0d73d680f0478a467df0f48c8cf9da01cdb23b10b2b702effe832366e8db" />
+<entry path="tests/golden/incremental-context.json" level="3" tokens="107" hash="3b0ba3d215572a84facf090d9d10fc3a9b606b574d0400e32aadbd309086e52a" />
+<entry path="TODO.md" level="3" tokens="631" hash="1430c599ad60112e009c0e8fb53511387c89adb4952589d553cd5bca53a09d3d" />
+</project_map>
+<files>
+<file path=".agents/plugins/marketplace.json" level="3" tokens="78">{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;interface&quot;: {
+&quot;displayName&quot;: &quot;Bonsai&quot;
+},
+&quot;plugins&quot;: [
+{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;source&quot;: {
+&quot;source&quot;: &quot;local&quot;,
+&quot;path&quot;: &quot;./plugins/bonsai&quot;
+},
+&quot;policy&quot;: {
+&quot;installation&quot;: &quot;AVAILABLE&quot;,
+&quot;authentication&quot;: &quot;ON_INSTALL&quot;
+},
+&quot;category&quot;: &quot;Productivity&quot;
+}
+]
+}</file>
+<file path=".bonsai.toml" level="3" tokens="38">max_tokens = 12000
+tokenizer = &quot;cl100k_base&quot;
+level = 2
+format = &quot;xml&quot;
+output_file = &quot;bonsai.xml&quot;
+respect_gitignore = true</file>
+<file path=".claude-plugin/marketplace.json" level="3" tokens="110">{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;owner&quot;: {
+&quot;name&quot;: &quot;Local developer&quot;
+},
+&quot;description&quot;: &quot;Bonsai plugins for Claude Code.&quot;,
+&quot;plugins&quot;: [
+{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;source&quot;: &quot;./claude/bonsai&quot;,
+&quot;description&quot;: &quot;Compress local repositories into token-budgeted XML context for Claude Code.&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;author&quot;: {
+&quot;name&quot;: &quot;Local developer&quot;
+},
+&quot;category&quot;: &quot;Productivity&quot;,
+&quot;tags&quot;: [&quot;context&quot;, &quot;tokens&quot;, &quot;code&quot;]
+}
+]
+}</file>
+<file path=".github/copilot-instructions.md" level="3" tokens="4"># Bonsai</file>
+<file path=".github/workflows/ci.yml" level="3" tokens="300">name: CI
+on:
+push:
+branches:
+pull_request:
+jobs:
+rust:
+name: Rust test and build
+runs-on: ubuntu-latest
+steps:
+run: ruby scripts/sync-version.rb --check
+run: cargo fmt --check
+run: cargo test
+run: cargo build --release
+run: target/release/bonsai docs | diff -u docs/cli-options.md -
+run: BONSAI_BIN=target/release/bonsai bash tests/cli_integration.sh
+run: BONSAI_BIN=target/release/bonsai bash tests/cli_output_smoke.sh
+run: bash tests/plugin_binary_lookup.sh
+run: bash tests/release_assets_smoke.sh
+uses: actions/upload-artifact@v4
+with:
+name: bonsai-linux-x64
+path: target/release/bonsai
+vscode:
+name: Package VSIX
+runs-on: ubuntu-latest
+steps:
+with:
+node-version: 20
+cache: npm
+cache-dependency-path: copilot/bonsai-vscode/package-lock.json
+run: npm ci
+working-directory: copilot/bonsai-vscode
+run: npm run compile
+working-directory: copilot/bonsai-vscode
+run: npm run package
+working-directory: copilot/bonsai-vscode
+uses: actions/upload-artifact@v4
+with:
+name: bonsai-vscode-vsix
+path: copilot/bonsai-vscode/bonsai-vscode-*.vsix</file>
+<file path=".github/workflows/release.yml" level="3" tokens="369">name: Release
+on:
+push:
+tags:
+permissions:
+contents: write
+jobs:
+binaries:
+name: Build ${{ matrix.name }}
+runs-on: ${{ matrix.os }}
+strategy:
+fail-fast: false
+matrix:
+include:
+name: linux-x64
+target: x86_64-unknown-linux-gnu
+name: macos-arm64
+target: aarch64-apple-darwin
+steps:
+run: ruby scripts/sync-version.rb --check
+with:
+targets: ${{ matrix.target }}
+run: cargo test
+run: cargo build --release --target &quot;${{ matrix.target }}&quot;
+run: |
+run: bash tests/release_binary_incremental_smoke.sh &quot;dist/bonsai-${{ matrix.name }}&quot;
+uses: actions/upload-artifact@v4
+with:
+name: bonsai-${{ matrix.name }}
+path: |
+vsix:
+name: Package VSIX
+runs-on: ubuntu-latest
+steps:
+with:
+node-version: 20
+cache: npm
+cache-dependency-path: copilot/bonsai-vscode/package-lock.json
+run: npm ci
+working-directory: copilot/bonsai-vscode
+run: npm run compile
+working-directory: copilot/bonsai-vscode
+run: npm run package
+working-directory: copilot/bonsai-vscode
+uses: actions/upload-artifact@v4
+with:
+name: bonsai-vscode-vsix
+path: copilot/bonsai-vscode/bonsai-vscode-*.vsix
+publish:
+name: Publish GitHub release
+runs-on: ubuntu-latest
+needs:
+steps:
+with:
+path: dist
+merge-multiple: true
+run: |
+run: |
+uses: softprops/action-gh-release@v2
+with:
+body_path: release-notes.md
+files: dist/*</file>
+<file path="AGENTS.md" level="3" tokens="212"># Mandatory Repository Preflight
+1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered files such as `bonsai-2.xml` and `bonsai-2.json`.
+2. If any exist, read all of them before continuing.
+3. If none exist, invoke the `Generate Bonsai Context` tool with the user
+4. Do not begin the repository-wide task until the context has been read or generated.
+5. IF thegeneration tool is unavailable, stop and tell the user that Bonsai context must be generated or the tool enabled.
+# Mandatory Repository Preflight
+1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered
+2. If any exist, read all of them before continuing.
+3. If none exist, invoke the `Generate Bonsai Context` tool
+4. Do not begin the repository-wide task until the context has been read or
+5. If the generation tool is unavailable, stop and tell the user that Bonsai</file>
+<file path="Cargo.toml" level="3" tokens="263">[package]
+name = &quot;bonsai&quot;
+version = &quot;0.5.30&quot;
+edition = &quot;2021&quot;
+description = &quot;Local-first AST context compressor for LLM ingestion&quot;
+license = &quot;MIT&quot;
+[dependencies]
+anyhow = &quot;1.0&quot;
+arboard = &quot;3.4&quot;
+clap = { version = &quot;4.5&quot;, features = [&quot;derive&quot;] }
+clap_complete = &quot;4.5&quot;
+globset = &quot;0.4&quot;
+ignore = &quot;0.4&quot;
+sha2 = &quot;0.10&quot;
+tiktoken-rs = &quot;0.6&quot;
+tree-sitter = &quot;0.21&quot;
+tree-sitter-c = &quot;0.21&quot;
+tree-sitter-c-sharp = &quot;0.21&quot;
+tree-sitter-cpp = &quot;0.21&quot;
+tree-sitter-go = &quot;0.21&quot;
+tree-sitter-java = &quot;0.21&quot;
+tree-sitter-javascript = &quot;0.21&quot;
+tree-sitter-kotlin = &quot;0.3&quot;
+tree-sitter-python = &quot;0.21&quot;
+tree-sitter-rust = &quot;0.21&quot;
+tree-sitter-swift = { package = &quot;devgen-tree-sitter-swift&quot;, version = &quot;0.21&quot; }
+tree-sitter-typescript = &quot;0.21&quot;</file>
+<file path="CLAUDE.md" level="3" tokens="158">For repo-wide analysis, first run Bonsai. Do not answer from ordinary file browsing until this command succeeds:
+```sh
+bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
+```
+Then inspect `/tmp/bonsai.xml` before answering.
+Repo-wide analysis includes architecture review, full project summary, broad bug hunting, onboarding, and questions that need many files.
+Expected behavior example:
+```text
+User asks: summarize this whole project
+Claude runs: bonsai . --max-tokens 12000 --level 2 --output file --output-file /tmp/bonsai.xml
+Claude inspects: /tmp/bonsai.xml
+Claude answers from that context.
+```</file>
+<file path="claude/bonsai/.claude-plugin/plugin.json" level="3" tokens="69">{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;description&quot;: &quot;Compress local repositories into token-budgeted XML context for Claude Code.&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;author&quot;: {
+&quot;name&quot;: &quot;Local developer&quot;
+},
+&quot;homepage&quot;: &quot;https://github.com/MickyBalladelli/bonsai&quot;,
+&quot;license&quot;: &quot;MIT&quot;
+}</file>
+<file path="claude/bonsai/README.md" level="3" tokens="7"># Bonsai Claude Code Plugin</file>
+<file path="claude/bonsai/skills/bonsai/SKILL.md" level="3" tokens="165"># Bonsai
+## Must Run For
+## Workflow
+1. Prefer the helper command from the plugin `bin/` directory:
+2. Default values when the user does not specify:
+3. Read the generated XML file before answering the user.
+4. Use level choice by task:
+5. If output is still too broad, rerun Bonsai on the most relevant subdirectory rather than asking the user to paste files.
+## Commands
+## Expected Behavior
+## Notes
+- Do not start servers for this skill.
+- The helper writes a file, then Claude should inspect that file with ordinary file-reading tools.
+- The helper uses `BONSAI_BIN` when set, then `bonsai` from PATH, then this repo&apos;s release binary when the plugin is used from the source checkout.</file>
+<file path="copilot/bonsai-vscode/package-lock.json" level="3" tokens="1467">{
+&quot;name&quot;: &quot;bonsai-vscode&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;lockfileVersion&quot;: 3,
+&quot;requires&quot;: true,
+&quot;packages&quot;: {
+&quot;name&quot;: &quot;bonsai-vscode&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;dependencies&quot;: {
+&quot;js-tiktoken&quot;: &quot;^1.0.21&quot;
+},
+&quot;devDependencies&quot;: {
+&quot;@types/node&quot;: &quot;^20.11.30&quot;,
+&quot;@types/vscode&quot;: &quot;^1.99.0&quot;,
+&quot;@vscode/vsce&quot;: &quot;^2.15.0&quot;,
+&quot;typescript&quot;: &quot;^5.4.5&quot;
+},
+&quot;engines&quot;: {
+&quot;vscode&quot;: &quot;^1.99.0&quot;
+}
+},
+&quot;node_modules/@azure/abort-controller&quot;: {
+&quot;version&quot;: &quot;2.1.2&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/abort-controller/-/abort-controller-2.1.2.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-nBrLsEWm4J2u5LpAPjxADTlq3trDgVZZXHNKabeXZtpq3d3AbN/KGO82R87rdDz5/lYB024rtEf10/q0urNgsA==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=18.0.0&quot;
+}
+},
+&quot;node_modules/@azure/core-auth&quot;: {
+&quot;version&quot;: &quot;1.10.1&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/core-auth/-/core-auth-1.10.1.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-ykRMW8PjVAn+RS6ww5cmK9U2CyH9p4Q88YJwvUslfuMmN98w/2rdGRLPqJYObapBCdzBVeDgYWdJnFPFb7qzpg==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
+&quot;@azure/core-util&quot;: &quot;^1.13.0&quot;,
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=20.0.0&quot;
+}
+},
+&quot;node_modules/@azure/core-client&quot;: {
+&quot;version&quot;: &quot;1.10.2&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/core-client/-/core-client-1.10.2.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-1D2LpsU7y9xrqKjdIbsB7PlrRePw0xsVV8p+AKTlzITrWmscajryfJCdDJB/oGwvDI5HmRo04eMMADB67uwAwQ==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
+&quot;@azure/core-auth&quot;: &quot;^1.10.0&quot;,
+&quot;@azure/core-rest-pipeline&quot;: &quot;^1.22.0&quot;,
+&quot;@azure/core-tracing&quot;: &quot;^1.3.0&quot;,
+&quot;@azure/core-util&quot;: &quot;^1.13.0&quot;,
+&quot;@azure/logger&quot;: &quot;^1.3.0&quot;,
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=20.0.0&quot;
+}
+},
+&quot;node_modules/@azure/core-rest-pipeline&quot;: {
+&quot;version&quot;: &quot;1.24.0&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/core-rest-pipeline/-/core-rest-pipeline-1.24.0.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-PpLsoDQ3AMmKZ0VU+0GrmqMxgp/sExjlVm4R+nLWngeoEGAzOIPVifaxKGU5gMv+nWELUoHfvrolWD+ZS/nFJg==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
+&quot;@azure/core-auth&quot;: &quot;^1.10.0&quot;,
+&quot;@azure/core-tracing&quot;: &quot;^1.3.0&quot;,
+&quot;@azure/core-util&quot;: &quot;^1.13.0&quot;,
+&quot;@azure/logger&quot;: &quot;^1.3.0&quot;,
+&quot;@typespec/ts-http-runtime&quot;: &quot;^0.3.4&quot;,
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=20.0.0&quot;
+}
+},
+&quot;node_modules/@azure/core-tracing&quot;: {
+&quot;version&quot;: &quot;1.3.1&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/core-tracing/-/core-tracing-1.3.1.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-9MWKevR7Hz8kNzzPLfX4EAtGM2b8mr50HPDBvio96bURP/9C+HjdH3sBlLSNNrvRAr5/k/svoH457gB5IKpmwQ==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=20.0.0&quot;
+}
+},
+&quot;node_modules/@azure/core-util&quot;: {
+&quot;version&quot;: &quot;1.13.1&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/core-util/-/core-util-1.13.1.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-XPArKLzsvl0Hf0CaGyKHUyVgF7oDnhKoP85Xv6M4StF/1AhfORhZudHtOyf2s+FcbuQ9dPRAjB8J2KvRRMUK2A==&quot;,
+&quot;dev&quot;: true,
+&quot;license&quot;: &quot;MIT&quot;,
+&quot;dependencies&quot;: {
+&quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
+&quot;@typespec/ts-http-runtime&quot;: &quot;^0.3.0&quot;,
+&quot;tslib&quot;: &quot;^2.6.2&quot;
+},
+&quot;engines&quot;: {
+&quot;node&quot;: &quot;&gt;=20.0.0&quot;
+}
+},
+&quot;node_modules/@azure/identity&quot;: {
+&quot;version&quot;: &quot;4.13.1&quot;,
+&quot;resolved&quot;: &quot;https://registry.npmjs.org/@azure/identity/-/identity-4.13.1.tgz&quot;,
+&quot;integrity&quot;: &quot;sha512-5C/2WD5Vb1lHnZS16dNQRPMjN6oV/Upba+C9nBIs15PmOi6A3ZGs4Lr2u60zw4S04gi+u3cEXiqTVP7M4Pz3kw==&quot;,
+&quot;dev&quot;: true,</file>
+<file path="copilot/bonsai-vscode/package.json" level="3" tokens="1003">{
+&quot;name&quot;: &quot;bonsai-vscode&quot;,
+&quot;displayName&quot;: &quot;Bonsai Context Manager&quot;,
+&quot;description&quot;: &quot;Bonsai context for GitHub Copilot Chat and Codex.&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;publisher&quot;: &quot;MickyBalladelli&quot;,
+&quot;author&quot;: {
+&quot;name&quot;: &quot;Micky Balladelli&quot;
+},
+&quot;private&quot;: true,
+&quot;icon&quot;: &quot;images/bonsai.png&quot;,
+&quot;repository&quot;: {
+&quot;type&quot;: &quot;git&quot;,
+&quot;url&quot;: &quot;https://github.com/MickyBalladelli/bonsai.git&quot;
+},
+&quot;homepage&quot;: &quot;https://github.com/MickyBalladelli/bonsai&quot;,
+&quot;engines&quot;: {
+&quot;vscode&quot;: &quot;^1.99.0&quot;
+},
+&quot;categories&quot;: [
+],
+&quot;activationEvents&quot;: [
+],
+&quot;main&quot;: &quot;./dist/extension.js&quot;,
+&quot;contributes&quot;: {
+&quot;commands&quot;: [
+{
+&quot;command&quot;: &quot;bonsai.generateContext&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Generate&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateAndAsk&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Generate and Ask&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateChangedContext&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Generate Changed&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.previewProjectMap&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Preview Project Map&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.openContext&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Open Last Context&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.moreActions&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: More Actions&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.initAgent&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Add Agent Instructions&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.createProjectConfig&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Create Project Config&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateForRequest&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Generate for Request&quot;
+}
+],
+&quot;menus&quot;: {
+&quot;commandPalette&quot;: [
+{
+&quot;command&quot;: &quot;bonsai.generateContext&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateChangedContext&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateAndAsk&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.previewProjectMap&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.moreActions&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.initAgent&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.createProjectConfig&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.generateForRequest&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.openContext&quot;,
+&quot;when&quot;: &quot;false&quot;
+}
+]
+},
+&quot;languageModelTools&quot;: [
+{
+&quot;name&quot;: &quot;bonsai_generate_context&quot;,
+&quot;displayName&quot;: &quot;Generate Bonsai Context&quot;,
+&quot;toolReferenceName&quot;: &quot;bonsai_generate_context&quot;,
+&quot;canBeReferencedInPrompt&quot;: true,
+&quot;icon&quot;: &quot;$(file-code)&quot;,
+&quot;userDescription&quot;: &quot;Generate self-contained Bonsai context files for the current workspace.&quot;,
+&quot;modelDescription&quot;: &quot;Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. The request field is required. Bonsai ranks likely files from request terms, declared symbols, imports, callers, and nearby tests; it works even before the agent knows exact files. When the agent has inspected likely files, it may pass filePriorities with exact workspace-relative paths: level 1 for primary code, level 2 for supporting structure, and level 3 for compact background context. Treat a plan as a hint, not proof: Bonsai keeps request-derived candidates and related dependencies protected too. Level 1 drops comments by default; set includeComments true only when comments are needed. Bonsai validates any planned paths before writing. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.&quot;,
+&quot;inputSchema&quot;: {
+&quot;type&quot;: &quot;object&quot;,
+&quot;properties&quot;: {
+&quot;workspacePath&quot;: {
+&quot;type&quot;: &quot;string&quot;,
+&quot;description&quot;: &quot;Optional absolute path of an open workspace folder. Omit it to use the active workspace.&quot;
+},
+&quot;request&quot;: {</file>
+<file path="copilot/bonsai-vscode/README.md" level="3" tokens="237"># Bonsai Context Manager
+## Start
+1. Install the VSIX.
+2. Open one or more repository folders in VS Code.
+3. Run `Bonsai Context Manager: Generate`.
+## Commands
+- `Bonsai Context Manager: Generate` creates and opens the context file.
+- `Bonsai Context Manager: Generate for Request` asks what to focus on, then keeps matching modules at higher detail.
+- `Bonsai Context Manager: Generate Changed` creates and opens context from the local incremental cache.
+- `Bonsai Context Manager: Generate and Ask` creates context, then opens chat with instructions to read it.
+- `Bonsai Context Manager: Preview Project Map` shows paths, compression levels, token counts, and savings.
+- `Bonsai Context Manager: Add Agent Instructions` adds an `AGENTS.md` section telling agents to read all generated context files.
+- `Bonsai Context Manager: Create Project Config` creates and opens `.bonsai.toml`.
+- `Bonsai Context Manager: More Actions` opens the secondary menu with `Open Last Context`.
+## Settings
+## Project config
+## Agent tool</file>
+<file path="copilot/bonsai-vscode/src/bonsai.smoke.test.ts" level="3" tokens="17">import * as assert from &apos;assert&apos;
+import {
+const args = buildBons...</file>
+<file path="copilot/bonsai-vscode/src/bonsai.ts" level="3" tokens="28">export const DEFAULT_MAX_TOKENS = 12000
+export const DEFAULT_OUTPUT_FILE = &apos;bonsai.xml&apos;
+export type Bonsai...</file>
+<file path="copilot/bonsai-vscode/src/extension.ts" level="3" tokens="23">import * as fs from &apos;fs/promises&apos;
+import * as path from &apos;path&apos;
+import * as vscode...</file>
+<file path="copilot/bonsai-vscode/src/internalGenerator.smoke.test.ts" level="3" tokens="8">import * as assert from &apos;assert...</file>
+<file path="copilot/bonsai-vscode/src/internalGenerator.ts" level="3" tokens="18">import { createHash } from &apos;crypto&apos;
+import * as fs from &apos;fs/prom...</file>
+<file path="copilot/bonsai-vscode/src/js-tiktoken.d.ts" level="3" tokens="4">const encoder: {</file>
+<file path="copilot/bonsai-vscode/src/languageModelTool.ts" level="3" tokens="16">import * as vscode from &apos;vscode&apos;
+import { BonsaiFile...</file>
+<file path="copilot/bonsai-vscode/src/projectConfig.ts" level="3" tokens="20">import * as fs from &apos;fs/promises&apos;
+import * as path from &apos;path&apos;
+expo...</file>
+<file path="copilot/bonsai-vscode/tsconfig.json" level="3" tokens="71">{
+&quot;compilerOptions&quot;: {
+&quot;module&quot;: &quot;commonjs&quot;,
+&quot;target&quot;: &quot;ES2020&quot;,
+&quot;outDir&quot;: &quot;dist&quot;,
+&quot;lib&quot;: [
+],
+&quot;sourceMap&quot;: true,
+&quot;rootDir&quot;: &quot;src&quot;,
+&quot;strict&quot;: true,
+&quot;esModuleInterop&quot;: true,
+&quot;skipLibCheck&quot;: true
+},
+&quot;exclude&quot;: [
+]
+}</file>
+<file path="docs/cache.md" level="3" tokens="21"># Bonsai cache
+## Local incremental context
+## Compare with another base
+## Compare with Git</file>
+<file path="docs/cli-options.md" level="3" tokens="58"># Bonsai CLI option reference
+## `bonsai`
+## `bonsai setup`
+## `bonsai init-agent`
+## `bonsai cache`
+## `bonsai cache clear`
+## `bonsai doctor`
+## `bonsai completions`
+## `bonsai docs`</file>
+<file path="docs/decision-table.md" level="3" tokens="295"># Bonsai decision table
+| Goal | Command | Output | When to use it |
+| --- | --- | --- | --- |
+| Understand a repository | `bonsai .` | `bonsai.xml` | First run, architecture, onboarding, or broad review |
+| Refresh only local changes | `bonsai . --preset changed` | `bonsai.xml` | After one normal run created the local baseline |
+| Compare a branch or commit | `bonsai . --preset changed --changed-since main --output-file bonsai-changes.xml` | `bonsai-changes.xml` | Review work against a Git ref, including untracked files and deletions |
+| See the project shape | `bonsai . --preset map --output-file bonsai-map.xml` | `bonsai-map.xml` | Need paths and structure before spending tokens on file bodies |
+| Make a paste-ready prompt | `bonsai . --preset prompt --output clipboard` | Clipboard | Send context directly to an LLM |
+| Check selection before writing | `bonsai . --dry-run` | Terminal only | Verify includes, excludes, and estimated tokens |
+| Check installation health | `bonsai doctor` | Terminal or JSON | Diagnose the binary, tokenizer, parsers, and cache |
+| Add agent instructions | `bonsai init-agent --files agents` | `AGENTS.md` | Make Codex-style agents run Bonsai first |</file>
+<file path="docs/homebrew.md" level="3" tokens="3"># Homebrew</file>
+<file path="docs/maintenance.md" level="3" tokens="111"># Bonsai maintenance
+## Keep the CLI reference current
+## Keep versions current
+## Check health
+## Release checklist
+1. Change the version in `Cargo.toml`.
+2. Run `ruby scripts/sync-version.rb`.
+3. Run `sh scripts/generate-cli-reference.sh`.
+4. Run `cargo check` and `cd copilot/bonsai-vscode &amp;&amp; npm run compile`.
+5. Update `Formula/bonsai.rb` with the new source SHA-256.
+6. Build release assets and verify their checksums.</file>
+<file path="docs/output-schema.md" level="3" tokens="15"># Bonsai Output Schema
+## XML
+## JSON
+## Text</file>
+<file path="docs/supported-files.md" level="3" tokens="218"># Supported files
+| Mode | Extensions | Languages and file types |
+| --- | --- | --- |
+| Tree-sitter | `.js`, `.jsx`, `.ts`, `.tsx` | JavaScript and TypeScript |
+| Tree-sitter | `.py` | Python |
+| Tree-sitter | `.rs` | Rust |
+| Tree-sitter | `.go` | Go |
+| Tree-sitter | `.java` | Java |
+| Tree-sitter | `.cs` | C# |
+| Tree-sitter | `.swift` | Swift |
+| Tree-sitter | `.kt` | Kotlin |
+| Tree-sitter | `.c`, `.h` | C |
+| Tree-sitter | `.cpp`, `.hpp` | C++ |
+| Compact fallback | `.m`, `.mm` | Objective-C |
+| Compact fallback | `.vue`, `.svelte`, `.astro`, `.html` | Web templates |
+| Compact fallback | `.md` | Markdown |
+| Compact fallback | `.json`, `.yaml`, `.yml`, `.toml` | Configuration and manifests |</file>
+<file path="plugins/bonsai/.codex-plugin/plugin.json" level="3" tokens="155">{
+&quot;name&quot;: &quot;bonsai&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
+&quot;description&quot;: &quot;Compress local repositories into token-budgeted XML context for Codex.&quot;,
+&quot;author&quot;: {
+&quot;name&quot;: &quot;Local developer&quot;
+},
+&quot;skills&quot;: &quot;./skills/&quot;,
+&quot;interface&quot;: {
+&quot;displayName&quot;: &quot;Bonsai&quot;,
+&quot;shortDescription&quot;: &quot;Compress repo context for Codex.&quot;,
+&quot;longDescription&quot;: &quot;Bonsai runs a local Rust CLI that parses repositories with tree-sitter, strips implementation bodies when useful, applies a token budget, and emits XML context for Codex.&quot;,
+&quot;developerName&quot;: &quot;Local developer&quot;,
+&quot;category&quot;: &quot;Productivity&quot;,
+&quot;capabilities&quot;: [],
+&quot;defaultPrompt&quot;: &quot;Use $bonsai to compress this repo into XML context before answering.&quot;
+}
+}</file>
+<file path="plugins/bonsai/skills/bonsai/agents/openai.yaml" level="3" tokens="16">interface:
+display_name: &quot;Bonsai&quot;
+short_description: &quot;Comp...</file>
+<file path="plugins/bonsai/skills/bonsai/SKILL.md" level="3" tokens="151"># Bonsai
+## Must Run For
+## Workflow
+1. Prefer the helper script:
+2. Default values when the user does not specify:
+3. Read the generated XML file before answering the user.
+4. Use level choice by task:
+5. If output is still too broad, rerun Bonsai on the most relevant subdirectory rather than asking the user to paste files.
+## Commands
+## Expected Behavior
+## Notes
+- Do not start servers for this skill.
+- The helper writes a file, then Codex should inspect that file with ordinary file-reading tools.
+- The helper uses `BONSAI_BIN` when set, then `bonsai` from PATH, then a repo-local release binary when available.</file>
+<file path="README.md" level="3" tokens="108"># Bonsai
+## Install with Homebrew
+## Quick Start
+## Beginner Flows
+## Quick Setup For Agents
+## Install
+## What Bonsai Keeps
+## Common Commands
+### Everyday output
+## Config
+### Output formats and prompts
+### Selection and budget
+## Change-Focused Context
+## Output
+## Supported Files
+## Use With Codex, Claude, And VS Code
+### Codex
+### Claude Code
+### VS Code
+## Examples
+## Troubleshooting
+## Development
+## Names</file>
+<file path="src/budget.rs" level="3" tokens="1015">use std::fmt;
+use std::str::FromStr;
+use anyhow::{Context, Result};
+use tiktoken_rs::{cl100k_base, o200k_base, p50k_base, p50k_edit, r50k_base, CoreBPE};
+use crate::parser::{CompressionLevel, FileVariants};
+impl Default for TokenizerKind {
+fn default() -&gt; Self {
+impl TokenizerKind {
+pub fn as_str(self) -&gt; &amp;&apos;static str {
+impl fmt::Display for TokenizerKind {
+fn fmt(&amp;self, formatter: &amp;mut fmt::Formatter&lt;&apos;_&gt;) -&gt; fmt::Result {
+impl FromStr for TokenizerKind {
+type Err = String;
+fn from_str(value: &amp;str) -&gt; std::result::Result&lt;Self, Self::Err&gt; {
+let normalized = value.trim().to_ascii_lowercase().replace([&apos;-&apos;, &apos;.&apos;], &quot;_&quot;);
+let starts_with_any =
+if starts_with_any(&amp;[&quot;gpt_4o&quot;, &quot;gpt_4_1&quot;, &quot;gpt_5&quot;, &quot;o1&quot;, &quot;o3&quot;, &quot;o4&quot;]) {
+return Ok(Self::O200kBase);
+if starts_with_any(&amp;[&quot;gpt_4&quot;, &quot;gpt_3_5&quot;, &quot;text_embedding_ada_002&quot;]) {
+return Ok(Self::Cl100kBase);
+impl TokenCounter {
+pub fn new(tokenizer: TokenizerKind) -&gt; Result&lt;Self&gt; {
+let encoder = match tokenizer {
+pub fn tokenizer(&amp;self) -&gt; TokenizerKind {
+pub fn count(&amp;self, text: &amp;str) -&gt; usize {
+impl ProcessedFile {
+pub fn new(path: String, level: CompressionLevel, variants: FileVariants) -&gt; Self {
+pub fn content(&amp;self) -&gt; &amp;str {
+while total_tokens(&amp;files) &gt; max_tokens {
+let Some(index) = pick_downgrade_candidate(&amp;files) else {
+pub fn downgrade_largest_file(files: &amp;mut [ProcessedFile], counter: &amp;TokenCounter) -&gt; bool {
+let Some(index) = pick_downgrade_candidate(files) else {
+pub fn count_text_tokens(text: &amp;str, counter: &amp;TokenCounter) -&gt; usize {
+fn refresh_counts(files: &amp;mut [ProcessedFile], counter: &amp;TokenCounter) {
+fn total_tokens(files: &amp;[ProcessedFile]) -&gt; usize {
+fn count_tokens(encoder: &amp;CoreBPE, text: &amp;str) -&gt; usize {
+fn downgrade_file(file: &amp;mut ProcessedFile, counter: &amp;TokenCounter) {
+fn truncate_current_file(file: &amp;mut ProcessedFile, max_tokens: usize, counter: &amp;TokenCounter) {
+let truncated = truncate_text_tokens(file.content(), max_tokens, counter);
+fn truncate_text_tokens(text: &amp;str, max_tokens: usize, counter: &amp;TokenCounter) -&gt; String {
+let chars = text.chars().collect::&lt;Vec&lt;_&gt;&gt;();
+let mut low = 0usize;
+let mut high = chars.len();
+let mid = (low + high).div_ceil(2);
+let candidate = format!(&quot;{}...&quot;, chars[..mid].iter().collect::&lt;String&gt;().trim_end());
+let truncated = chars[..low]
+fn pick_downgrade_candidate(files: &amp;[ProcessedFile]) -&gt; Option&lt;usize&gt; {
+fn downgrade_score(file: &amp;ProcessedFile) -&gt; i64 {
+fn leaf_score(file: &amp;ProcessedFile) -&gt; usize {
+pub fn file_priority_score(file: &amp;ProcessedFile) -&gt; usize {
+let path = file.path.as_str();
+let name = path.rsplit(&apos;/&apos;).next().unwrap_or(path);
+let extension = name.rsplit_once(&apos;.&apos;).map(|(_, ext)| ext).unwrap_or(&quot;&quot;);
+use super::*;
+fn test_counter() -&gt; TokenCounter {
+fn downgrades_full_to_skeleton_when_over_budget() {
+let file = processed_file(
+let counter = test_counter();
+let max_tokens = count_text_tokens(&quot;fn main() { ... }&quot;, &amp;counter);
+let optimized = optimize_budget(vec![file], max_tokens, &amp;counter).unwrap();
+fn downgrades_skeleton_to_tree_map_when_over_budget() {
+let file = processed_file(
+let counter = test_counter();
+let max_tokens = count_text_tokens(&quot;fn main()&quot;, &amp;counter);
+let optimized = optimize_budget(vec![file], max_tokens, &amp;counter).unwrap();
+fn downgrade_order_is_stable_for_same_inputs() {
+let files = vec![
+let counter = test_counter();
+let first = optimize_budget(files.clone(), 1, &amp;counter).unwrap();
+let second = optimize_budget(files, 1, &amp;counter).unwrap();
+fn keeps_manifest_before_leaf_file_under_pressure() {
+let files = vec![
+let counter = test_counter();
+let max_tokens = count_text_tokens(
+let optimized = optimize_budget(files, max_tokens, &amp;counter).unwrap();
+fn caps_single_file_before_global_budget() {
+let mut files = vec![processed_file(
+let counter = test_counter();
+let max_tokens = 5;
+fn parses_tokenizer_family_aliases() {
+fn processed_file(
+fn levels(files: &amp;[ProcessedFile]) -&gt; Vec&lt;CompressionLevel&gt; {
+fn paths(files: &amp;[ProcessedFile]) -&gt; Vec&lt;&amp;str&gt; {</file>
+<file path="src/cache.rs" level="3" tokens="1289">use std::collections::{HashMap, HashSet};
+use std::fs::{self, Metadata};
+use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
+use anyhow::{Context, Result};
+... 1 more imports
+const HEADER_V1: &amp;[u8] = b&quot;BONSAI_PARSE_CACHE_V1\n&quot;;
+const HEADER_V2: &amp;[u8] = b&quot;BONSAI_PARSE_CACHE_V2\n&quot;;
+struct CacheEntry {
+impl ParseCache {
+pub fn load(path: PathBuf) -&gt; Self {
+let parsed = fs::read(&amp;path)
+pub fn get(&amp;mut self, path: &amp;Path, metadata: &amp;Metadata) -&gt; Option&lt;FileVariants&gt; {
+let key = cache_key(path);
+pub fn status(&amp;self, path: &amp;Path, metadata: &amp;Metadata) -&gt; CacheStatus {
+let key = cache_key(path);
+pub fn deleted_paths(&amp;self, root: &amp;Path) -&gt; Vec&lt;String&gt; {
+let mut paths = self
+let path = Path::new(path.as_str());
+pub fn load_required(path: PathBuf) -&gt; Result&lt;Self&gt; {
+let bytes = fs::read(&amp;path)
+let parsed = parse_cache_bytes(&amp;bytes)
+fn get_by_key(&amp;self, key: &amp;str, metadata: &amp;Metadata) -&gt; Option&lt;FileVariants&gt; {
+let entry = self.entries.get(key)?;
+return Some(entry.variants.clone());
+pub fn put(&amp;mut self, path: &amp;Path, metadata: &amp;Metadata, variants: FileVariants) {
+let key = cache_key(path);
+pub fn metadata_matches(&amp;self, metadata: &amp;CacheMetadata) -&gt; bool {
+pub fn diagnostics(&amp;self) -&gt; CacheDiagnostics {
+let stale_entry_count = self
+let Ok(metadata) = fs::metadata(path) else {
+pub fn set_metadata(&amp;mut self, metadata: CacheMetadata) {
+pub fn retain_touched(&amp;mut self) {
+let before = self.entries.len();
+pub fn save(&amp;self) -&gt; Result&lt;()&gt; {
+return Ok(());
+if let Some(parent) = self.path.parent() {
+struct ParsedCache {
+pub fn cache_path_for_root(root: &amp;Path) -&gt; PathBuf {
+fn stable_hash(path: &amp;Path) -&gt; u64 {
+let mut hash = 0xcbf29ce484222325;
+fn cache_key(path: &amp;Path) -&gt; String {
+fn modified_ns(metadata: &amp;Metadata) -&gt; u128 {
+fn format_cache_bytes(
+let mut output = HEADER_V2.to_vec();
+let mut entries = entries.iter().collect::&lt;Vec&lt;_&gt;&gt;();
+let full = entry.variants.full.as_deref();
+if let Some(full) = full {
+fn push_metadata(output: &amp;mut Vec&lt;u8&gt;, metadata: &amp;Option&lt;CacheMetadata&gt;) {
+let Some(metadata) = metadata else {
+fn push_sized_field(output: &amp;mut Vec&lt;u8&gt;, value: &amp;str) {
+fn push_field(output: &amp;mut Vec&lt;u8&gt;, value: &amp;str) {
+fn parse_cache_bytes(bytes: &amp;[u8]) -&gt; Option&lt;ParsedCache&gt; {
+let entries = parse_entries(bytes, HEADER_V1.len())?;
+let mut cursor = HEADER_V2.len();
+let metadata = parse_metadata(bytes, &amp;mut cursor)?;
+let entries = parse_entries(bytes, cursor)?;
+fn parse_metadata(bytes: &amp;[u8], cursor: &amp;mut usize) -&gt; Option&lt;CacheMetadata&gt; {
+let line = std::str::from_utf8(read_line(bytes, cursor)?).ok()?;
+let parts = line.split_whitespace().collect::&lt;Vec&lt;_&gt;&gt;();
+let respect_gitignore = match parts[1] {
+let max_file_bytes = match parts[2] {
+let include_count = parts[3].parse::&lt;usize&gt;().ok()?;
+let exclude_count = parts[4].parse::&lt;usize&gt;().ok()?;
+let exclude_generated = match parts.get(5).copied().unwrap_or(&quot;0&quot;) {
+fn read_patterns(bytes: &amp;[u8], cursor: &amp;mut usize, count: usize) -&gt; Option&lt;Vec&lt;String&gt;&gt; {
+let mut patterns = Vec::with_capacity(count);
+let length = std::str::from_utf8(read_line(bytes, cursor)?)
+fn parse_entries(bytes: &amp;[u8], mut cursor: usize) -&gt; Option&lt;HashMap&lt;String, CacheEntry&gt;&gt; {
+let mut entries = HashMap::new();
+let line = read_line(bytes, &amp;mut cursor)?;
+let parts = std::str::from_utf8(line)
+let path_len = parts[0].parse::&lt;usize&gt;().ok()?;
+let modified_ns = parts[1].parse::&lt;u128&gt;().ok()?;
+let size = parts[2].parse::&lt;u64&gt;().ok()?;
+let full_len = parts[3].parse::&lt;isize&gt;().ok()?;
+let skeleton_len = parts[4].parse::&lt;usize&gt;().ok()?;
+let tree_map_len = parts[5].parse::&lt;usize&gt;().ok()?;
+let path = read_string(bytes, &amp;mut cursor, path_len)?;
+let full = if full_len &lt; 0 {
+let skeleton = read_string(bytes, &amp;mut cursor, skeleton_len)?;
+let tree_map = read_string(bytes, &amp;mut cursor, tree_map_len)?;
+fn read_line&lt;&apos;a&gt;(bytes: &amp;&apos;a [u8], cursor: &amp;mut usize) -&gt; Option&lt;&amp;&apos;a [u8]&gt; {
+let start = *cursor;
+let rest = bytes.get(start..)?;
+let newline = rest.iter().position(|byte| *byte == b&apos;\n&apos;)?;
+fn read_string(bytes: &amp;[u8], cursor: &amp;mut usize, length: usize) -&gt; Option&lt;String&gt; {
+let start = *cursor;
+let end = start.checked_add(length)?;
+let value = String::from_utf8(bytes.get(start..end)?.to_vec()).ok()?;
+use super::*;
+fn round_trips_cache_entries() {
+let mut entries = HashMap::new();
+let metadata = Some(CacheMetadata {
+let bytes = format_cache_bytes(&amp;metadata, &amp;entries);
+let parsed = parse_cache_bytes(&amp;bytes).unwrap();
+let entry = parsed.entries.get(&quot;/repo/src/lib.rs&quot;).unwrap();
+fn diagnostics_counts_stale_entries() {
+let root = std::env::temp_dir().join(format!(
+let source = root.join(&quot;lib.rs&quot;);
+let cache_path = root.join(&quot;cache.bin&quot;);
+let metadata = fs::metadata(&amp;source).unwrap();
+let mut cache = ParseCache::load(cache_path.clone());
+let cache = ParseCache::load(cache_path.clone());
+let cache = ParseCache::load(cache_path);</file>
+<file path="src/formatter.rs" level="3" tokens="1175">use std::collections::BTreeMap;
+use crate::budget::ProcessedFile;
+impl Default for FormatOptions {
+fn default() -&gt; Self {
+let mut output = String::new();
+let mut output = String::new();
+let mut output = String::new();
+let mut output = String::new();
+let mut output = String::new();
+let mut output = String::new();
+fn push_metadata_xml(output: &amp;mut String, metadata: &amp;RepositoryMetadata) {
+fn push_project_map_xml(
+if let Some(hash) = &amp;file.content_hash {
+fn push_compact_project_map_xml(
+for directory in project_map_directories(files) {
+if let Some(hash) = &amp;file.content_hash {
+fn push_directory_summaries_xml(
+fn push_deleted_files_xml(output: &amp;mut String, deleted_files: &amp;[String]) {
+fn push_metadata_json(output: &amp;mut String, metadata: &amp;RepositoryMetadata) {
+fn push_deleted_files_json(output: &amp;mut String, deleted_files: &amp;[String], indent: usize) {
+let base = &quot; &quot;.repeat(indent);
+let item = &quot; &quot;.repeat(indent + 2);
+fn push_project_map_text(
+if let Some(hash) = &amp;file.content_hash {
+fn push_compact_project_map_text(
+for directory in project_map_directories(files) {
+if let Some(hash) = &amp;file.content_hash {
+fn push_deleted_files_text(output: &amp;mut String, deleted_files: &amp;[String]) {
+fn push_directory_summaries_text(
+fn push_project_map_json(
+let base = &quot; &quot;.repeat(indent);
+let item = &quot; &quot;.repeat(indent + 2);
+fn push_compact_project_map_json(
+let base = &quot; &quot;.repeat(indent);
+let item = &quot; &quot;.repeat(indent + 2);
+fn push_compact_file_map_json(
+if let Some(hash) = &amp;file.content_hash {
+struct ProjectMapDirectory&lt;&apos;a&gt; {
+fn project_map_directories(files: &amp;[ProcessedFile]) -&gt; Vec&lt;ProjectMapDirectory&lt;&apos;_&gt;&gt; {
+let mut by_dir: BTreeMap&lt;String, Vec&lt;&amp;ProcessedFile&gt;&gt; = BTreeMap::new();
+fn directory_name(path: &amp;str) -&gt; &amp;str {
+fn file_name(path: &amp;str) -&gt; &amp;str {
+fn push_directory_summaries_json(
+let base = &quot; &quot;.repeat(indent);
+let item = &quot; &quot;.repeat(indent + 2);
+fn push_file_map_json(
+if let Some(hash) = &amp;file.content_hash {
+fn push_file_json(
+fn push_xml_escaped(output: &amp;mut String, value: &amp;str) {
+fn push_json_escaped(output: &amp;mut String, value: &amp;str) {
+use super::*;
+use crate::budget::ProcessedFile;
+use crate::parser::{CompressionLevel, FileVariants};
+fn xml_escapes_paths_and_content_with_metadata() {
+let files = vec![processed_file()];
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;full_options());
+fn json_escapes_content_and_includes_project_map() {
+let files = vec![processed_file()];
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;full_options());
+fn text_includes_low_overhead_context() {
+let files = vec![processed_file()];
+let text = format_repository_context_text(&amp;files, &amp;metadata(), &amp;full_options());
+fn can_omit_file_bodies() {
+let files = vec![processed_file()];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn can_emit_project_map_only() {
+let files = vec![processed_file()];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn can_emit_compact_project_map() {
+let mut root = processed_file();
+let mut nested = processed_file();
+let files = vec![root, nested];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn can_omit_token_counts() {
+let mut root = processed_file();
+let mut nested = processed_file();
+let files = vec![root, nested];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+let text = format_repository_context_text(&amp;files, &amp;metadata(), &amp;options);
+fn includes_project_map_hashes_when_requested() {
+let mut file = processed_file();
+let files = vec![file];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn omits_project_map_hashes_by_default() {
+let mut file = processed_file();
+let files = vec![file];
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;full_options());
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;full_options());
+fn includes_directory_summaries() {
+let files = vec![processed_file()];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn includes_deleted_file_markers() {
+let files = vec![processed_file()];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn processed_file() -&gt; ProcessedFile {
+let mut file = ProcessedFile::new(
+fn metadata() -&gt; RepositoryMetadata {
+fn full_options() -&gt; FormatOptions {</file>
+<file path="src/main.rs" level="3" tokens="1278">use std::collections::{BTreeMap, HashMap, HashSet};
+use std::env;
+use std::ffi::OsString;
+use std::fs;
+use std::path::{Path, PathBuf};
+... 11 more imports
+const DEFAULT_MAX_TOKENS: usize = 12000;
+const DEFAULT_MAX_FILE_BYTES: u64 = 1_048_576;
+const DEFAULT_LEVEL: u8 = 2;
+const DEFAULT_OUTPUT_FILE: &amp;str = &quot;bonsai.xml&quot;;
+struct Cli {
+enum Commands {
+enum CacheCommands {
+enum CompletionShell {
+enum AgentFileSelection {
+enum AgentInstructionStyle {
+impl CompletionShell {
+fn as_clap_shell(self) -&gt; Shell {
+enum OutputDestination {
+enum OutputFormat {
+enum SortMode {
+enum ProjectMapMode {
+enum Preset {
+struct BonsaiConfigFile {
+fn apply_config(cli: &amp;mut Cli, root: &amp;Path, args: &amp;[OsString]) -&gt; Result&lt;()&gt; {
+let Some(path) = config_path(cli, root)? else {
+return Ok(());
+let contents = fs::read_to_string(&amp;path)
+let config = parse_config(&amp;contents, &amp;path)?;
+if let Some(value) = config.preset {
+if let Some(value) = config.max_tokens {
+if let Some(value) = config.tokenizer {
+if let Some(value) = config.max_file_bytes {
+if let Some(value) = config.max_file_tokens {
+if let Some(value) = config.level {
+if let Some(value) = config.output {
+if let Some(value) = config.output_file {
+if let Some(value) = config.format {
+if let Some(value) = config.project_map_only {
+if let Some(value) = config.incremental {
+if let Some(value) = config.changed_since {
+if let Some(value) = config.include {
+if let Some(value) = config.exclude {
+if let Some(value) = config.respect_gitignore {
+if let Some(value) = config.exclude_generated {
+fn apply_preset(cli: &amp;mut Cli, args: &amp;[OsString]) {
+let Some(preset) = cli.preset else {
+fn config_path(cli: &amp;Cli, root: &amp;Path) -&gt; Result&lt;Option&lt;PathBuf&gt;&gt; {
+if let Some(path) = &amp;cli.config {
+let path = if path.is_absolute() {
+return Ok(Some(path));
+let path = root.join(&quot;.bonsai.toml&quot;);
+fn option_was_provided(args: &amp;[OsString], option: &amp;str) -&gt; bool {
+let argument = argument.to_string_lossy();
+fn parse_config(contents: &amp;str, path: &amp;Path) -&gt; Result&lt;BonsaiConfigFile&gt; {
+let mut config = BonsaiConfigFile::default();
+let line_number = line_index + 1;
+let line = strip_config_comment(raw_line).trim();
+let Some((key, value)) = line.split_once(&apos;=&apos;) else {
+let key = key.trim();
+let value = value.trim();
+fn strip_config_comment(line: &amp;str) -&gt; &amp;str {
+let mut in_quotes = false;
+let mut escaped = false;
+fn parse_config_string(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;String&gt; {
+let value = value.trim();
+let mut parsed = String::new();
+let mut characters = value[1..value.len() - 1].chars();
+while let Some(character) = characters.next() {
+let Some(escaped) = characters.next() else {
+fn parse_config_strings(
+let value = value.trim();
+let values = value[1..value.len() - 1].trim();
+return Ok(Vec::new());
+fn parse_config_bool(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;bool&gt; {
+fn parse_config_usize(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;usize&gt; {
+fn parse_config_u64(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;u64&gt; {
+fn parse_config_u8(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;u8&gt; {
+fn parse_config_tokenizer(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;TokenizerKind&gt; {
+let value = parse_config_string(value, &quot;tokenizer&quot;, path, line_number)?;
+fn parse_config_output(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;OutputDestination&gt; {
+let value = parse_config_string(value, &quot;output&quot;, path, line_number)?.to_ascii_lowercase();
+fn parse_config_format(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;OutputFormat&gt; {
+let value = parse_config_string(value, &quot;format&quot;, path, line_number)?.to_ascii_lowercase();
+fn parse_config_preset(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;Preset&gt; {
+let value = parse_config_string(value, &quot;preset&quot;, path, line_number)?.to_ascii_lowercase();
+impl From&lt;ProjectMapMode&gt; for FormatProjectMapMode {
+fn from(mode: ProjectMapMode) -&gt; Self {
+fn main() -&gt; Result&lt;()&gt; {
+let raw_args = env::args_os().collect::&lt;Vec&lt;_&gt;&gt;();
+let mut cli = Cli::parse_from(raw_args.clone());
+if let Some(command) = &amp;cli.command {
+return Ok(());
+let root = fs::canonicalize(&amp;cli.path)
+let requested_level = CompressionLevel::try_from(cli.level)?;
+let token_counter = TokenCounter::new(cli.tokenizer)?;
+let mut parse_cache = ParseCache::load(cache_path_for_root(&amp;root));
+let incremental_base = load_incremental_base(&amp;cli)?;
+let git_changes = load_git_changes(&amp;cli, &amp;root)?;
+let cache_metadata = cache_metadata(&amp;cli);
+let baseline_metadata_matches =
+let paths = collect_code_files(
+let current_relative_paths = relative_path_set(&amp;root, &amp;paths);
+let mut incremental_counts = IncrementalCounts::default();
+let mut files = Vec::with_capacity(paths.len());
+let relative_path = path
+let file_metadata = fs::metadata(&amp;path)
+let delta = classify_file(
+let cached_variants = parse_cache.get(&amp;path, &amp;file_metadata);
+let include_file = should_include_delta(&amp;cli, &amp;incremental_base, delta);</file>
+<file path="src/parser.rs" level="3" tokens="1376">use std::fs;
+use std::path::Path;
+use std::sync::OnceLock;
+use anyhow::{anyhow, bail, Context, Result};
+use tiktoken_rs::{cl100k_base, CoreBPE};
+... 1 more imports
+const IMPORT_BLOCK_KEEP: usize = 5;
+const CONTEXT_LINE_TOKEN_LIMIT: usize = 80;
+impl CompressionLevel {
+pub fn as_u8(self) -&gt; u8 {
+impl TryFrom&lt;u8&gt; for CompressionLevel {
+type Error = anyhow::Error;
+fn try_from(value: u8) -&gt; Result&lt;Self&gt; {
+pub fn parser_support_for_extension(extension: &amp;str) -&gt; ParserSupport {
+let normalized = extension.trim_start_matches(&apos;.&apos;).to_ascii_lowercase();
+let syntax = SyntaxKind::from_extension(&amp;normalized);
+let mode = match syntax {
+let available = syntax
+pub fn compress_file(path: &amp;Path, _requested_level: CompressionLevel) -&gt; Result&lt;FileVariants&gt; {
+let source = fs::read_to_string(path)
+let syntax = SyntaxKind::from_path(path)?;
+let full = Some(source.clone());
+let mut parser = Parser::new();
+let tree = parser
+let skeleton = collapse_import_blocks(&amp;skeleton, syntax);
+let tree_map = collapse_import_blocks(&amp;tree_map, syntax);
+fn extension(path: &amp;Path) -&gt; Option&lt;String&gt; {
+enum SyntaxKind {
+impl SyntaxKind {
+fn from_path(path: &amp;Path) -&gt; Result&lt;Self&gt; {
+match extension(path) {
+fn from_extension(extension: &amp;str) -&gt; Result&lt;Self&gt; {
+match Some(extension) {
+fn language(self) -&gt; Option&lt;Language&gt; {
+fn parser_available(syntax: SyntaxKind) -&gt; bool {
+let Some(language) = syntax.language() else {
+let mut parser = Parser::new();
+struct Replacement {
+fn strip_to_skeleton(source: &amp;str, root: Node, syntax: SyntaxKind) -&gt; String {
+let mut replacements = Vec::new();
+fn collect_body_replacements(node: Node, syntax: SyntaxKind, replacements: &amp;mut Vec&lt;Replacement&gt;) {
+if let Some(replacement) = body_replacement(node, syntax) {
+let mut cursor = node.walk();
+fn body_replacement(node: Node, syntax: SyntaxKind) -&gt; Option&lt;Replacement&gt; {
+let kind = node.kind();
+if is_brace_body_node(node.kind())
+fn is_js_callable(node: Node) -&gt; bool {
+fn is_js_anonymous_export_class(node: Node) -&gt; bool {
+fn is_python_callable(node: Node) -&gt; bool {
+fn is_rust_callable(node: Node) -&gt; bool {
+fn is_static_language_callable(node: Node) -&gt; bool {
+fn is_brace_body_node(kind: &amp;str) -&gt; bool {
+fn apply_replacements(source: &amp;str, mut replacements: Vec&lt;Replacement&gt;) -&gt; String {
+let mut output = String::with_capacity(source.len());
+let mut cursor = 0;
+fn collapse_import_blocks(source: &amp;str, syntax: SyntaxKind) -&gt; String {
+let lines = source.lines().collect::&lt;Vec&lt;_&gt;&gt;();
+let mut output = Vec::with_capacity(lines.len());
+let mut index = 0usize;
+let start = index;
+let mut collapsed = output.join(&quot;\n&quot;);
+fn collapse_go_import_block(lines: &amp;[&amp;str], start: usize) -&gt; (Vec&lt;String&gt;, usize) {
+let mut end = start + 1;
+let imports = lines[start + 1..end]
+let mut output = Vec::with_capacity(IMPORT_BLOCK_KEEP + 3);
+fn push_collapsed_import_run(output: &amp;mut Vec&lt;String&gt;, lines: &amp;[&amp;str]) {
+fn is_import_like_line(line: &amp;str, syntax: SyntaxKind) -&gt; bool {
+fn build_tree_map(source: &amp;str, root: Node, syntax: SyntaxKind) -&gt; String {
+let mut lines = Vec::new();
+fn collect_tree_map_lines(source: &amp;str, node: Node, syntax: SyntaxKind, lines: &amp;mut Vec&lt;String&gt;) {
+if should_emit_tree_map_node(node, syntax) {
+if let Some(line) = compact_node_line(source, node) {
+let mut cursor = node.walk();
+fn should_emit_tree_map_node(node: Node, syntax: SyntaxKind) -&gt; bool {
+let kind = node.kind();
+fn compact_text_context(path: &amp;Path, source: &amp;str) -&gt; String {
+match extension(path).as_deref() {
+fn build_text_tree_map(path: &amp;Path, source: &amp;str) -&gt; String {
+match extension(path).as_deref() {
+let headings = source
+fn compact_objective_c_context(source: &amp;str, max_lines: usize) -&gt; String {
+let mut output = Vec::new();
+let mut brace_depth = 0i32;
+let trimmed = line.trim();
+let kept = if is_objective_c_header_line(trimmed)
+if let Some(line) = kept {
+fn is_objective_c_noise(line: &amp;str) -&gt; bool {
+fn is_objective_c_header_line(line: &amp;str) -&gt; bool {
+fn is_objective_c_declaration(line: &amp;str) -&gt; bool {
+fn is_cpp_shape_line(line: &amp;str) -&gt; bool {
+let first_word = line
+fn is_control_flow_line(line: &amp;str) -&gt; bool {
+fn collapse_body_line(line: &amp;str) -&gt; String {
+if let Some((head, _)) = line.split_once(&apos;{&apos;) {
+let head = head.trim_end();
+fn brace_delta(line: &amp;str) -&gt; i32 {
+fn compact_web_context(source: &amp;str, max_lines: usize) -&gt; String {
+fn compact_markdown_context(source: &amp;str) -&gt; String {
+let mut output = Vec::new();
+let mut keep_after_heading = 0usize;
+let mut in_kept_fence = false;
+let mut kept_fence_lines = 0usize;
+let mut in_dropped_fence = false;
+let mut table_buffer: Vec&lt;String&gt; = Vec::new();
+let mut list_buffer: Vec&lt;String&gt; = Vec::new();
+let trimmed = line.trim();
+if is_important_fence(trimmed) {
+if is_markdown_table_line(trimmed) {
+if is_important_markdown_list_item(trimmed) {
+if has_markdown_link(trimmed) {
+fn flush_markdown_table(output: &amp;mut Vec&lt;String&gt;, table: &amp;mut Vec&lt;String&gt;) {
+fn flush_markdown_list(output: &amp;mut Vec&lt;String&gt;, list: &amp;mut Vec&lt;String&gt;) {
+fn sample_markdown_lines(lines: &amp;[String]) -&gt; Vec&lt;String&gt; {
+let mut sampled = Vec::new();
+let tail_start = lines.len().saturating_sub(4);
+fn is_important_fence(line: &amp;str) -&gt; bool {
+let language = line
+fn is_noisy_markdown_line(line: &amp;str) -&gt; bool {
+fn is_summary_markdown_line(line: &amp;str) -&gt; bool {
+fn is_important_markdown_list_item(line: &amp;str) -&gt; bool {</file>
+<file path="src/walker.rs" level="3" tokens="813">use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use anyhow::{Context, Result};
+use globset::{Glob, GlobSet, GlobSetBuilder};
+use ignore::{DirEntry, WalkBuilder, WalkState};
+pub fn collect_code_files(root: &amp;Path, options: &amp;WalkerOptions) -&gt; Result&lt;Vec&lt;PathBuf&gt;&gt; {
+let files = Mutex::new(Vec::new());
+let filters = Arc::new(PathFilters::new(&amp;options.include, &amp;options.exclude)?);
+let max_file_bytes = options.max_file_bytes;
+let exclude_generated = options.exclude_generated;
+let mut builder = WalkBuilder::new(root);
+let files = &amp;files;
+let filters = Arc::clone(&amp;filters);
+let entry = match result {
+if is_target_file(&amp;entry)
+if let Some(path) = entry.path().to_str() {
+if let Ok(mut guard) = files.lock() {
+let mut files = files.into_inner().context(&quot;file walker lock poisoned&quot;)?;
+pub fn supported_extensions() -&gt; &amp;&apos;static [&amp;&apos;static str] {
+pub fn is_supported_path(path: &amp;Path) -&gt; bool {
+fn fits_size_limit(entry: &amp;DirEntry, max_file_bytes: Option&lt;u64&gt;) -&gt; bool {
+fn is_target_file(entry: &amp;DirEntry) -&gt; bool {
+struct PathFilters {
+impl PathFilters {
+fn new(include: &amp;[String], exclude: &amp;[String]) -&gt; Result&lt;Self&gt; {
+fn matches(&amp;self, root: &amp;Path, path: &amp;Path) -&gt; bool {
+let relative_path = path.strip_prefix(root).unwrap_or(path);
+fn explicitly_includes(&amp;self, root: &amp;Path, path: &amp;Path) -&gt; bool {
+let relative_path = path.strip_prefix(root).unwrap_or(path);
+pub fn is_generated_like(root: &amp;Path, path: &amp;Path) -&gt; bool {
+let relative_path = path.strip_prefix(root).unwrap_or(path);
+let components = relative_path
+let Some(file_name) = components.last() else {
+fn is_lockfile_like(file_name: &amp;str) -&gt; bool {
+fn is_minified_like(file_name: &amp;str) -&gt; bool {
+fn is_generated_file_name(file_name: &amp;str) -&gt; bool {
+fn build_glob_set(patterns: &amp;[String]) -&gt; Result&lt;Option&lt;GlobSet&gt;&gt; {
+return Ok(None);
+let mut builder = GlobSetBuilder::new();
+use super::*;
+use std::env;
+use std::fs;
+use std::time::{SystemTime, UNIX_EPOCH};
+fn collects_supported_extensions() {
+let root = temp_dir();
+let files = collect_code_files(&amp;root, &amp;default_options()).unwrap();
+let names = relative_names(&amp;root, files);
+fn respects_gitignore_and_cursorignore() {
+let root = temp_dir();
+let files = collect_code_files(&amp;root, &amp;default_options()).unwrap();
+let names = relative_names(&amp;root, files);
+fn include_and_exclude_filter_selected_files() {
+let root = temp_dir();
+let files = collect_code_files(
+let names = relative_names(&amp;root, files);
+fn can_disable_gitignore_filtering() {
+let root = temp_dir();
+let files = collect_code_files(
+let names = relative_names(&amp;root, files);
+fn skips_files_over_size_limit() {
+let root = temp_dir();
+let files = collect_code_files(
+let names = relative_names(&amp;root, files);
+fn can_exclude_generated_like_files() {
+let root = temp_dir();
+let files = collect_code_files(
+let names = relative_names(&amp;root, files);
+fn include_overrides_generated_exclusion() {
+let root = temp_dir();
+let files = collect_code_files(
+let names = relative_names(&amp;root, files);
+fn temp_dir() -&gt; PathBuf {
+let unique = SystemTime::now()
+let root = env::temp_dir().join(format!(&quot;bonsai-walker-{unique}&quot;));
+fn write_file(root: &amp;Path, name: &amp;str, contents: &amp;str) {
+fn relative_names(root: &amp;Path, files: Vec&lt;PathBuf&gt;) -&gt; Vec&lt;String&gt; {
+fn default_options() -&gt; WalkerOptions {</file>
+<file path="tests/golden/context.json" level="3" tokens="144">{
+&quot;metadata&quot;: {&quot;generated_at&quot;:&quot;TIMESTAMP&quot;,&quot;repo_root&quot;:&quot;/REPO&quot;,&quot;max_tokens&quot;:12000,&quot;compression_level&quot;:2,&quot;file_count&quot;:2},
+&quot;project_map&quot;: [
+{&quot;path&quot;:&quot;Cargo.toml&quot;,&quot;level&quot;:2,&quot;tokens&quot;:17},
+{&quot;path&quot;:&quot;src/lib.rs&quot;,&quot;level&quot;:2,&quot;tokens&quot;:13}
+],
+&quot;files&quot;: [
+{&quot;path&quot;:&quot;Cargo.toml&quot;,&quot;level&quot;:2,&quot;tokens&quot;:17,&quot;content&quot;:&quot;[package]\nname = \&quot;demo\&quot;\nversion = \&quot;0.1.0\&quot;&quot;},
+{&quot;path&quot;:&quot;src/lib.rs&quot;,&quot;level&quot;:2,&quot;tokens&quot;:13,&quot;content&quot;:&quot;pub fn greet(name: &amp;str) -&gt; String { ... }\n&quot;}
+]
+}</file>
+<file path="tests/golden/incremental-context.json" level="3" tokens="107">{
+&quot;metadata&quot;: {&quot;generated_at&quot;:&quot;TIMESTAMP&quot;,&quot;repo_root&quot;:&quot;/REPO&quot;,&quot;max_tokens&quot;:12000,&quot;compression_level&quot;:2,&quot;file_count&quot;:1},
+&quot;project_map&quot;: [
+{&quot;path&quot;:&quot;src/lib.rs&quot;,&quot;level&quot;:2,&quot;tokens&quot;:26}
+],
+&quot;files&quot;: [
+{&quot;path&quot;:&quot;src/lib.rs&quot;,&quot;level&quot;:2,&quot;tokens&quot;:26,&quot;content&quot;:&quot;pub fn greet(name: &amp;str) -&gt; String { ... }\n\npub fn farewell(name: &amp;str) -&gt; String { ... }\n&quot;}
+]
+}</file>
+<file path="TODO.md" level="3" tokens="631"># TODO
+## Usability review
+## Make the first run simple
+- [x] Print a clear success message after `bonsai .`: output path, files included, and token count.
+- [x] Add one documented install command per platform, with checksum verification and no manual binary-path guessing.
+- [x] Add a first-run setup command that checks the binary, tokenizer, parsers, clipboard, and output path.
+- [x] Make output-file parent directories automatically, and warn before silently replacing an existing output file.
+- [x] Add a short beginner guide with three copy-paste flows: full context, changed context, and project map.
+## Reduce choice overload
+- [x] Add simple presets or aliases for the common flows: full context, changed context, map only, and prompt to clipboard.
+- [x] Add a `.bonsai.toml` or `bonsai config` flow so users do not repeat long flag sets.
+- [x] Keep advanced flags, but group them in help and docs by budget, selection, output, and incremental mode.
+- [x] Explain compression levels with real examples in `--help`, not only numeric names.
+- [x] Make incremental modes easier to understand by presenting one clear changed-context workflow and documenting cache baseline rules.
+- [x] Choose safer, consistent defaults for budget, level, output path, and output format across the CLI, VS Code extension, and generated agent files.
+## Simplify VS Code
+- [x] Show a setup wizard when Bonsai is missing, with an actionable install or binary-path message.
+- [x] Bundle or download the matching Bonsai binary instead of relying on PATH and hard-coded developer paths.
+- [x] Keep three primary commands visible: Generate, Generate changed, and Generate and ask. Move map and diagnostics into secondary actions.
+- [x] Support multi-root workspaces, or clearly show which workspace folder will be used before generation.
+- [x] Expose the useful core settings first. Put rare CLI controls behind an advanced section instead of trying to mirror every flag.
+- [x] Align extension capabilities with the CLI, or clearly document unsupported features such as text output and advanced budget controls.
+- [x] Show process errors and warnings in a Bonsai output channel, not only in a generic failed-command message.
+## Make docs and maintenance simpler
+- [x] Add a decision table: goal, command, output, and when to use it.
+- [x] Add one canonical option reference generated from the CLI schema so README, VS Code settings, and help cannot drift.
+- [x] Document cache location, cache invalidation, `--incremental`, `--incremental-base`, and `--changed-since` with one small example each.
+- [x] Add a supported-file table showing parser-backed files versus compact fallback files.
+- [x] Make `init-agent` let users choose which agent file to create and generate shorter, configurable instructions.
+- [x] Add a visible version and health check to the CLI and VS Code UI.</file>
+</files>
+</repository_context>

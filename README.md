@@ -16,6 +16,10 @@ It scans source files, compresses code with syntax-aware summaries, respects you
 
 Use it when you want an LLM to understand a whole project before asking for architecture, onboarding, review, or branch-change help.
 
+The core is a Rust CLI. Tree-sitter handles code structure; compact fallbacks handle
+Markdown, manifests, web templates, and Objective-C. The VS Code extension has its
+own TypeScript engine, while the Codex and Claude integrations use the CLI.
+
 ## Install with Homebrew
 
 ```sh
@@ -43,6 +47,8 @@ This writes:
 bonsai.xml
 ```
 
+The default is 12,000 tokens at compression level 2, written as XML.
+
 Paste that file into an LLM and ask:
 
 ```text
@@ -52,7 +58,7 @@ Use this Bonsai repo context. Explain the architecture and tell me where to star
 For a larger context budget:
 
 ```sh
-bonsai . --max-tokens 12000 --level 2 --output-file /tmp/bonsai.xml
+bonsai . --max-tokens 24000 --level 2 --output-file /tmp/bonsai.xml
 ```
 
 For a paste-ready prompt:
@@ -94,7 +100,7 @@ Run this once in any repo where you want agents to use Bonsai first:
 bonsai init-agent
 ```
 
-It writes:
+If the files do not already exist, it writes:
 
 ```text
 AGENTS.md
@@ -102,6 +108,8 @@ CLAUDE.md
 ```
 
 Those files tell Codex, Claude Code, and similar agents to run Bonsai before answering broad project questions.
+
+The command refuses to overwrite an existing file unless you pass `--force`.
 
 Create only one file, or tune the generated instruction:
 
@@ -261,7 +269,7 @@ the project map, and `prompt` wraps the context and copies it to the clipboard.
 Create `.bonsai.toml` in a repository to keep the settings you use most:
 
 ```toml
-max_tokens = 4000
+max_tokens = 12000
 level = 2
 format = "xml"
 output = "file"
@@ -495,13 +503,16 @@ docs/output-schema.md
 
 ## Supported Files
 
-Bonsai scans:
+Tree-sitter parsing:
 
 ```text
-.js .jsx .ts .tsx .py .rs .go .java .cs .swift .kt
-.c .h .cpp .hpp .m .mm
-.vue .svelte .astro .html
-.md .json .yaml .yml .toml
+.js .jsx .ts .tsx .py .rs .go .java .cs .swift .kt .c .h .cpp .hpp
+```
+
+Compact fallback:
+
+```text
+.m .mm .vue .svelte .astro .html .md .json .yaml .yml .toml
 ```
 
 The [supported-file table](docs/supported-files.md) shows parser-backed files
@@ -524,7 +535,7 @@ plugins/bonsai
 Add the local marketplace:
 
 ```sh
-codex plugin marketplace add "$HOME/dev/bonsai/.agents/plugins"
+codex plugin marketplace add ./.agents/plugins
 ```
 
 Then install or enable `bonsai` in Codex.
@@ -574,13 +585,18 @@ Primary Command Palette commands:
 ```text
 Bonsai Context Manager: Generate
 Bonsai Context Manager: Generate Changed
+Bonsai Context Manager: Generate for Request
 Bonsai Context Manager: Generate and Ask
-Bonsai Context Manager: More Actions
+Bonsai Context Manager: Preview Project Map
 ```
 
-`More Actions` contains full-prompt copy, project-map copy and preview, opening
-the last context, and information about the internal engine. The extension
-scans, compresses, and writes context itself. No Bonsai binary is required.
+Other commands add agent instructions or create `.bonsai.toml`. `More Actions`
+currently exposes `Open Last Context`. The extension scans, compresses, and
+writes context itself. No Bonsai binary is required.
+
+In VS Code 1.99 or newer, enable `Generate Bonsai Context` under Agent
+`Select Tools`, or reference `#bonsai_generate_context` in chat. It generates
+request-aware context and returns the context file paths to the agent.
 
 <img src="images/vscode-flow.svg" alt="Bonsai VS Code flow" width="720">
 
