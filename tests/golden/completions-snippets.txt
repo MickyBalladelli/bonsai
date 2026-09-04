@@ -1,20 +1,20 @@
 [bash]
             bonsai,init-agent)
             bonsai,completions)
-            opts="-h -V --max-tokens --tokenizer --max-file-bytes --max-file-tokens --level --output --output-file --format --project-map-only --map-only-under --project-map --file-hashes --no-token-counts --no-content --dry-run --sort --directory-summaries --fail-over-budget --drop-low-priority --incremental --incremental-base --changed-since --incremental-summary --include --exclude --no-respect-gitignore --exclude-generated --print-files --fail-on-empty --quiet --stats --detailed-stats --summary --prompt --ask-template --help --version [PATH] init-agent cache doctor completions help"
+            opts="-h -V --config --preset --max-tokens --tokenizer --max-file-bytes --max-file-tokens --level --output --output-file --format --project-map-only --map-only-under --project-map --file-hashes --no-token-counts --no-content --dry-run --sort --directory-summaries --fail-over-budget --drop-low-priority --incremental --incremental-base --changed-since --incremental-summary --include --exclude --no-respect-gitignore --exclude-generated --print-files --fail-on-empty --quiet --stats --detailed-stats --summary --prompt --ask-template --help --version [PATH] setup init-agent cache doctor completions docs help"
             opts="-h --tokenizer --json --help [PATH]"
 [zsh]
 '--project-map=[]:PROJECT_MAP:(flat compact)' \
 '--max-file-tokens=[Cap each file to this many tokens before global budget optimization; 0 disables the cap]:MAX_FILE_TOKENS:_default' \
 '--no-token-counts[Omit token count fields from XML and JSON output]' \
-'--changed-since=[Only include tracked changes and untracked files compared with this git ref]:GIT_REF:_default' \
+'--changed-since=[Changed workflow: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental]:GIT_REF:_default' \
 '--exclude-generated[Skip minified, vendored, generated, and lockfile-like files unless --include matches them]' \
 '--drop-low-priority[Omit lowest-priority files if tree-map output still exceeds --max-tokens]' \
 '--json[]' \
 'completions:Generate shell completions' \
 [fish]
 complete -c bonsai -n "__fish_bonsai_needs_command" -l max-file-tokens -d 'Cap each file to this many tokens before global budget optimization; 0 disables the cap' -r
-complete -c bonsai -n "__fish_bonsai_needs_command" -l changed-since -d 'Only include tracked changes and untracked files compared with this git ref' -r
+complete -c bonsai -n "__fish_bonsai_needs_command" -l changed-since -d 'Changed workflow: include tracked changes, untracked files, and deletions compared with this Git ref; do not combine with --incremental' -r
 complete -c bonsai -n "__fish_bonsai_needs_command" -l no-token-counts -d 'Omit token count fields from XML and JSON output'
 complete -c bonsai -n "__fish_bonsai_needs_command" -l exclude-generated -d 'Skip minified, vendored, generated, and lockfile-like files unless --include matches them'
 complete -c bonsai -n "__fish_bonsai_needs_command" -l drop-low-priority -d 'Omit lowest-priority files if tree-map output still exceeds --max-tokens'
