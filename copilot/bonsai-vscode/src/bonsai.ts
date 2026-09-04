@@ -25,9 +25,16 @@ export type RunReport = {
   tokensSaved?: number
 }
 
+export type BonsaiFilePriority = {
+  level: number
+  path: string
+  reason?: string
+}
+
 export type ProjectMapEntry = {
   level: number
   path: string
+  reason?: string
   savedPercent?: number
   tokens: number
 }
@@ -87,13 +94,14 @@ export function extractProjectMap(contextText: string, outputFormat: 'json' | 'x
   }
 
   const entries: ProjectMapEntry[] = []
-  const pattern = /<entry path="([^"]+)" level="(\d+)" tokens="(\d+)" \/>/g
+  const pattern = /<entry path="([^"]+)" level="(\d+)" tokens="(\d+)"(?: reason="([^"]*)")?(?: hash="[^"]*")? \/>/g
   let match: RegExpExecArray | null
   while ((match = pattern.exec(contextText)) !== null) {
     entries.push({
       path: decodeXml(match[1]),
       level: Number(match[2]),
-      tokens: Number(match[3])
+      tokens: Number(match[3]),
+      reason: match[4] ? decodeXml(match[4]) : undefined
     })
   }
 

@@ -1,7 +1,7 @@
 {
   "name": "bonsai",
   "description": "Compress local repositories into token-budgeted XML context for Claude Code.",
-  "version": "0.5.24",
+  "version": "0.5.27",
   "author": {
     "name": "Local developer"
   },

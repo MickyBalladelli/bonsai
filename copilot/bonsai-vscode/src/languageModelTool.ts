@@ -1,21 +1,23 @@
 import * as vscode from 'vscode'
 
-import { RunReport } from './bonsai'
+import { BonsaiFilePriority, ProjectMapEntry, RunReport } from './bonsai'
 
 export const BONSAI_CONTEXT_TOOL_NAME = 'bonsai_generate_context'
 
 export type BonsaiToolInput = {
   workspacePath?: string
-  request?: string
+  request: string
+  filePriorities: BonsaiFilePriority[]
 }
 
 export type BonsaiToolGeneration = {
   contextText: string
   outputFiles: string[]
+  projectMap: ProjectMapEntry[]
   report: RunReport
 }
 
-export type BonsaiToolGenerator = (workspacePath?: string, request?: string) => Promise<BonsaiToolGeneration>
+export type BonsaiToolGenerator = (workspacePath?: string, request?: string, filePriorities?: BonsaiFilePriority[]) => Promise<BonsaiToolGeneration>
 
 export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<BonsaiToolInput> {
   constructor(private readonly generate: BonsaiToolGenerator) {}
@@ -44,7 +46,22 @@ export class BonsaiGenerateContextTool implements vscode.LanguageModelTool<Bonsa
       throw new Error('Bonsai context generation was cancelled.')
     }
 
-    const generated = await this.generate(options.input.workspacePath, options.input.request)
+    const request = options.input.request?.trim()
+    if (!request) {
+      throw new Error('A repository question or task is required for task-aware Bonsai generation.')
+    }
+    const filePriorities = options.input.filePriorities
+    if (!Array.isArray(filePriorities) || filePriorities.length === 0) {
+      throw new Error('Inspect the workspace first, then provide a non-empty filePriorities plan with paths and levels 1, 2, or 3.')
+    }
+    const invalidPriority = filePriorities.find(priority =>
+      !priority || typeof priority.path !== 'string' || !priority.path.trim() ||
+      !Number.isInteger(priority.level) || priority.level < 1 || priority.level > 3
+    )
+    if (invalidPriority) {
+      throw new Error('Every file priority needs a workspace-relative path and an integer level from 1 to 3.')
+    }
+    const generated = await this.generate(options.input.workspacePath, request, filePriorities)
     if (token.isCancellationRequested) {
       throw new Error('Bonsai context generation was cancelled.')
     }
@@ -67,7 +84,10 @@ function buildToolResult(generated: BonsaiToolGeneration): string {
 
   return [
     'Bonsai generated repository context successfully.',
-    `Overall estimated compression saved ${saved} of tokens.`,
+    `Overall compression saved ${saved} of tokens.`,
+    'The agent priority plan was applied when provided. Level 1 keeps full source, level 2 keeps signatures and structure, and level 3 keeps a compact map. Unlisted files are compressed harder first.',
+    'Project map detail decisions:',
+    generated.projectMap.map(entry => `- L${entry.level} ${entry.path} (${entry.reason ?? 'background module'})`).join('\n'),
     'Context files written:',
     files,
     '',

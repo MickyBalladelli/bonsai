@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_OUTPUT_FILE,
   BonsaiConfig,
+  BonsaiFilePriority,
   buildContextPrompt,
   buildStatusText,
   buildSuccessMessage,
@@ -49,12 +50,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   if (typeof vscode.lm?.registerTool === 'function') {
     context.subscriptions.push(
-      vscode.lm.registerTool(BONSAI_CONTEXT_TOOL_NAME, new BonsaiGenerateContextTool(async (workspacePath, request) => {
+      vscode.lm.registerTool(BONSAI_CONTEXT_TOOL_NAME, new BonsaiGenerateContextTool(async (workspacePath, request, filePriorities) => {
         const workspaceRoot = getToolWorkspaceRoot(workspacePath)
-        const generated = await generateContext(context, {}, workspaceRoot, request)
+        const generated = await generateContext(context, {}, workspaceRoot, request, filePriorities)
         return {
           contextText: generated.contextText,
           outputFiles: generated.outputFiles,
+          projectMap: generated.projectMap,
           report: generated.report
         }
       }))
@@ -175,8 +177,10 @@ async function addAgentInstructions(): Promise<void> {
     '1. Check the repository root for `bonsai.xml`, `bonsai.json`, or numbered',
     '   files such as `bonsai-2.xml` and `bonsai-2.json`.',
     '2. If any exist, read all of them before continuing.',
-    '3. If none exist, invoke the `Generate Bonsai Context` tool',
-    '   (`#bonsai_generate_context`).',
+    '3. If none exist, inspect the workspace, decide which files the task needs,',
+    '   and invoke the `Generate Bonsai Context` tool (`#bonsai_generate_context`)',
+    '   with a non-empty `filePriorities` plan: level 1 for primary files, level 2',
+    '   for supporting files, and level 3 for background files.',
     '4. Do not begin the repository-wide task until the context has been read or',
     '   generated.',
     '5. If the generation tool is unavailable, stop and tell the user that Bonsai',
@@ -235,7 +239,8 @@ async function generateContext(
   context: vscode.ExtensionContext,
   mode: GenerateMode = {},
   workspaceRootOverride?: string,
-  focus?: string
+  focus?: string,
+  filePriorities?: BonsaiFilePriority[]
 ): Promise<GeneratedContext> {
   const workspaceRoot = workspaceRootOverride ?? await getWorkspaceRoot()
   const config = await getConfig(workspaceRoot)
@@ -250,9 +255,17 @@ async function generateContext(
     () => generateRepository(workspaceRoot, config, {
       incremental: mode.incremental,
       previousSignatures,
-      focus
+      focus,
+      filePriorities
     })
   )
+
+  const plannedPaths = [...new Set((filePriorities ?? []).map(priority => normalizePlanPath(priority.path)))]
+  const generatedPaths = new Set(generated.projectMap.map(entry => entry.path))
+  const missingPaths = plannedPaths.filter(relativePath => !generatedPaths.has(relativePath))
+  if (missingPaths.length > 0) {
+    throw new Error(`The agent file plan did not match scanned workspace files: ${missingPaths.slice(0, 8).join(', ')}. Inspect the workspace and retry with exact relative paths.`)
+  }
 
   for (const output of generated.contextFiles) {
     await fs.mkdir(path.dirname(output.outputFile), { recursive: true })
@@ -271,6 +284,10 @@ async function generateContext(
   }
   updateStatus(result)
   return result
+}
+
+function normalizePlanPath(value: string): string {
+  return path.posix.normalize(value.replace(/\\/g, '/').replace(/^\.\//, ''))
 }
 
 function getToolWorkspaceRoot(workspacePath?: string): string {
@@ -436,7 +453,7 @@ function showProjectMapPreview(context: vscode.ExtensionContext, generated: Gene
 
 function buildProjectMapHtml(generated: GeneratedContext): string {
   const rows = generated.projectMap
-    .map(entry => `<tr><td>${escapeHtml(entry.path)}</td><td>${entry.level}</td><td>${entry.tokens}</td><td>${formatSavedPercent(entry.savedPercent)}</td></tr>`)
+    .map(entry => `<tr><td>${escapeHtml(entry.path)}</td><td>${entry.level}</td><td>${entry.tokens}</td><td>${formatSavedPercent(entry.savedPercent)}</td><td>${escapeHtml(entry.reason ?? 'background module')}</td></tr>`)
     .join('')
   const repositoryLink = generated.repositoryUrl
     ? `<p>Repository: <a href="${escapeHtml(generated.repositoryUrl)}" target="_blank" rel="noopener">${escapeHtml(generated.repositoryUrl)}</a></p>`
@@ -460,7 +477,7 @@ function buildProjectMapHtml(generated: GeneratedContext): string {
   ${repositoryLink}
   <p>Saved = original source tokens versus compressed output tokens.</p>
   <table>
-    <thead><tr><th>Path</th><th>Level</th><th>Tokens</th><th>Saved</th></tr></thead>
+    <thead><tr><th>Path</th><th>Level</th><th>Tokens</th><th>Saved</th><th>Why</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
 </body>

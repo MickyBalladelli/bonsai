@@ -4,7 +4,7 @@ import * as path from 'path'
 import { Tiktoken } from 'js-tiktoken/lite'
 import cl100kBase from 'js-tiktoken/ranks/cl100k_base'
 
-import { BonsaiConfig, ProjectMapEntry, RunReport } from './bonsai'
+import { BonsaiConfig, BonsaiFilePriority, ProjectMapEntry, RunReport } from './bonsai'
 
 const TOKENIZER = new Tiktoken(cl100kBase)
 const DEFAULT_MAX_FILE_BYTES = 1_048_576
@@ -64,6 +64,9 @@ type WorkingFile = {
   variants: FileVariants
   tokenCounts: Partial<Record<CompressionLevel, number>>
   priorityScore: number
+  taskRelevance: number
+  taskDistance?: number
+  explicitPriority?: BonsaiFilePriority
   level: CompressionLevel
   tokenCount: number
   contentHash: string
@@ -79,6 +82,7 @@ export type InternalGenerationOptions = {
   incremental?: boolean
   previousSignatures?: Record<string, string>
   focus?: string
+  filePriorities?: BonsaiFilePriority[]
 }
 
 export type InternalGenerationResult = {
@@ -118,24 +122,33 @@ export async function generateRepository(
 
   const requestedLevel = normalizeLevel(config.level)
   const focusTerms = extractFocusTerms(options.focus)
+  const filePriorities = normalizeFilePriorities(options.filePriorities)
+  const hasExplicitPlan = filePriorities.size > 0
   const files = await Promise.all(selectedCandidates.map(async candidate => {
     const source = await fs.readFile(candidate.absolutePath, 'utf8')
     const variants = buildVariants(candidate.relativePath, source)
     const rawTokenCount = countTokens(source)
     const taskRelevance = calculateTaskRelevance(candidate.relativePath, source, focusTerms)
+    const explicitPriority = filePriorities.get(candidate.relativePath)
     const file: WorkingFile = {
       path: candidate.relativePath,
       rawTokenCount,
       variants,
       tokenCounts: { 1: rawTokenCount },
-      priorityScore: baseFilePriority(candidate.relativePath) + taskRelevance * 4000,
-      level: initialFileLevel(requestedLevel, taskRelevance),
+      priorityScore: baseFilePriority(candidate.relativePath) + taskRelevance * 4000 + explicitPriorityBoost(explicitPriority),
+      taskRelevance,
+      explicitPriority,
+      level: explicitPriority
+        ? normalizeLevel(explicitPriority.level)
+        : initialFileLevelForRequest(requestedLevel, taskRelevance, hasExplicitPlan),
       tokenCount: rawTokenCount,
       contentHash: createHash('sha256').update(source).digest('hex')
     }
-    file.tokenCount = countFileTokens(file, requestedLevel)
+    file.tokenCount = countFileTokens(file, file.level)
     return file
   }))
+
+  applyTaskPriorities(files, focusTerms)
 
   const metadata = {
     generatedAt: new Date().toISOString(),
@@ -169,7 +182,8 @@ export async function generateRepository(
     path: file.path,
     level: file.level,
     tokens: file.tokenCount,
-    savedPercent: calculateSavingPercent(file.rawTokenCount, file.tokenCount)
+    savedPercent: calculateSavingPercent(file.rawTokenCount, file.tokenCount),
+    reason: fileTaskReason(file)
   }))
   const tokensSaved = Math.max(0, rawTokens - outputTokens)
 
@@ -484,6 +498,21 @@ function initialFileLevel(requestedLevel: CompressionLevel, taskRelevance: numbe
   return requestedLevel
 }
 
+function backgroundFileLevel(requestedLevel: CompressionLevel): CompressionLevel {
+  return Math.min(3, requestedLevel + 1) as CompressionLevel
+}
+
+function initialFileLevelForRequest(
+  requestedLevel: CompressionLevel,
+  taskRelevance: number,
+  hasExplicitPlan: boolean
+): CompressionLevel {
+  if (taskRelevance >= 3 || !hasExplicitPlan) {
+    return initialFileLevel(requestedLevel, taskRelevance)
+  }
+  return backgroundFileLevel(requestedLevel)
+}
+
 function compressionScore(file: WorkingFile): number {
   const leafScore = file.path.split('/').length * 1000 + file.path.length
   return leafScore + file.tokenCount - file.priorityScore
@@ -501,6 +530,216 @@ function pickCompressionCandidate(files: WorkingFile[]): WorkingFile | undefined
     }
     return left.path.localeCompare(right.path)
   })[0]
+}
+
+function applyTaskPriorities(files: WorkingFile[], focusTerms: string[]): void {
+  if (focusTerms.length === 0 && files.every(file => !file.explicitPriority)) {
+    return
+  }
+
+  const graph = buildDependencyGraph(files)
+  const { distances, levels } = findTaskContext(files, graph)
+  for (const file of files) {
+    const distance = distances.get(file.path)
+    file.taskDistance = distance
+    const relatedPriority = distance === 1 ? 2200 : distance === 2 ? 1000 : 0
+    const relatedLevel = levels.get(file.path)
+    if (!file.explicitPriority && relatedLevel !== undefined && relatedLevel < file.level) {
+      file.level = relatedLevel
+      file.tokenCount = countFileTokens(file, file.level)
+    }
+    file.priorityScore = baseFilePriority(file.path) + file.taskRelevance * 4000 + relatedPriority + explicitPriorityBoost(file.explicitPriority)
+  }
+}
+
+function normalizeFilePriorities(priorities: BonsaiFilePriority[] | undefined): Map<string, BonsaiFilePriority> {
+  const normalized = new Map<string, BonsaiFilePriority>()
+  for (const priority of priorities ?? []) {
+    if (!priority || typeof priority.path !== 'string' || !priority.path.trim()) {
+      continue
+    }
+    const relativePath = normalizePriorityPath(priority.path)
+    if (!relativePath) {
+      continue
+    }
+    normalized.set(relativePath, {
+      path: relativePath,
+      level: normalizeLevel(priority.level),
+      reason: typeof priority.reason === 'string' ? priority.reason.trim().slice(0, 240) : undefined
+    })
+  }
+  return normalized
+}
+
+function normalizePriorityPath(value: string): string | undefined {
+  const normalized = path.posix.normalize(value.replace(/\\/g, '/').replace(/^\.\//, ''))
+  if (!normalized || normalized === '.' || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../')) {
+    return undefined
+  }
+  return normalized
+}
+
+function explicitPriorityBoost(priority: BonsaiFilePriority | undefined): number {
+  return priority ? 100000 + (3 - normalizeLevel(priority.level)) * 1000 : 0
+}
+
+function buildDependencyGraph(files: WorkingFile[]): Map<string, Set<string>> {
+  const paths = new Set(files.map(file => file.path))
+  const graph = new Map(files.map(file => [file.path, new Set<string>()]))
+  for (const file of files) {
+    for (const reference of extractImportReferences(file.path, file.variants.full)) {
+      const target = resolveImportPath(file.path, reference, paths)
+      if (!target || target === file.path) {
+        continue
+      }
+      graph.get(file.path)?.add(target)
+      graph.get(target)?.add(file.path)
+    }
+  }
+  connectMatchingTests(files, graph)
+  return graph
+}
+
+function findTaskContext(
+  files: WorkingFile[],
+  graph: Map<string, Set<string>>
+): { distances: Map<string, number>; levels: Map<string, CompressionLevel> } {
+  const distances = new Map<string, number>()
+  const levels = new Map<string, CompressionLevel>()
+  const queue: string[] = []
+  for (const file of files) {
+    if (file.taskRelevance > 0 || file.explicitPriority) {
+      distances.set(file.path, 0)
+      levels.set(file.path, file.level)
+      queue.push(file.path)
+    }
+  }
+
+  let index = 0
+  while (index < queue.length) {
+    const current = queue[index]
+    index += 1
+    const distance = distances.get(current) ?? 0
+    if (distance >= 2) {
+      continue
+    }
+    const level = levels.get(current) ?? 3
+    for (const neighbor of graph.get(current) ?? []) {
+      const nextDistance = distance + 1
+      const nextLevel = Math.min(3, level + 1) as CompressionLevel
+      const previousDistance = distances.get(neighbor)
+      const previousLevel = levels.get(neighbor)
+      if (previousDistance !== undefined && (
+        previousDistance < nextDistance ||
+        (previousDistance === nextDistance && (previousLevel ?? 3) <= nextLevel)
+      )) {
+        continue
+      }
+      distances.set(neighbor, nextDistance)
+      levels.set(neighbor, nextLevel)
+      queue.push(neighbor)
+    }
+  }
+  return { distances, levels }
+}
+
+function connectMatchingTests(files: WorkingFile[], graph: Map<string, Set<string>>): void {
+  const testFiles = files.filter(file => isTestPath(file.path))
+  const sourceFiles = files.filter(file => !isTestPath(file.path))
+  for (const testFile of testFiles) {
+    const testStem = testFileStem(testFile.path)
+    if (!testStem) {
+      continue
+    }
+    for (const sourceFile of sourceFiles) {
+      const sourceStem = path.posix.basename(sourceFile.path).split('.')[0].toLowerCase()
+      if (sourceStem === testStem || testFile.path.toLowerCase().includes(`/${sourceStem}.`)) {
+        graph.get(testFile.path)?.add(sourceFile.path)
+        graph.get(sourceFile.path)?.add(testFile.path)
+      }
+    }
+  }
+}
+
+function isTestPath(relativePath: string): boolean {
+  return /(^|\/)(test|tests|spec|specs|__tests__)(\/|$)/i.test(relativePath) ||
+    /(?:\.test|\.spec|_test|_spec)\.[^.]+$/i.test(relativePath)
+}
+
+function testFileStem(relativePath: string): string {
+  const name = path.posix.basename(relativePath).toLowerCase()
+  return name
+    .replace(/\.[^.]+$/, '')
+    .replace(/(?:\.test|\.spec|_test|_spec)$/, '')
+}
+
+function extractImportReferences(relativePath: string, source: string): string[] {
+  const extension = path.posix.extname(relativePath).slice(1).toLowerCase()
+  const patterns: RegExp[] = []
+  if (['js', 'jsx', 'ts', 'tsx'].includes(extension)) {
+    patterns.push(
+      /\bfrom\s*['"]([^'"]+)['"]/g,
+      /\bimport\s*(?:\(\s*)?['"]([^'"]+)['"]/g,
+      /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+    )
+  } else if (extension === 'py') {
+    patterns.push(/^\s*(?:from|import)\s+([.\w/]+)/gm)
+  } else if (extension === 'rs') {
+    patterns.push(/\b(?:use|mod)\s+([A-Za-z_][\w:]*)/g)
+  } else {
+    patterns.push(/^\s*(?:import|using|#include|#import)\s*[<"]?([^">;\s]+)/gm)
+  }
+
+  return [...new Set(patterns.flatMap(pattern => [...source.matchAll(pattern)].map(match => match[1])))]
+}
+
+function resolveImportPath(fromPath: string, reference: string, paths: Set<string>): string | undefined {
+  const extension = path.posix.extname(fromPath).slice(1).toLowerCase()
+  const normalizedReference = reference.replace(/::$/, '')
+  let baseCandidates: string[]
+  if (normalizedReference.startsWith('.') && extension === 'py') {
+    const dots = normalizedReference.match(/^\.+/)?.[0].length ?? 0
+    let directory = path.posix.dirname(fromPath)
+    for (let index = 1; index < dots; index += 1) {
+      directory = path.posix.dirname(directory)
+    }
+    baseCandidates = [path.posix.join(directory, normalizedReference.slice(dots).replace(/\./g, '/'))]
+  } else if (normalizedReference.startsWith('.')) {
+    baseCandidates = [path.posix.normalize(path.posix.join(path.posix.dirname(fromPath), normalizedReference))]
+  } else if (extension === 'rs' && normalizedReference.startsWith('crate::')) {
+    baseCandidates = [`src/${normalizedReference.slice('crate::'.length).replace(/::/g, '/')}`]
+  } else {
+    baseCandidates = [normalizedReference.replace(/::/g, '/').replace(/\./g, '/')]
+  }
+
+  const candidates = baseCandidates.flatMap(base => [
+    base,
+    ...['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt'].map(ext => `${base}.${ext}`),
+    ...['ts', 'tsx', 'js', 'jsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt'].map(ext => `${base}/index.${ext}`)
+  ])
+  return candidates.find(candidate => paths.has(candidate))
+}
+
+function fileTaskReason(file: WorkingFile): string {
+  if (file.explicitPriority?.reason) {
+    return `agent: ${file.explicitPriority.reason}`
+  }
+  if (file.explicitPriority) {
+    return 'agent-selected'
+  }
+  if (file.taskRelevance > 0) {
+    return 'task match'
+  }
+  if (file.taskDistance === 1) {
+    return 'related dependency or caller'
+  }
+  if (file.taskDistance === 2) {
+    return 'related context'
+  }
+  if (baseFilePriority(file.path) >= 4000) {
+    return 'project structure'
+  }
+  return 'background module'
 }
 
 function fitBudget(
@@ -985,6 +1224,7 @@ function formatContext(
         path: file.path,
         level: file.level,
         tokens: file.tokenCount,
+        reason: fileTaskReason(file),
         hash: file.contentHash
       })),
       ...(deletedFiles.length > 0 ? { deleted_files: deletedFiles } : {}),
@@ -999,7 +1239,8 @@ function formatContext(
 
   const projectMap = files.map(file => {
     const hash = ` hash="${escapeXml(file.contentHash)}"`
-    return `<entry path="${escapeXml(file.path)}" level="${file.level}" tokens="${file.tokenCount}"${hash} />`
+    const reason = ` reason="${escapeXml(fileTaskReason(file))}"`
+    return `<entry path="${escapeXml(file.path)}" level="${file.level}" tokens="${file.tokenCount}"${reason}${hash} />`
   }).join('\n')
   const deleted = deletedFiles.length === 0
     ? ''
