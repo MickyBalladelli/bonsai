@@ -568,16 +568,23 @@ Use the skill:
 
 ### VS Code
 
-The VS Code extension lives here:
+The VS Code extension **Bonsai Context Manager** is published on the
+Visual Studio Marketplace:
+
+```text
+https://marketplace.visualstudio.com/items?itemName=MickyBalladelli.bonsai-vscode
+```
+
+Install it from the Marketplace, or run:
+
+```sh
+code --install-extension MickyBalladelli.bonsai-vscode
+```
+
+The extension source lives here:
 
 ```text
 copilot/bonsai-vscode
-```
-
-Install the packaged VSIX:
-
-```sh
-code --install-extension copilot/bonsai-vscode/bonsai-vscode-*.vsix
 ```
 
 Primary Command Palette commands:
@@ -615,7 +622,7 @@ Output stats:
 VS Code extension:
 
 ```text
-Install the latest VSIX. The VS Code extension is self-contained and does not
+Install the latest from the Marketplace. The VS Code extension is self-contained and does not
 need Bonsai installed separately.
 ```
 
