@@ -129,11 +129,35 @@ async function verifyFidelityWarningsForLossyOutput(): Promise<void> {
   })
 }
 
+async function verifyBudgetLoopConvergesPastTwoHundredAttempts(): Promise<void> {
+  await withFixture(async root => {
+    for (let file = 0; file < 20; file += 1) {
+      const name = `f${String(file).padStart(2, '0')}`
+      const lines: string[] = []
+      for (let fn = 0; fn < 24; fn += 1) {
+        const fname = `${name}_${String(fn).padStart(2, '0')}`
+        lines.push(`export function ${fname}(p01: string, p02: string, p03: string, p04: string): string { return p01 + p02 + p03 + p04 }`)
+      }
+      await write(root, `src/${name}.ts`, `${lines.join('\n')}\n`)
+    }
+
+    const limited = config(root)
+    limited.level = 2
+    limited.maxTokens = 3200
+    const result = await generateRepository(root, limited)
+
+    assert.ok(result.report.outputTokens !== undefined && result.report.outputTokens <= 3200)
+    assert.ok(!result.warnings.some(warning => warning.includes('above max_tokens')))
+    assert.ok(!result.contextText.includes('above max_tokens'))
+  })
+}
+
 async function main(): Promise<void> {
   await verifyRustCrateDependencyAndComments()
   await verifyPythonAndCDependencies()
   await verifyScopedTestMatchingAndSourceEvidence()
   await verifyFidelityWarningsForLossyOutput()
+  await verifyBudgetLoopConvergesPastTwoHundredAttempts()
   console.log('internal generator smoke ok')
 }
 

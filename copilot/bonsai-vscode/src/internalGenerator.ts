@@ -950,7 +950,16 @@ function fitBudget(
   let outputTokens = 0
   let warnings: string[] = []
 
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  // Every iteration makes strict progress: a file can be downgraded at most
+  // twice, and truncation shrinks the largest file toward an 8-token floor, so
+  // the loop always terminates once nothing is left to shrink. The attempt cap
+  // therefore scales with the remaining work instead of cutting large
+  // repositories off at an arbitrary fixed number: with N files, at most
+  // 2 downgrades plus ~46 truncations per file can ever be needed, so
+  // N * 64 always suffices. Hitting the cap means a convergence bug, and
+  // throwing loudly beats silently returning over-budget output.
+  const maxAttempts = Math.max(200, files.length * 64)
+  for (let attempt = 0; ; attempt += 1) {
     for (const file of files) {
       file.tokenCount = countFileTokens(file, file.level)
     }
@@ -958,6 +967,10 @@ function fitBudget(
     outputTokens = countTokens(contextText)
     if (outputTokens <= metadata.maxTokens) {
       return { contextText, outputTokens, warnings: contentWarnings(files) }
+    }
+
+    if (attempt >= maxAttempts) {
+      throw new Error(`Bonsai could not fit the context within max_tokens ${metadata.maxTokens} after ${maxAttempts} budget attempts. Increase max_tokens, select fewer files, or report this as a bug. No output was written.`)
     }
 
     if (metadata.compressionLevel === 1) {
