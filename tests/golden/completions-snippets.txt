@@ -1,7 +1,7 @@
 [bash]
             bonsai,init-agent)
             bonsai,completions)
-            opts="-h -V --config --preset --max-tokens --tokenizer --max-file-bytes --max-file-tokens --level --output --output-file --format --project-map-only --map-only-under --project-map --file-hashes --no-token-counts --no-content --dry-run --sort --directory-summaries --fail-over-budget --drop-low-priority --incremental --incremental-base --changed-since --incremental-summary --include --exclude --no-respect-gitignore --exclude-generated --print-files --fail-on-empty --quiet --stats --detailed-stats --summary --prompt --ask-template --help --version [PATH] setup init-agent cache doctor completions docs help"
+            opts="-h -V --config --preset --max-tokens --tokenizer --max-file-bytes --max-file-tokens --level --output --output-file --format --project-map-only --map-only-under --project-map --file-hashes --no-token-counts --no-content --dry-run --sort --directory-summaries --fail-over-budget --drop-low-priority --incremental --incremental-base --changed-since --incremental-summary --include --exclude --no-respect-gitignore --exclude-generated --focus --print-files --fail-on-empty --quiet --stats --detailed-stats --summary --prompt --ask-template --help --version [PATH] setup init-agent cache doctor completions docs help"
             opts="-h --tokenizer --json --help [PATH]"
 [zsh]
 '--project-map=[]:PROJECT_MAP:(flat compact)' \

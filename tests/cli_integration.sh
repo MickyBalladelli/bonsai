@@ -383,7 +383,7 @@ RS
   git add src/new.rs
 )
 rm "$changed_since_repo/Cargo.toml"
-"$bin" "$changed_since_repo" --changed-since HEAD --incremental-summary --output-file "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.raw.txt"
+"$bin" "$changed_since_repo" --changed-since HEAD --level 2 --incremental-summary --output-file "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.raw.txt"
 sed '/^Bonsai wrote /d' "$tmp_root/changed-since.raw.txt" > "$tmp_root/changed-since.txt"
 normalize_xml "$tmp_root/changed-since.xml" > "$tmp_root/changed-since.normalized.xml"
 diff -u "$repo_root/tests/golden/changed-since.xml" "$tmp_root/changed-since.normalized.xml"

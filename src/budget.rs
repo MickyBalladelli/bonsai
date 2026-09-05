@@ -106,6 +106,9 @@ pub struct ProcessedFile {
     pub variants: FileVariants,
     pub token_count: usize,
     pub content_hash: Option<String>,
+    /// Request-aware protection from `--focus`: higher values keep the file at
+    /// higher detail longer (task relevance plus dependency distance).
+    pub task_boost: i64,
 }
 
 impl ProcessedFile {
@@ -116,6 +119,7 @@ impl ProcessedFile {
             variants,
             token_count: 0,
             content_hash: None,
+            task_boost: 0,
         }
     }
 
@@ -260,7 +264,13 @@ fn pick_downgrade_candidate(files: &[ProcessedFile]) -> Option<usize> {
 }
 
 fn downgrade_score(file: &ProcessedFile) -> i64 {
-    leaf_score(file) as i64 + file.token_count as i64 - file_priority_score(file) as i64
+    leaf_score(file) as i64 + file.token_count as i64 - effective_priority_score(file)
+}
+
+/// Static file-type priority plus the request-aware `--focus` boost. Higher
+/// values protect the file longer during budget optimization and dropping.
+pub fn effective_priority_score(file: &ProcessedFile) -> i64 {
+    file_priority_score(file) as i64 + file.task_boost
 }
 
 fn leaf_score(file: &ProcessedFile) -> usize {

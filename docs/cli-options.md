@@ -132,6 +132,9 @@ Selection:
       --exclude-generated
           Skip minified, vendored, generated, and lockfile-like files unless --include matches them
 
+      --focus <TEXT>
+          Request text: keep modules matching the request and their dependencies at higher detail while shrinking background files. Applies lossy shrinking only at --level 2 or 3; level 1 keeps full source
+
 Diagnostics:
       --print-files
           Print selected files before generation

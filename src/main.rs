@@ -1,5 +1,6 @@
 mod budget;
 mod cache;
+mod focus;
 mod formatter;
 mod parser;
 mod walker;
@@ -18,10 +19,11 @@ use clap_complete::{generate, Shell};
 use sha2::{Digest, Sha256};
 
 use budget::{
-    cap_file_tokens, count_text_tokens, downgrade_largest_file, file_priority_score,
+    cap_file_tokens, count_text_tokens, downgrade_largest_file, effective_priority_score,
     optimize_budget, ProcessedFile, TokenCounter, TokenizerKind,
 };
 use cache::{cache_path_for_root, CacheDiagnostics, CacheMetadata, CacheStatus, ParseCache};
+use focus::apply_request_focus;
 use formatter::{
     format_repository_context_json, format_repository_context_text, format_repository_context_xml,
     DirectorySummary, FormatOptions, ProjectMapMode as FormatProjectMapMode, RepositoryMetadata,
@@ -232,6 +234,14 @@ struct Cli {
         help_heading = "Selection"
     )]
     exclude_generated: bool,
+
+    #[arg(
+        long,
+        value_name = "TEXT",
+        help = "Request text: keep modules matching the request and their dependencies at higher detail while shrinking background files. Applies lossy shrinking only at --level 2 or 3; level 1 keeps full source",
+        help_heading = "Selection"
+    )]
+    focus: Option<String>,
 
     #[arg(
         long,
@@ -473,6 +483,7 @@ struct BonsaiConfigFile {
     exclude: Option<Vec<String>>,
     respect_gitignore: Option<bool>,
     exclude_generated: Option<bool>,
+    focus: Option<String>,
 }
 
 fn apply_config(cli: &mut Cli, root: &Path, args: &[OsString]) -> Result<()> {
@@ -561,6 +572,11 @@ fn apply_config(cli: &mut Cli, root: &Path, args: &[OsString]) -> Result<()> {
     if !option_was_provided(args, "--exclude-generated") {
         if let Some(value) = config.exclude_generated {
             cli.exclude_generated = value;
+        }
+    }
+    if !option_was_provided(args, "--focus") {
+        if let Some(value) = config.focus {
+            cli.focus = Some(value);
         }
     }
 
@@ -692,6 +708,7 @@ fn parse_config(contents: &str, path: &Path) -> Result<BonsaiConfigFile> {
             "exclude_generated" => {
                 config.exclude_generated = Some(parse_config_bool(value, key, path, line_number)?)
             }
+            "focus" => config.focus = Some(parse_config_string(value, key, path, line_number)?),
             _ => bail!(
                 "unknown config key `{key}` in {}:{}",
                 path.display(),
@@ -1003,6 +1020,13 @@ fn main() -> Result<()> {
     incremental_counts.deleted = deleted_files.len();
     parse_cache.retain_touched();
     parse_cache.set_metadata(cache_metadata);
+
+    apply_request_focus(
+        &mut files,
+        requested_level,
+        cli.focus.as_deref(),
+        &token_counter,
+    );
 
     if let Some(max_file_tokens) = max_file_tokens(&cli) {
         if requested_level == CompressionLevel::Full {
@@ -2184,8 +2208,8 @@ fn drop_lowest_priority_file(files: &mut Vec<ProcessedFile>) -> bool {
         .iter()
         .enumerate()
         .min_by(|(_, left), (_, right)| {
-            file_priority_score(left)
-                .cmp(&file_priority_score(right))
+            effective_priority_score(left)
+                .cmp(&effective_priority_score(right))
                 .then(right.token_count.cmp(&left.token_count))
                 .then(right.path.cmp(&left.path))
         })
@@ -2241,8 +2265,8 @@ fn sort_files(files: &mut [ProcessedFile], sort: SortMode) {
                 .then(left.path.cmp(&right.path))
         }),
         SortMode::Priority => files.sort_by(|left, right| {
-            file_priority_score(right)
-                .cmp(&file_priority_score(left))
+            effective_priority_score(right)
+                .cmp(&effective_priority_score(left))
                 .then(left.path.cmp(&right.path))
         }),
     }
@@ -2668,6 +2692,7 @@ mod tests {
             exclude: Vec::new(),
             respect_gitignore: true,
             exclude_generated: false,
+            focus: None,
             print_files: false,
             fail_on_empty: false,
             quiet: false,

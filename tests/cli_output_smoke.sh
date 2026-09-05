@@ -56,7 +56,7 @@ if grep -Fq '<files>' "$tmp_root/no-content.xml"; then
   exit 1
 fi
 
-"$bin" "$repo" --no-token-counts --project-map compact --directory-summaries --output-file "$tmp_root/no-token-counts.xml"
+"$bin" "$repo" --level 2 --no-token-counts --project-map compact --directory-summaries --output-file "$tmp_root/no-token-counts.xml"
 grep -Fq '<project_map mode="compact">' "$tmp_root/no-token-counts.xml"
 grep -Fq '<dir path="src/deep" files="1">' "$tmp_root/no-token-counts.xml"
 grep -Fq '<entry name="leaf.rs" level="2" />' "$tmp_root/no-token-counts.xml"
@@ -84,7 +84,7 @@ if [[ "$first_path" != '"path":"Cargo.toml"' ]]; then
   exit 1
 fi
 
-"$bin" "$repo" --format text --output-file "$tmp_root/context.txt"
+"$bin" "$repo" --level 2 --format text --output-file "$tmp_root/context.txt"
 grep -Fq 'bonsai_context' "$tmp_root/context.txt"
 grep -Fq 'project_map' "$tmp_root/context.txt"
 grep -Fq 'files' "$tmp_root/context.txt"
@@ -107,7 +107,7 @@ pub fn huge() {
     println!("{alpha}{beta}{gamma}");
 }
 RS
-"$bin" "$cap_repo" --max-file-tokens 4 --project-map-only --output-file "$tmp_root/capped.xml"
+"$bin" "$cap_repo" --level 2 --max-file-tokens 4 --project-map-only --output-file "$tmp_root/capped.xml"
 grep -Fq 'path="src/huge.rs" level="3"' "$tmp_root/capped.xml"
 
 "$bin" "$repo" --dry-run --output-file "$tmp_root/dry-run.xml" > "$tmp_root/dry-run.txt"
@@ -147,7 +147,7 @@ TOML
 for index in 1 2 3; do
   printf 'pub fn generated_%s() {}\n' "$index" > "$drop_repo/src/generated/deep/file$index.rs"
 done
-"$bin" "$drop_repo" --max-tokens 155 --drop-low-priority --summary --output-file "$tmp_root/drop.xml" > "$tmp_root/drop.txt"
+"$bin" "$drop_repo" --level 2 --max-tokens 155 --drop-low-priority --summary --output-file "$tmp_root/drop.xml" > "$tmp_root/drop.txt"
 grep -Fq '  files_included: 1' "$tmp_root/drop.txt"
 grep -Fq '  files_dropped: 3' "$tmp_root/drop.txt"
 grep -Fq 'path="Cargo.toml"' "$tmp_root/drop.xml"

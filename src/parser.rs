@@ -75,6 +75,70 @@ pub fn parser_support_for_extension(extension: &str) -> ParserSupport {
     }
 }
 
+/// Declared symbol names (functions, classes, types, constants, ...) in a
+/// source snapshot. Used for request-aware relevance scoring: an empty vector
+/// is returned when no tree-sitter grammar is available for the file.
+pub fn declared_symbol_names(source: &str, path: &Path) -> Vec<String> {
+    let Ok(syntax) = SyntaxKind::from_path(path) else {
+        return Vec::new();
+    };
+    let Some(language) = syntax.language() else {
+        return Vec::new();
+    };
+
+    let mut parser = Parser::new();
+    if parser.set_language(&language).is_err() {
+        return Vec::new();
+    }
+    let Some(tree) = parser.parse(source, None) else {
+        return Vec::new();
+    };
+
+    let mut names = Vec::new();
+    collect_symbol_names(source, tree.root_node(), syntax, &mut names);
+    names.sort();
+    names.dedup();
+    names.truncate(256);
+    names
+}
+
+fn collect_symbol_names(source: &str, node: Node, syntax: SyntaxKind, names: &mut Vec<String>) {
+    if should_emit_tree_map_node(node, syntax) {
+        if let Some(name) = symbol_name(source, node) {
+            names.push(name);
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_symbol_names(source, child, syntax, names);
+    }
+}
+
+fn symbol_name(source: &str, node: Node) -> Option<String> {
+    let mut candidate = node
+        .child_by_field_name("name")
+        .filter(|child| child.is_named());
+
+    if candidate.is_none() {
+        let mut cursor = node.walk();
+        candidate = node.children(&mut cursor).find(|child| {
+            child.is_named()
+                && (child.kind().contains("identifier")
+                    || child.kind().contains("name")
+                    || child.kind() == "type")
+        });
+    }
+
+    let name = candidate?;
+    let text = source.get(name.start_byte()..name.end_byte())?;
+    let first_line = text.lines().next().unwrap_or_default().trim();
+    if first_line.is_empty() || first_line.len() > 128 {
+        return None;
+    }
+    Some(first_line.to_owned())
+}
+
 pub fn compress_file(path: &Path, _requested_level: CompressionLevel) -> Result<FileVariants> {
     let source = fs::read_to_string(path)
         .with_context(|| format!("cannot read source file {}", path.display()))?;
