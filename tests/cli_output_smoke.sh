@@ -151,10 +151,11 @@ done
 grep -Fq '  files_included: 1' "$tmp_root/drop.txt"
 grep -Fq '  files_dropped: 3' "$tmp_root/drop.txt"
 grep -Fq 'path="Cargo.toml"' "$tmp_root/drop.xml"
-if grep -Fq 'src/generated/deep' "$tmp_root/drop.xml"; then
+if grep -Fq 'path="src/generated/deep' "$tmp_root/drop.xml"; then
   printf 'drop-low-priority kept generated files\n' >&2
   exit 1
 fi
+grep -Fq 'were omitted to fit the token budget' "$tmp_root/drop.xml"
 
 "$bin" completions bash > "$tmp_root/bonsai.bash"
 "$bin" completions zsh > "$tmp_root/_bonsai"

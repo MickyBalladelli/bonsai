@@ -15,6 +15,7 @@ export type BonsaiToolGeneration = {
   outputFiles: string[]
   projectMap: ProjectMapEntry[]
   report: RunReport
+  warnings: string[]
 }
 
 export type BonsaiToolGenerator = (workspacePath?: string, request?: string, filePriorities?: BonsaiFilePriority[]) => Promise<BonsaiToolGeneration>
@@ -90,6 +91,12 @@ export function buildToolResult(generated: BonsaiToolGeneration): string {
     'Bonsai generated repository context successfully.',
     `Overall compression saved ${saved} of tokens.`,
     'The agent priority plan was applied when provided. Level 1 preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit the token budget instead of silently downgrading or truncating; levels 2 and 3 are explicit opt-in lossy compression. Unlisted files are compressed harder first only in explicit lossy levels.',
+    ...(generated.warnings.length > 0
+      ? [
+        'Fidelity warnings: this context is lossy and must not be treated as complete evidence for a full review.',
+        ...generated.warnings.map(warning => `- ${warning}`)
+      ]
+      : []),
     'Project map detail decisions:',
     decisions.join('\n') || '- Full project map is in the generated context file.',
     'Context files written:',

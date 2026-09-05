@@ -81,6 +81,8 @@ type WorkingFile = {
   level: CompressionLevel
   tokenCount: number
   contentHash: string
+  /** Set when the file body was cut mid-content to fit a token cap. */
+  truncated: boolean
 }
 
 type IgnoreRule = {
@@ -108,6 +110,8 @@ export type InternalGenerationResult = {
   repositoryUrl?: string
   report: RunReport
   signatures: Record<string, string>
+  /** Fidelity warnings also embedded in the generated context files. */
+  warnings: string[]
 }
 
 export async function generateRepository(
@@ -163,7 +167,8 @@ export async function generateRepository(
       includeComments,
       level,
       tokenCount: rawTokenCount,
-      contentHash: createHash('sha256').update(source).digest('hex')
+      contentHash: createHash('sha256').update(source).digest('hex'),
+      truncated: false
     }
     file.tokenCount = countFileTokens(file, file.level)
     return file
@@ -189,7 +194,7 @@ export async function generateRepository(
   const rawContext = formatContext(rawFiles, metadata, config.outputFormat, deletedFiles)
   const rawTokens = countTokens(rawContext)
   const optimizedFiles = files.map(file => ({ ...file, variants: { ...file.variants } }))
-  const { contextText: fullContextText, outputTokens } = fitBudget(
+  const { contextText: fullContextText, outputTokens, warnings } = fitBudget(
     optimizedFiles,
     metadata,
     config,
@@ -217,6 +222,7 @@ export async function generateRepository(
     projectMap,
     repositoryUrl: await readRepositoryUrl(root),
     signatures,
+    warnings,
     report: {
       filesIncluded: optimizedFiles.length,
       outputTokens,
@@ -886,6 +892,30 @@ function rustModulePrefixes(value: string): string[] {
   return Array.from({ length: segments.length }, (_entry, index) => segments.slice(0, segments.length - index).join('/'))
 }
 
+function contentWarnings(files: WorkingFile[]): string[] {
+  const warnings: string[] = []
+
+  const summaries = files
+    .filter(file => file.level === 3 && contentForLevel(file.variants, file.level, file.includeComments).length > 0)
+    .map(file => file.path)
+    .sort()
+  if (summaries.length > 0) {
+    warnings.push(`${summaries.length} file(s) are level-3 tree-map summaries (names only, no implementation bodies) and must not be treated as evidence of behavior: ${cappedWarningPaths(summaries)}.`)
+  }
+
+  const cut = files.filter(file => file.truncated).map(file => file.path).sort()
+  if (cut.length > 0) {
+    warnings.push(`${cut.length} file(s) were cut mid-content to fit the token budget; their content ends with ... and is incomplete: ${cappedWarningPaths(cut)}.`)
+  }
+
+  return warnings
+}
+
+function cappedWarningPaths(paths: string[]): string {
+  const shown = paths.slice(0, 10).join(', ')
+  return paths.length > 10 ? `${shown} (and ${paths.length - 10} more)` : shown
+}
+
 function fileTaskReason(file: WorkingFile): string {
   if (file.explicitPriority?.reason) {
     return file.taskRelevance > 0
@@ -915,9 +945,10 @@ function fitBudget(
   metadata: { generatedAt: string; repoRoot: string; maxTokens: number; compressionLevel: number; fileCount: number },
   config: BonsaiConfig,
   deletedFiles: string[]
-): { contextText: string; outputTokens: number } {
+): { contextText: string; outputTokens: number; warnings: string[] } {
   let contextText = ''
   let outputTokens = 0
+  let warnings: string[] = []
 
   for (let attempt = 0; attempt < 200; attempt += 1) {
     for (const file of files) {
@@ -926,7 +957,7 @@ function fitBudget(
     contextText = formatContext(files, metadata, config.outputFormat, deletedFiles)
     outputTokens = countTokens(contextText)
     if (outputTokens <= metadata.maxTokens) {
-      return { contextText, outputTokens }
+      return { contextText, outputTokens, warnings: contentWarnings(files) }
     }
 
     if (metadata.compressionLevel === 1) {
@@ -962,9 +993,20 @@ function fitBudget(
     }
     largest.tokenCount = countTokens(truncated)
     largest.tokenCounts[largest.level] = largest.tokenCount
+    largest.truncated = true
   }
 
-  return { contextText, outputTokens }
+  // Still over budget with nothing left to shrink: label the output as
+  // incomplete evidence instead of returning it silently.
+  warnings = contentWarnings(files)
+  if (outputTokens > metadata.maxTokens) {
+    warnings.push(`Output is ${outputTokens} tokens, above max_tokens ${metadata.maxTokens} even after maximum compression; treat this context as incomplete.`)
+  }
+  if (warnings.length > 0) {
+    contextText = formatContext(files, metadata, config.outputFormat, deletedFiles, warnings)
+    outputTokens = countTokens(contextText)
+  }
+  return { contextText, outputTokens, warnings }
 }
 
 function splitContextFiles(
@@ -1037,6 +1079,7 @@ function fitChunkByteLimit(
     }
     largest.tokenCount = countTokens(truncated)
     largest.tokenCounts[largest.level] = largest.tokenCount
+    largest.truncated = true
     contextText = formatContext(files, metadata, outputFormat, deletedFiles)
   }
   return contextText
@@ -1498,8 +1541,10 @@ function formatContext(
   files: WorkingFile[],
   metadata: { generatedAt: string; repoRoot: string; maxTokens: number; compressionLevel: number; fileCount: number },
   outputFormat: 'xml' | 'json',
-  deletedFiles: string[]
+  deletedFiles: string[],
+  extraWarnings: string[] = []
 ): string {
+  const warnings = [...contentWarnings(files), ...extraWarnings]
   if (outputFormat === 'json') {
     return `${JSON.stringify({
       metadata: {
@@ -1509,6 +1554,7 @@ function formatContext(
         compression_level: metadata.compressionLevel,
         file_count: metadata.fileCount
       },
+      ...(warnings.length > 0 ? { warnings } : {}),
       project_map: files.map(file => ({
         path: file.path,
         level: file.level,
@@ -1526,6 +1572,10 @@ function formatContext(
     }, null, 2)}\n`
   }
 
+  const warningsXml = warnings.length === 0
+    ? ''
+    : `\n<warnings>\n${warnings.map(warning => `<warning>${escapeXml(warning)}</warning>`).join('\n')}\n</warnings>`
+
   const projectMap = files.map(file => {
     const hash = ` hash="${escapeXml(file.contentHash)}"`
     const reason = ` reason="${escapeXml(fileTaskReason(file))}"`
@@ -1539,7 +1589,7 @@ function formatContext(
     return `<file path="${escapeXml(file.path)}" level="${file.level}" tokens="${file.tokenCount}">${content}</file>`
   }).join('\n')
 
-  return `<repository_context>\n<metadata generated_at="${escapeXml(metadata.generatedAt)}" repo_root="${escapeXml(metadata.repoRoot)}" max_tokens="${metadata.maxTokens}" compression_level="${metadata.compressionLevel}" file_count="${metadata.fileCount}" />\n<project_map>\n${projectMap}\n</project_map>${deleted}\n<files>\n${fileContent}\n</files>\n</repository_context>\n`
+  return `<repository_context>\n<metadata generated_at="${escapeXml(metadata.generatedAt)}" repo_root="${escapeXml(metadata.repoRoot)}" max_tokens="${metadata.maxTokens}" compression_level="${metadata.compressionLevel}" file_count="${metadata.fileCount}" />${warningsXml}\n<project_map>\n${projectMap}\n</project_map>${deleted}\n<files>\n${fileContent}\n</files>\n</repository_context>\n`
 }
 
 function escapeXml(value: string): string {

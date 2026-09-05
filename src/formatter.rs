@@ -19,6 +19,11 @@ pub struct FormatOptions {
     pub include_content: bool,
     pub directory_summaries: Vec<DirectorySummary>,
     pub deleted_files: Vec<String>,
+    /// Fidelity warnings: tree-map summaries without implementation bodies,
+    /// mid-content truncations, omitted files, or over-budget output. Emitted
+    /// only when non-empty so agents never mistake lossy context for complete
+    /// evidence.
+    pub warnings: Vec<String>,
 }
 
 impl Default for FormatOptions {
@@ -32,6 +37,7 @@ impl Default for FormatOptions {
             include_content: false,
             directory_summaries: Vec::new(),
             deleted_files: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 }
@@ -72,6 +78,7 @@ pub fn format_repository_context_xml(
     let mut output = String::new();
     output.push_str("<repository_context>\n");
     push_metadata_xml(&mut output, metadata);
+    push_warnings_xml(&mut output, &options.warnings);
     push_project_map_xml(
         &mut output,
         files,
@@ -137,6 +144,10 @@ pub fn format_repository_context_json(
     output.push_str("{\n");
     output.push_str("  \"metadata\": ");
     push_metadata_json(&mut output, metadata);
+    if !options.warnings.is_empty() {
+        output.push_str(",\n  \"warnings\": ");
+        push_warnings_json(&mut output, &options.warnings);
+    }
     output.push_str(",\n  \"project_map\": ");
     push_project_map_json(
         &mut output,
@@ -214,7 +225,9 @@ pub fn format_repository_context_text(
     output.push_str(&metadata.compression_level.to_string());
     output.push_str("\nfile_count: ");
     output.push_str(&metadata.file_count.to_string());
-    output.push_str("\n\n");
+    output.push_str("\n");
+    push_warnings_text(&mut output, &options.warnings);
+    output.push('\n');
 
     push_project_map_text(
         &mut output,
@@ -362,6 +375,46 @@ fn push_directory_summaries_xml(
         output.push_str("\" />\n");
     }
     output.push_str("</directory_summaries>\n");
+}
+
+fn push_warnings_xml(output: &mut String, warnings: &[String]) {
+    if warnings.is_empty() {
+        return;
+    }
+
+    output.push_str("<warnings>\n");
+    for warning in warnings {
+        output.push_str("<warning>");
+        push_xml_escaped(output, warning);
+        output.push_str("</warning>\n");
+    }
+    output.push_str("</warnings>\n");
+}
+
+fn push_warnings_json(output: &mut String, warnings: &[String]) {
+    output.push('[');
+    for (index, warning) in warnings.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        output.push('"');
+        push_json_escaped(output, warning);
+        output.push('"');
+    }
+    output.push(']');
+}
+
+fn push_warnings_text(output: &mut String, warnings: &[String]) {
+    if warnings.is_empty() {
+        return;
+    }
+
+    output.push_str("warnings\n");
+    for warning in warnings {
+        output.push_str("- ");
+        output.push_str(&warning.replace('\n', " "));
+        output.push('\n');
+    }
 }
 
 fn push_deleted_files_xml(output: &mut String, deleted_files: &[String]) {
@@ -960,6 +1013,44 @@ mod tests {
         assert!(xml.contains("path=\"src\""));
         assert!(json.contains("\"directory_summaries\""));
         assert!(json.contains("\"path\":\"src\""));
+    }
+
+    #[test]
+    fn emits_fidelity_warnings_in_all_formats() {
+        let files = vec![processed_file()];
+        let options = FormatOptions {
+            include_files: true,
+            include_content: true,
+            warnings: vec!["1 file(s) are level-3 tree-map summaries <check> & review.".to_owned()],
+            ..FormatOptions::default()
+        };
+
+        let xml = format_repository_context_xml(&files, &metadata(), &options);
+        let json = format_repository_context_json(&files, &metadata(), &options);
+        let text = format_repository_context_text(&files, &metadata(), &options);
+
+        assert!(xml.contains("<warnings>"));
+        assert!(xml.contains(
+            "<warning>1 file(s) are level-3 tree-map summaries &lt;check&gt; &amp; review.</warning>"
+        ));
+        assert!(json.contains(
+            "\"warnings\": [\"1 file(s) are level-3 tree-map summaries <check> & review.\"]"
+        ));
+        assert!(text
+            .contains("warnings\n- 1 file(s) are level-3 tree-map summaries <check> & review.\n"));
+    }
+
+    #[test]
+    fn omits_warnings_block_when_empty() {
+        let files = vec![processed_file()];
+
+        let xml = format_repository_context_xml(&files, &metadata(), &full_options());
+        let json = format_repository_context_json(&files, &metadata(), &full_options());
+        let text = format_repository_context_text(&files, &metadata(), &full_options());
+
+        assert!(!xml.contains("<warnings>"));
+        assert!(!json.contains("\"warnings\""));
+        assert!(!text.contains("warnings\n"));
     }
 
     #[test]

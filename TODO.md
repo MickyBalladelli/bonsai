@@ -9,7 +9,7 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 - [x] Make the default compression level preserve important data across the CLI and extension, including implementation logic, types, configuration values, and meaningful comments. Do not silently downgrade or truncate important content to meet a token budget; report when it cannot fit and require explicit opt-in for lossy compression. Changing the default to level 1 alone is insufficient while automatic budget downgrades can still discard that content.
 - [x] Fix file ranking so implementation files keep useful detail before lockfiles and dependency noise. The reviewed `bonsai.xml` gave `package-lock.json` 1,467 tokens but `internalGenerator.ts` only 18.
 - [x] Improve request-aware selection: preserve code relevant to the question and its supporting dependencies while shrinking background files.
-- [ ] Make severe truncation and missing implementation detail clear to agents so compressed context does not imply enough evidence for a full review.
+- [x] Make severe truncation and missing implementation detail clear to agents so compressed context does not imply enough evidence for a full review.
 
 ### Enforce token budgets
 

@@ -27,6 +27,7 @@ type GeneratedContext = {
   projectMap: ProjectMapEntry[]
   repositoryUrl?: string
   report: RunReport
+  warnings: string[]
 }
 
 type GenerateMode = {
@@ -57,7 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
           contextText: generated.contextText,
           outputFiles: generated.outputFiles,
           projectMap: generated.projectMap,
-          report: generated.report
+          report: generated.report,
+          warnings: generated.warnings
         }
       }))
     )
@@ -281,7 +283,8 @@ async function generateContext(
     outputFiles: generated.contextFiles.map(output => output.outputFile),
     projectMap: generated.projectMap,
     repositoryUrl: generated.repositoryUrl,
-    report: generated.report
+    report: generated.report,
+    warnings: generated.warnings
   }
   updateStatus(result)
   return result

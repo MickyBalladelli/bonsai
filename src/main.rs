@@ -1055,7 +1055,7 @@ fn main() -> Result<()> {
         let mut full_files = full_context_files(&files, &token_counter)?;
         sort_files(&mut full_files, cli.sort);
         Some(maybe_wrap_prompt(
-            format_context(&full_files, &metadata, &cli, &deleted_files),
+            format_context(&full_files, &metadata, &cli, &deleted_files, &[]),
             &cli,
         ))
     } else {
@@ -1079,26 +1079,26 @@ fn main() -> Result<()> {
     } else {
         optimize_budget(files, content_budget, &token_counter)?
     };
-    let (mut optimized, context, output_tokens, dropped_files) =
+    let (mut optimized, context, output_tokens, dropped_paths) =
         fit_formatted_context(optimized, &metadata, &cli, &token_counter, &deleted_files)?;
     sort_files(&mut optimized, cli.sort);
+    let warnings = final_warnings(&optimized, &dropped_paths, output_tokens, cli.max_tokens);
+    if !warnings.is_empty() && !cli.quiet {
+        for warning in &warnings {
+            eprintln!("warning: {warning}");
+        }
+    }
     let run_stats = RunStats::new(
         &cli,
         requested_level,
         optimized.len(),
-        dropped_files,
+        dropped_paths.len(),
         raw_context.as_deref(),
         output_tokens,
         &token_counter,
     )?;
 
     if output_tokens > cli.max_tokens {
-        if !cli.quiet {
-            eprintln!(
-                "warning: output is {output_tokens} tokens, above --max-tokens {} after all files reached tree map",
-                cli.max_tokens
-            );
-        }
         if cli.fail_over_budget {
             bail!(
                 "output is {output_tokens} tokens, above --max-tokens {}",
@@ -1109,7 +1109,13 @@ fn main() -> Result<()> {
 
     if cli.dry_run {
         if !cli.quiet {
-            print_dry_run(&optimized, &deleted_files, output_tokens, cli.max_tokens);
+            print_dry_run(
+                &optimized,
+                &deleted_files,
+                output_tokens,
+                cli.max_tokens,
+                &warnings,
+            );
         }
     } else {
         match cli.output {
@@ -2103,6 +2109,9 @@ fn full_context_files(
         .cloned()
         .map(|mut file| {
             file.level = CompressionLevel::Full;
+            // The full variant is never rewritten by token capping (level 1
+            // rejects caps), so raw full source is complete by construction.
+            file.truncated = false;
             file.token_count = count_text_tokens(file.content(), counter);
             Ok(file)
         })
@@ -2114,8 +2123,9 @@ fn format_context(
     metadata: &RepositoryMetadata,
     cli: &Cli,
     deleted_files: &[String],
+    dropped_paths: &[String],
 ) -> String {
-    let options = format_options(files, cli, deleted_files);
+    let options = format_options(files, cli, deleted_files, dropped_paths, &[]);
     match cli.format {
         OutputFormat::Json => format_repository_context_json(files, metadata, &options),
         OutputFormat::Text => format_repository_context_text(files, metadata, &options),
@@ -2123,8 +2133,16 @@ fn format_context(
     }
 }
 
-fn format_options(files: &[ProcessedFile], cli: &Cli, deleted_files: &[String]) -> FormatOptions {
+fn format_options(
+    files: &[ProcessedFile],
+    cli: &Cli,
+    deleted_files: &[String],
+    dropped_paths: &[String],
+    extra_warnings: &[String],
+) -> FormatOptions {
     let map_only_fallback = uses_map_only_fallback(cli);
+    let mut warnings = content_warnings(files, dropped_paths);
+    warnings.extend(extra_warnings.iter().cloned());
     FormatOptions {
         project_map_only: cli.project_map_only,
         project_map_mode: cli.project_map.into(),
@@ -2144,7 +2162,102 @@ fn format_options(files: &[ProcessedFile], cli: &Cli, deleted_files: &[String]) 
         } else {
             Vec::new()
         },
+        warnings,
     }
+}
+
+/// Fidelity warnings embedded in the generated context so agents never mistake
+/// lossy output for complete evidence. Empty files are ignored: they lose
+/// nothing to summarization.
+fn content_warnings(files: &[ProcessedFile], dropped_paths: &[String]) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    let mut summaries: Vec<&str> = files
+        .iter()
+        .filter(|file| file.level == CompressionLevel::TreeMap && !file.content().is_empty())
+        .map(|file| file.path.as_str())
+        .collect();
+    summaries.sort_unstable();
+    if !summaries.is_empty() {
+        warnings.push(tree_map_warning(summaries.len(), &summaries));
+    }
+
+    let mut cut: Vec<&str> = files
+        .iter()
+        .filter(|file| file.truncated)
+        .map(|file| file.path.as_str())
+        .collect();
+    cut.sort_unstable();
+    if !cut.is_empty() {
+        warnings.push(truncated_warning(cut.len(), &cut));
+    }
+
+    if !dropped_paths.is_empty() {
+        let mut dropped: Vec<&str> = dropped_paths.iter().map(String::as_str).collect();
+        dropped.sort_unstable();
+        warnings.push(dropped_warning(dropped.len(), &dropped));
+    }
+
+    warnings
+}
+
+fn tree_map_warning(count: usize, paths: &[&str]) -> String {
+    format!(
+        "{} file(s) are level-3 tree-map summaries (names only, no implementation bodies) and must not be treated as evidence of behavior: {}.",
+        count,
+        capped_path_list(paths)
+    )
+}
+
+fn truncated_warning(count: usize, paths: &[&str]) -> String {
+    format!(
+        "{} file(s) were cut mid-content to fit the token budget; their content ends with ... and is incomplete: {}.",
+        count,
+        capped_path_list(paths)
+    )
+}
+
+fn dropped_warning(count: usize, paths: &[&str]) -> String {
+    format!(
+        "{} file(s) were omitted to fit the token budget: {}.",
+        count,
+        capped_path_list(paths)
+    )
+}
+
+fn over_budget_warning(output_tokens: usize, max_tokens: usize) -> String {
+    format!(
+        "Output is {output_tokens} tokens, above max-tokens {max_tokens} even after maximum compression; treat this context as incomplete."
+    )
+}
+
+fn capped_path_list(paths: &[&str]) -> String {
+    const SHOWN: usize = 10;
+    let mut listed = paths
+        .iter()
+        .take(SHOWN)
+        .map(|path| (*path).to_owned())
+        .collect::<Vec<_>>()
+        .join(", ");
+    if paths.len() > SHOWN {
+        listed.push_str(&format!(" (and {} more)", paths.len() - SHOWN));
+    }
+    listed
+}
+
+/// Warnings for the finished run: content fidelity plus the over-budget notice
+/// when the final output still exceeds the requested budget.
+fn final_warnings(
+    files: &[ProcessedFile],
+    dropped_paths: &[String],
+    output_tokens: usize,
+    max_tokens: usize,
+) -> Vec<String> {
+    let mut warnings = content_warnings(files, dropped_paths);
+    if output_tokens > max_tokens {
+        warnings.push(over_budget_warning(output_tokens, max_tokens));
+    }
+    warnings
 }
 
 fn uses_map_only_fallback(cli: &Cli) -> bool {
@@ -2165,21 +2278,27 @@ fn fit_formatted_context(
     cli: &Cli,
     counter: &TokenCounter,
     deleted_files: &[String],
-) -> Result<(Vec<ProcessedFile>, String, usize, usize)> {
-    let mut dropped_files = 0usize;
+) -> Result<(Vec<ProcessedFile>, String, usize, Vec<String>)> {
+    let mut dropped_paths: Vec<String> = Vec::new();
 
     loop {
         sort_files(&mut files, cli.sort);
         let mut current_metadata = metadata.clone();
         current_metadata.file_count = files.len();
         let context = maybe_wrap_prompt(
-            format_context(&files, &current_metadata, cli, deleted_files),
+            format_context(
+                &files,
+                &current_metadata,
+                cli,
+                deleted_files,
+                &dropped_paths,
+            ),
             cli,
         );
         let output_tokens = count_text_tokens(&context, counter);
 
         if output_tokens <= cli.max_tokens {
-            return Ok((files, context, output_tokens, dropped_files));
+            return Ok((files, context, output_tokens, dropped_paths));
         }
 
         if cli.level == 1 {
@@ -2190,18 +2309,41 @@ fn fit_formatted_context(
             continue;
         }
 
-        if cli.drop_low_priority && drop_lowest_priority_file(&mut files) {
-            dropped_files += 1;
-            continue;
+        if cli.drop_low_priority {
+            if let Some(dropped) = drop_lowest_priority_file(&mut files) {
+                dropped_paths.push(dropped);
+                continue;
+            }
         }
 
-        return Ok((files, context, output_tokens, dropped_files));
+        // Still over budget with nothing left to shrink: label the output as
+        // incomplete evidence instead of returning it silently.
+        let extra = vec![over_budget_warning(output_tokens, cli.max_tokens)];
+        let options = format_options(&files, cli, deleted_files, &dropped_paths, &extra);
+        let mut final_metadata = metadata.clone();
+        final_metadata.file_count = files.len();
+        let context = maybe_wrap_prompt(
+            match cli.format {
+                OutputFormat::Json => {
+                    format_repository_context_json(&files, &final_metadata, &options)
+                }
+                OutputFormat::Text => {
+                    format_repository_context_text(&files, &final_metadata, &options)
+                }
+                OutputFormat::Xml => {
+                    format_repository_context_xml(&files, &final_metadata, &options)
+                }
+            },
+            cli,
+        );
+        let output_tokens = count_text_tokens(&context, counter);
+        return Ok((files, context, output_tokens, dropped_paths));
     }
 }
 
-fn drop_lowest_priority_file(files: &mut Vec<ProcessedFile>) -> bool {
+fn drop_lowest_priority_file(files: &mut Vec<ProcessedFile>) -> Option<String> {
     if files.len() <= 1 {
-        return false;
+        return None;
     }
 
     let Some(index) = files
@@ -2215,11 +2357,10 @@ fn drop_lowest_priority_file(files: &mut Vec<ProcessedFile>) -> bool {
         })
         .map(|(index, _)| index)
     else {
-        return false;
+        return None;
     };
 
-    files.remove(index);
-    true
+    Some(files.remove(index).path)
 }
 
 fn reserved_content_budget(
@@ -2247,7 +2388,7 @@ fn reserved_content_budget(
         })
         .collect::<Vec<_>>();
     let overhead = maybe_wrap_prompt(
-        format_context(&overhead_files, metadata, cli, deleted_files),
+        format_context(&overhead_files, metadata, cli, deleted_files, &[]),
         cli,
     );
     let overhead_tokens = count_text_tokens(&overhead, counter);
@@ -2449,12 +2590,19 @@ fn print_dry_run(
     deleted_files: &[String],
     estimated_tokens: usize,
     max_tokens: usize,
+    warnings: &[String],
 ) {
     println!("dry_run:");
     println!("  files: {}", files.len());
     println!("  deleted: {}", deleted_files.len());
     println!("  estimated_tokens: {estimated_tokens}");
     println!("  max_tokens: {max_tokens}");
+    if !warnings.is_empty() {
+        println!("  warnings:");
+        for warning in warnings {
+            println!("    - {warning}");
+        }
+    }
     println!("selected_files:");
     for file in files {
         println!(
@@ -2577,12 +2725,18 @@ mod tests {
         let (files, context, output_tokens, dropped) =
             fit_formatted_context(files, &metadata, &cli, &counter, &[]).unwrap();
 
-        assert_eq!(dropped, 1);
+        assert_eq!(dropped, vec!["src/generated/deep/file.rs".to_owned()]);
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "README.md");
-        assert!(output_tokens <= cli.max_tokens);
         assert!(context.contains("file_count=\"1\""));
-        assert!(!context.contains("src/generated/deep/file.rs"));
+        assert!(!context.contains("<entry path=\"src/generated/deep/file.rs\""));
+        assert!(!context.contains("<file path=\"src/generated/deep/file.rs\""));
+        assert!(context.contains("were omitted to fit the token budget"));
+        assert!(context.contains("tree-map summaries"));
+        // The fidelity warnings themselves push this tiny budget over the
+        // limit, so the output must also carry the over-budget notice.
+        assert!(output_tokens > cli.max_tokens);
+        assert!(context.contains("above max-tokens"));
     }
 
     #[test]
@@ -2631,6 +2785,84 @@ mod tests {
         assert!(!context.contains("<files>"));
         assert!(!context.contains("<deleted_files>"));
         assert!(context.contains("level=\"3\""));
+    }
+
+    #[test]
+    fn content_warnings_name_tree_map_truncated_and_dropped_files() {
+        let mut tree_map = ProcessedFile::new(
+            "src/map.rs".to_owned(),
+            CompressionLevel::TreeMap,
+            FileVariants {
+                full: None,
+                skeleton: "skeleton".to_owned(),
+                tree_map: "fn map()".to_owned(),
+            },
+        );
+        tree_map.token_count = 3;
+        let mut cut = ProcessedFile::new(
+            "src/cut.rs".to_owned(),
+            CompressionLevel::Skeleton,
+            FileVariants {
+                full: None,
+                skeleton: "skeleton...".to_owned(),
+                tree_map: "cut".to_owned(),
+            },
+        );
+        cut.token_count = 2;
+        cut.truncated = true;
+        let files = vec![tree_map, cut];
+
+        let warnings = content_warnings(&files, &["src/gone.rs".to_owned()]);
+
+        assert_eq!(warnings.len(), 3);
+        assert!(warnings[0].contains("tree-map summaries"));
+        assert!(warnings[0].contains("src/map.rs"));
+        assert!(warnings[0].contains("must not be treated as evidence of behavior"));
+        assert!(warnings[1].contains("cut mid-content"));
+        assert!(warnings[1].contains("src/cut.rs"));
+        assert!(warnings[2].contains("were omitted"));
+        assert!(warnings[2].contains("src/gone.rs"));
+    }
+
+    #[test]
+    fn content_warnings_are_empty_for_complete_context() {
+        let mut file = ProcessedFile::new(
+            "src/lib.rs".to_owned(),
+            CompressionLevel::Full,
+            FileVariants {
+                full: Some("pub fn lib() {}".to_owned()),
+                skeleton: "pub fn lib() { ... }".to_owned(),
+                tree_map: "pub fn lib()".to_owned(),
+            },
+        );
+        file.token_count = 5;
+
+        assert!(content_warnings(&[file], &[]).is_empty());
+    }
+
+    #[test]
+    fn content_warnings_cap_long_path_lists() {
+        let files: Vec<ProcessedFile> = (0..12)
+            .map(|index| {
+                let mut file = ProcessedFile::new(
+                    format!("src/file{index:02}.rs"),
+                    CompressionLevel::TreeMap,
+                    FileVariants {
+                        full: None,
+                        skeleton: String::new(),
+                        tree_map: format!("file{index:02}"),
+                    },
+                );
+                file.token_count = 1;
+                file
+            })
+            .collect();
+
+        let warnings = content_warnings(&files, &[]);
+
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("12 file(s)"));
+        assert!(warnings[0].contains("(and 2 more)"));
     }
 
     fn assert_final_token_count_matches(format: OutputFormat) {

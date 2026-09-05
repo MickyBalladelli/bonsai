@@ -112,10 +112,28 @@ async function verifyScopedTestMatchingAndSourceEvidence(): Promise<void> {
   })
 }
 
+async function verifyFidelityWarningsForLossyOutput(): Promise<void> {
+  await withFixture(async root => {
+    await write(root, 'src/auth.ts', 'export function authenticate() { return true }\n')
+    await write(root, 'src/worker.ts', "export function work() { return 'work' }\n")
+
+    const limited = config(root)
+    limited.level = 2
+    limited.maxTokens = 30
+    const result = await generateRepository(root, limited)
+
+    assert.ok(result.warnings.length > 0)
+    assert.ok(result.warnings.some(warning => warning.includes('tree-map summaries')))
+    assert.ok(result.contextText.includes('"warnings"'))
+    assert.ok(result.contextText.includes('must not be treated as evidence of behavior'))
+  })
+}
+
 async function main(): Promise<void> {
   await verifyRustCrateDependencyAndComments()
   await verifyPythonAndCDependencies()
   await verifyScopedTestMatchingAndSourceEvidence()
+  await verifyFidelityWarningsForLossyOutput()
   console.log('internal generator smoke ok')
 }
 

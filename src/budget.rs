@@ -109,6 +109,9 @@ pub struct ProcessedFile {
     /// Request-aware protection from `--focus`: higher values keep the file at
     /// higher detail longer (task relevance plus dependency distance).
     pub task_boost: i64,
+    /// Set when the file body was cut mid-content to fit a token cap. The
+    /// emitted content ends with `...` and is incomplete evidence.
+    pub truncated: bool,
 }
 
 impl ProcessedFile {
@@ -120,6 +123,7 @@ impl ProcessedFile {
             token_count: 0,
             content_hash: None,
             task_boost: 0,
+            truncated: false,
         }
     }
 
@@ -216,6 +220,7 @@ fn truncate_current_file(file: &mut ProcessedFile, max_tokens: usize, counter: &
         CompressionLevel::TreeMap => file.variants.tree_map = truncated,
     }
     file.token_count = counter.count(file.content());
+    file.truncated = true;
 }
 
 fn truncate_text_tokens(text: &str, max_tokens: usize, counter: &TokenCounter) -> String {
@@ -563,6 +568,41 @@ mod tests {
         assert_eq!(files[0].level, CompressionLevel::TreeMap);
         assert!(files[0].content().ends_with("..."));
         assert!(files[0].token_count <= max_tokens);
+    }
+
+    #[test]
+    fn marks_files_cut_by_token_caps_as_truncated() {
+        let mut files = vec![processed_file(
+            "src/huge.rs",
+            CompressionLevel::Skeleton,
+            "fn huge() { println!(\"full\"); }",
+            "fn huge() { let alpha = 1; let beta = 2; let gamma = 3; let delta = 4; }",
+            "fn huge alpha beta gamma delta epsilon zeta eta theta iota kappa lambda",
+        )];
+        let counter = test_counter();
+
+        cap_file_tokens(&mut files, 5, &counter);
+
+        assert!(files[0].truncated);
+        assert!(files[0].content().ends_with("..."));
+    }
+
+    #[test]
+    fn downgrades_do_not_mark_files_as_truncated() {
+        let file = processed_file(
+            "src/main.rs",
+            CompressionLevel::Full,
+            "fn main() { let value = \"this full body has enough repeated words to exceed budget\"; println!(\"{value}\"); }",
+            "fn main() { ... }",
+            "fn main()",
+        );
+        let counter = test_counter();
+        let max_tokens = count_text_tokens("fn main() { ... }", &counter);
+
+        let optimized = optimize_budget(vec![file], max_tokens, &counter).unwrap();
+
+        assert_eq!(optimized[0].level, CompressionLevel::Skeleton);
+        assert!(!optimized[0].truncated);
     }
 
     #[test]

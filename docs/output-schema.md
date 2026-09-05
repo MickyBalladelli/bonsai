@@ -9,6 +9,9 @@ Default XML shape:
 ```xml
 <repository_context>
   <metadata generated_at="unix_seconds" repo_root="/path/to/repo" max_tokens="12000" compression_level="2" file_count="3" />
+  <warnings>
+    <warning>2 file(s) are level-3 tree-map summaries (names only, no implementation bodies) and must not be treated as evidence of behavior: src/a.rs, src/b.rs.</warning>
+  </warnings>
   <project_map>
     <entry path="src/main.rs" level="2" tokens="120" />
   </project_map>
@@ -27,6 +30,8 @@ Default XML shape:
 `directory_summaries` appears only with `--directory-summaries`.
 
 `deleted_files` appears when incremental output detects files that were present in the baseline but are now gone.
+
+`warnings` appears when the output is lossy: files reduced to level-3 tree-map summaries without implementation bodies, files cut mid-content to fit a token cap, files omitted under budget pressure, or output still above `--max-tokens`. Warned content must not be treated as complete evidence for a full review.
 
 `--no-content` omits `files`.
 
@@ -77,6 +82,9 @@ Default JSON shape:
     "compression_level": 2,
     "file_count": 3
   },
+  "warnings": [
+    "2 file(s) are level-3 tree-map summaries (names only, no implementation bodies) and must not be treated as evidence of behavior: src/a.rs, src/b.rs."
+  ],
   "project_map": [
     { "path": "src/main.rs", "level": 2, "tokens": 120 }
   ],
@@ -100,6 +108,8 @@ Default JSON shape:
 `directory_summaries` appears only with `--directory-summaries`.
 
 `deleted_files` appears when incremental output detects files that were present in the baseline but are now gone.
+
+`warnings` follows the same lossy-output rules as in XML: tree-map summaries, mid-content cuts, omitted files, or over-budget output.
 
 `--no-content` omits `files`.
 
@@ -148,6 +158,8 @@ repo_root: /path/to/repo
 max_tokens: 12000
 compression_level: 2
 file_count: 3
+warnings
+- 2 file(s) are level-3 tree-map summaries (names only, no implementation bodies) and must not be treated as evidence of behavior: src/a.rs, src/b.rs.
 
 project_map
 src/main.rs L2 tokens=120

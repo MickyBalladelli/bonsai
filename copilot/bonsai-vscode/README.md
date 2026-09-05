@@ -64,7 +64,7 @@ or task as `request`. Bonsai derives likely files from the request, code symbols
 imports, callers, and nearby tests. The agent can optionally pass
 `filePriorities`: level 1 for primary code, level 2 for supporting files, and
 level 3 for compact background context. Planned paths are validated, but Bonsai
-also protects request-derived files so a weak plan cannot hide them. Level 1 preserves comments at the default level; explicit lossy levels may drop comments unless `includeComments` is set. The tool writes the context files,
+also protects request-derived files so a weak plan cannot hide them. Level 1 preserves comments at the default level; explicit lossy levels may drop comments unless `includeComments` is set. Lossy output carries a `warnings` block naming tree-map summaries, mid-content cuts, and over-budget output; warned content must not be treated as complete evidence for a full review. The tool writes the context files,
 returns their paths, and gives the agent the first context file contents. It
 asks for confirmation before writing files.
 
