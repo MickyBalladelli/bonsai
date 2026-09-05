@@ -30,7 +30,7 @@ bonsai-claude <repo-path> <max-tokens> <level> <output-file> [bonsai-options...]
 ```text
 repo-path: current workspace
 max-tokens: 12000
-level: 2
+level: 1
 output-file: /tmp/bonsai.xml
 ```
 
@@ -39,9 +39,9 @@ output-file: /tmp/bonsai.xml
 4. Use level choice by task:
 
 ```text
-level 3: first-pass architecture map or very large repo
-level 2: default repo-wide analysis
-level 1: focused debugging on a smaller folder
+level 1: default repo-wide analysis; preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit instead of silently downgrading or truncating
+level 2: explicit opt-in lossy signatures and shapes when level 1 cannot fit
+level 3: explicit opt-in lossy architecture map or very large repo
 ```
 
 5. If output is still too broad, rerun Bonsai on the most relevant subdirectory rather than asking the user to paste files.
@@ -51,7 +51,7 @@ level 1: focused debugging on a smaller folder
 Default repo-wide context:
 
 ```sh
-bonsai-claude . 12000 2 /tmp/bonsai.xml
+bonsai-claude . 12000 1 /tmp/bonsai.xml
 ```
 
 Architecture map:
@@ -69,19 +69,19 @@ bonsai-claude src 20000 1 /tmp/bonsai.xml
 Summarize only `src`:
 
 ```sh
-bonsai-claude src 12000 2 /tmp/bonsai.xml
+bonsai-claude src 12000 1 /tmp/bonsai.xml
 ```
 
 Exclude generated files:
 
 ```sh
-bonsai-claude . 12000 2 /tmp/bonsai.xml --exclude '**/generated/**' --exclude '**/*.generated.ts'
+bonsai-claude . 12000 1 /tmp/bonsai.xml --exclude '**/generated/**' --exclude '**/*.generated.ts'
 ```
 
 JSON output:
 
 ```sh
-bonsai-claude . 12000 2 /tmp/bonsai.json --format json
+bonsai-claude . 12000 1 /tmp/bonsai.json --format json
 ```
 
 When the user mentions a folder or glob, pass it through instead of scanning the whole repo. Prefer the path argument for a single folder and `--include` or `--exclude` for globs.
@@ -90,7 +90,7 @@ When the user mentions a folder or glob, pass it through instead of scanning the
 
 ```text
 User asks: summarize this whole project
-Claude runs: bonsai-claude . 12000 2 /tmp/bonsai.xml
+Claude runs: bonsai-claude . 12000 1 /tmp/bonsai.xml
 Claude inspects: /tmp/bonsai.xml
 Claude answers using the compressed repository context.
 ```

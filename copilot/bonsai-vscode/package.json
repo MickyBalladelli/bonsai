@@ -121,7 +121,7 @@
         "canBeReferencedInPrompt": true,
         "icon": "$(file-code)",
         "userDescription": "Generate self-contained Bonsai context files for the current workspace.",
-        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. The request field is required. Bonsai ranks likely files from request terms, declared symbols, imports, callers, and nearby tests; it works even before the agent knows exact files. When the agent has inspected likely files, it may pass filePriorities with exact workspace-relative paths: level 1 for primary code, level 2 for supporting structure, and level 3 for compact background context. Treat a plan as a hint, not proof: Bonsai keeps request-derived candidates and related dependencies protected too. Level 1 drops comments by default; set includeComments true only when comments are needed. Bonsai validates any planned paths before writing. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
+        "modelDescription": "Generate or update self-contained Bonsai repository context files in the active VS Code workspace. Use this when bonsai.xml or bonsai.json does not exist, or when the existing context is stale, before answering broad repository questions. Call this tool instead of a VS Code command. The request field is required. Bonsai ranks likely files from request terms, declared symbols, imports, callers, and nearby tests; it works even before the agent knows exact files. When the agent has inspected likely files, it may pass filePriorities with exact workspace-relative paths: level 1 for primary code, level 2 for supporting structure, and level 3 for compact background context. Treat a plan as a hint, not proof: Bonsai keeps request-derived candidates and related dependencies protected too. Level 1 preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit the token budget instead of silently downgrading or truncating; levels 2 and 3 are explicit opt-in lossy compression. Bonsai validates any planned paths before writing. If this tool is unavailable because the user has not enabled it, tell the user to open VS Code Agent mode, select Select Tools, and enable Generate Bonsai Context, or explicitly reference #bonsai_generate_context in chat. It scans supported source files, always ignores common dependency and build directories such as node_modules and target, respects .gitignore and .cursorignore, compresses content to the configured token budget, and writes bonsai.xml or bonsai.json plus numbered chunks under 10 MB each. It returns the generated file paths and the first context file contents. Do not use it for narrow questions that do not need broad repository context.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -146,7 +146,7 @@
                   "level": {
                     "type": "integer",
                     "enum": [1, 2, 3],
-                    "description": "1 = nearly full source, 2 = signatures and structure, 3 = compact map."
+                    "description": "1 = full source including comments, 2 = signatures and structure, 3 = compact map."
                   },
                   "reason": {
                     "type": "string",
@@ -154,7 +154,7 @@
                   },
                   "includeComments": {
                     "type": "boolean",
-                    "description": "Keep comments for this file at level 1. Defaults to false for agent-selected primary files."
+                    "description": "Keep comments for this file at level 1. Defaults to true at the default level 1; explicit lossy levels may drop comments unless this is true."
                   }
                 },
                 "required": [
@@ -185,14 +185,14 @@
           },
           "bonsai.level": {
             "type": "number",
-            "default": 2,
+            "default": 1,
             "enum": [
               1,
               2,
               3
             ],
             "order": 2,
-            "description": "Compression: 1 full source first, 2 signatures and shapes, 3 names and tree map. Start with 2."
+            "description": "Compression: 1 preserves full source and fails if it cannot fit (default), 2 allows lossy signatures and shapes, 3 allows a lossy tree map."
           },
           "bonsai.outputFile": {
             "type": "string",

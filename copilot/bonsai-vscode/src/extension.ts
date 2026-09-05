@@ -219,7 +219,7 @@ async function createProjectConfig(): Promise<void> {
     '# Bonsai project settings. This file is used by the CLI and VS Code extension.',
     'max_tokens = 12000',
     'tokenizer = "cl100k_base"',
-    'level = 2',
+    'level = 1',
     'format = "xml"',
     'output_file = "bonsai.xml"',
     'include = []',
@@ -356,7 +356,7 @@ async function getConfig(workspaceRoot: string): Promise<BonsaiConfig> {
   return {
     exclude: projectConfig.exclude ?? config.get<string[]>('exclude', []),
     include: projectConfig.include ?? config.get<string[]>('include', []),
-    level: projectConfig.level ?? config.get<number>('level', 2),
+    level: projectConfig.level ?? config.get<number>('level', 1),
     maxTokens: projectConfig.maxTokens ?? config.get<number>('maxTokens', DEFAULT_MAX_TOKENS),
     outputFile: path.isAbsolute(configuredOutputFile)
       ? configuredOutputFile

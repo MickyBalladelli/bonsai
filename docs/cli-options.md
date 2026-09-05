@@ -55,9 +55,9 @@ Budget:
           Cap each file to this many tokens before global budget optimization; 0 disables the cap
 
       --level <LEVEL>
-          Compression: 1 keeps full source first, 2 keeps signatures and shapes, 3 keeps names and a tree map. Start with 2.
+          Compression: 1 preserves full source and fails if it cannot fit (default), 2 allows lossy signatures and shapes, 3 allows a lossy tree map
           
-          [default: 2]
+          [default: 1]
 
 Output:
       --output <OUTPUT>

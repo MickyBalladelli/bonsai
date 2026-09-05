@@ -128,18 +128,21 @@ export async function generateRepository(
   }
 
   const requestedLevel = normalizeLevel(config.level)
+  const preserveSource = requestedLevel === 1
   const focusTerms = extractFocusTerms(options.focus)
   const filePriorities = normalizeFilePriorities(options.filePriorities)
   const hasTaskFocus = Boolean(options.focus?.trim())
   const files = await Promise.all(selectedCandidates.map(async candidate => {
     const source = await fs.readFile(candidate.absolutePath, 'utf8')
-    const variants = buildVariants(candidate.relativePath, source)
+    const variants = preserveSource
+      ? { full: source, withoutComments: source, skeleton: source, treeMap: source }
+      : buildVariants(candidate.relativePath, source)
     const rawTokenCount = countTokens(source)
     const taskRelevance = calculateTaskRelevance(candidate.relativePath, source, focusTerms)
     const explicitPriority = filePriorities.get(candidate.relativePath)
     const priorityLevel = explicitPriority ? normalizeLevel(explicitPriority.level) : undefined
-    const level = priorityLevel ?? initialFileLevelForRequest(requestedLevel, taskRelevance, hasTaskFocus)
-    const includeComments = explicitPriority?.includeComments ?? !(hasTaskFocus && level === 1)
+    const level = preserveSource ? 1 : priorityLevel ?? initialFileLevelForRequest(requestedLevel, taskRelevance, hasTaskFocus)
+    const includeComments = preserveSource || (explicitPriority?.includeComments ?? !(hasTaskFocus && level === 1))
     const file: WorkingFile = {
       path: candidate.relativePath,
       rawTokenCount,
@@ -157,7 +160,9 @@ export async function generateRepository(
     return file
   }))
 
-  applyTaskPriorities(files, focusTerms)
+  if (!preserveSource) {
+    applyTaskPriorities(files, focusTerms)
+  }
 
   const metadata = {
     generatedAt: new Date().toISOString(),
@@ -906,6 +911,10 @@ function fitBudget(
       return { contextText, outputTokens }
     }
 
+    if (metadata.compressionLevel === 1) {
+      throw new Error(`Output needs ${outputTokens} tokens, above max_tokens ${metadata.maxTokens}. Level 1 preserves full source, including comments. Increase max_tokens, select fewer files, or explicitly choose level 2 or 3 for lossy compression. Output was not written.`)
+    }
+
     const downgrade = pickCompressionCandidate(files.filter(file => file.level < 3))
     if (downgrade) {
       downgrade.level = (downgrade.level + 1) as CompressionLevel
@@ -984,6 +993,9 @@ function fitChunkByteLimit(
   deletedFiles: string[]
 ): string {
   let contextText = formatContext(files, metadata, outputFormat, deletedFiles)
+  if (metadata.compressionLevel === 1 && Buffer.byteLength(contextText, 'utf8') > MAX_CONTEXT_FILE_BYTES) {
+    throw new Error('Full source exceeds the 10 MB context chunk limit. Select fewer files or explicitly choose level 2 or 3 for lossy compression. Output was not written.')
+  }
   for (let attempt = 0; attempt < 100 && Buffer.byteLength(contextText, 'utf8') > MAX_CONTEXT_FILE_BYTES; attempt += 1) {
     const largest = pickCompressionCandidate(files)
     if (!largest || largest.tokenCount <= 8) {

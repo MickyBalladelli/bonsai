@@ -47,7 +47,7 @@ This writes:
 bonsai.xml
 ```
 
-The default is 12,000 tokens at compression level 2, written as XML.
+The default is 12,000 tokens at compression level 1, written as XML. Level 1 preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit instead of silently downgrading or truncating; choose --level 2 or 3 explicitly for lossy compression.
 
 Paste that file into an LLM and ask:
 
@@ -58,7 +58,7 @@ Use this Bonsai repo context. Explain the architecture and tell me where to star
 For a larger context budget:
 
 ```sh
-bonsai . --max-tokens 24000 --level 2 --output-file /tmp/bonsai.xml
+bonsai . --max-tokens 24000 --level 1 --output-file /tmp/bonsai.xml
 ```
 
 For a paste-ready prompt:
@@ -213,9 +213,9 @@ bonsai doctor
 Bonsai has three compression levels:
 
 ```text
---level 1  Full code first, then shrink if needed
---level 2  Imports, signatures, types, classes, and function shapes
---level 3  Compact tree map only
+--level 1  Full source including implementation logic, types, configuration values, and meaningful comments; fails if it cannot fit (default)
+--level 2  Explicit opt-in lossy imports, signatures, types, classes, and function shapes
+--level 3  Explicit opt-in lossy compact tree map only
 ```
 
 Example source:
@@ -270,7 +270,7 @@ Create `.bonsai.toml` in a repository to keep the settings you use most:
 
 ```toml
 max_tokens = 12000
-level = 2
+level = 1
 format = "xml"
 output = "file"
 output_file = "bonsai.xml"
@@ -644,7 +644,7 @@ Use --no-respect-gitignore if ignored files should be included.
 Output over budget:
 
 ```text
-Use a smaller path, add --exclude, increase --max-tokens, or use --level 3.
+Use a smaller path, add --exclude, increase --max-tokens, or explicitly opt in to lossy compression with --level 2 or 3.
 ```
 
 Check parser and tokenizer health:

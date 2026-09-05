@@ -34,7 +34,7 @@ use walker::{
 
 const DEFAULT_MAX_TOKENS: usize = 12000;
 const DEFAULT_MAX_FILE_BYTES: u64 = 1_048_576;
-const DEFAULT_LEVEL: u8 = 2;
+const DEFAULT_LEVEL: u8 = 1;
 const DEFAULT_OUTPUT_FILE: &str = "bonsai.xml";
 
 #[derive(Debug, Parser)]
@@ -91,7 +91,7 @@ struct Cli {
     #[arg(
         long,
         default_value_t = DEFAULT_LEVEL,
-        help = "Compression: 1 keeps full source first, 2 keeps signatures and shapes, 3 keeps names and a tree map. Start with 2.",
+        help = "Compression: 1 preserves full source and fails if it cannot fit (default), 2 allows lossy signatures and shapes, 3 allows a lossy tree map",
         help_heading = "Budget"
     )]
     level: u8,
@@ -912,6 +912,11 @@ fn main() -> Result<()> {
     apply_preset(&mut cli, &raw_args);
     validate_delta_options(&cli)?;
     let requested_level = CompressionLevel::try_from(cli.level)?;
+    if requested_level == CompressionLevel::Full
+        && (cli.drop_low_priority || cli.map_only_under.is_some())
+    {
+        bail!("level 1 preserves source: remove --drop-low-priority/--map-only-under, or explicitly choose --level 2 or 3 for lossy compression");
+    }
     let token_counter = TokenCounter::new(cli.tokenizer)?;
     let mut parse_cache = ParseCache::load(cache_path_for_root(&root));
     let incremental_base = load_incremental_base(&cli)?;
@@ -1000,7 +1005,16 @@ fn main() -> Result<()> {
     parse_cache.set_metadata(cache_metadata);
 
     if let Some(max_file_tokens) = max_file_tokens(&cli) {
-        cap_file_tokens(&mut files, max_file_tokens, &token_counter);
+        if requested_level == CompressionLevel::Full {
+            for file in &files {
+                let tokens = token_counter.count(file.content());
+                if tokens > max_file_tokens {
+                    bail!("{} needs {tokens} tokens, above --max-file-tokens {max_file_tokens}; level 1 preserves source. Increase the cap or explicitly choose --level 2 or 3 for lossy compression", file.path);
+                }
+            }
+        } else {
+            cap_file_tokens(&mut files, max_file_tokens, &token_counter);
+        }
     }
     if uses_map_only_fallback(&cli) {
         set_files_to_tree_map(&mut files, &token_counter);
@@ -1033,7 +1047,14 @@ fn main() -> Result<()> {
     };
     let content_budget =
         reserved_content_budget(&files, &metadata, &cli, &token_counter, &deleted_files)?;
-    let optimized = optimize_budget(files, content_budget, &token_counter)?;
+    let optimized = if requested_level == CompressionLevel::Full {
+        for file in &mut files {
+            file.token_count = token_counter.count(file.content());
+        }
+        files
+    } else {
+        optimize_budget(files, content_budget, &token_counter)?
+    };
     let (mut optimized, context, output_tokens, dropped_files) =
         fit_formatted_context(optimized, &metadata, &cli, &token_counter, &deleted_files)?;
     sort_files(&mut optimized, cli.sort);
@@ -2135,6 +2156,10 @@ fn fit_formatted_context(
 
         if output_tokens <= cli.max_tokens {
             return Ok((files, context, output_tokens, dropped_files));
+        }
+
+        if cli.level == 1 {
+            bail!("output needs {output_tokens} tokens, above --max-tokens {}; level 1 preserves full source. Increase --max-tokens, select fewer files, or explicitly choose --level 2 or 3 for lossy compression. Output was not written", cli.max_tokens);
         }
 
         if downgrade_largest_file(&mut files, counter) {

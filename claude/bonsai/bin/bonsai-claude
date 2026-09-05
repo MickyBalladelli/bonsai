@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_path="${1:-.}"
 max_tokens="${2:-12000}"
-level="${3:-2}"
+level="${3:-1}"
 output_file="${4:-/tmp/bonsai.xml}"
 shift $(( $# < 4 ? $# : 4 ))
 

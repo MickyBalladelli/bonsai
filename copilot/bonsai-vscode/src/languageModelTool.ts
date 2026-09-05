@@ -89,7 +89,7 @@ export function buildToolResult(generated: BonsaiToolGeneration): string {
   return [
     'Bonsai generated repository context successfully.',
     `Overall compression saved ${saved} of tokens.`,
-    'The agent priority plan was applied when provided. Level 1 keeps source code and drops comments by default, level 2 keeps signatures and structure, and level 3 keeps a compact map. Unlisted files are compressed harder first.',
+    'The agent priority plan was applied when provided. Level 1 preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit the token budget instead of silently downgrading or truncating; levels 2 and 3 are explicit opt-in lossy compression. Unlisted files are compressed harder first only in explicit lossy levels.',
     'Project map detail decisions:',
     decisions.join('\n') || '- Full project map is in the generated context file.',
     'Context files written:',

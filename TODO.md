@@ -1,5 +1,43 @@
 # TODO
 
+## Project review follow-up
+
+Prioritize context quality, budget enforcement, and engine consistency before adding more features.
+
+### Preserve useful context
+
+- [x] Make the default compression level preserve important data across the CLI and extension, including implementation logic, types, configuration values, and meaningful comments. Do not silently downgrade or truncate important content to meet a token budget; report when it cannot fit and require explicit opt-in for lossy compression. Changing the default to level 1 alone is insufficient while automatic budget downgrades can still discard that content.
+- [ ] Fix file ranking so implementation files keep useful detail before lockfiles and dependency noise. The reviewed `bonsai.xml` gave `package-lock.json` 1,467 tokens but `internalGenerator.ts` only 18.
+- [ ] Improve request-aware selection: preserve code relevant to the question and its supporting dependencies while shrinking background files.
+- [ ] Make severe truncation and missing implementation detail clear to agents so compressed context does not imply enough evidence for a full review.
+
+### Enforce token budgets
+
+- [ ] Fix the extension's `fitBudget` loop so the 200-attempt limit cannot silently return over-budget output.
+- [ ] Keep considering other compressible files when the selected candidate reaches its minimum size.
+- [ ] Verify the final emitted token count and report clearly when the requested budget cannot be met, with consistent CLI and extension behavior.
+
+### Align the engines
+
+- [ ] Choose a shared compression core or define and maintain explicit behavior parity between the Rust CLI and TypeScript extension.
+- [ ] Replace fragile extension body-scanning rules with syntax-aware handling, including multiline function signatures.
+- [ ] Parse `.tsx` with the Tree-sitter TSX grammar instead of the TypeScript grammar.
+- [ ] Document remaining engine differences in parsing, selection, configuration, and budget handling.
+
+### Keep generated output out of input
+
+- [ ] Exclude Bonsai's configured output and numbered chunks from source scans, including unignored `bonsai.json` files.
+- [ ] Retire stale numbered chunks when regeneration produces fewer files, without touching unrelated files.
+
+### Prove quality and product value
+
+- [ ] Add the existing extension smoke tests to CI; the current extension job only compiles and packages.
+- [ ] Build a real-task evaluation covering answer correctness, important files retained, total tokens including follow-up reads, and completion time.
+- [ ] Compare Bonsai against direct repository reading, Repomix, and Aider repository maps on equivalent tasks and budgets.
+- [ ] Demonstrate that token savings preserve answer quality rather than merely producing smaller output.
+- [ ] Define and document Bonsai's distinct value around request-aware context selection; repository packing and syntax compression alone already exist elsewhere.
+- [ ] Use measured quality and user demand to decide whether to pursue a paid product; keep improving the useful personal and open-source tool in the meantime.
+
 ## Usability review
 
 Current ease: easy for the first CLI run, medium for normal use, hard for advanced use.

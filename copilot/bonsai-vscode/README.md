@@ -54,8 +54,7 @@ exclude = ["**/generated/**"]
 respect_gitignore = true
 ```
 
-Project settings override the VS Code defaults. Level 1 keeps more source;
-level 2 keeps signatures and shapes; level 3 keeps a compact tree map.
+Project settings override the VS Code defaults. Level 1 preserves full source including implementation logic, types, configuration values, and meaningful comments, and fails if it cannot fit instead of silently downgrading or truncating; levels 2 and 3 are explicit opt-in lossy compression.
 
 ## Agent tool
 
@@ -65,8 +64,7 @@ or task as `request`. Bonsai derives likely files from the request, code symbols
 imports, callers, and nearby tests. The agent can optionally pass
 `filePriorities`: level 1 for primary code, level 2 for supporting files, and
 level 3 for compact background context. Planned paths are validated, but Bonsai
-also protects request-derived files so a weak plan cannot hide them. Level 1
-drops comments by default; set `includeComments` only when comments matter. The tool writes the context files,
+also protects request-derived files so a weak plan cannot hide them. Level 1 preserves comments at the default level; explicit lossy levels may drop comments unless `includeComments` is set. The tool writes the context files,
 returns their paths, and gives the agent the first context file contents. It
 asks for confirmation before writing files.
 
