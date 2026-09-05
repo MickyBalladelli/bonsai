@@ -13,12 +13,21 @@ const IMPORT_BLOCK_KEEP = 5
 const MAX_TREE_LINES = 120
 const MAX_TEXT_LINES = 180
 const IMPORTANT_FILE_NAMES = new Set([
-  'Cargo.toml', 'package.json', 'package-lock.json', 'tsconfig.json', 'README.md',
+  'Cargo.toml', 'package.json', 'tsconfig.json', 'README.md',
   'AGENTS.md', 'CLAUDE.md', 'Dockerfile', 'Makefile'
 ])
 const ENTRY_FILE_NAMES = new Set([
   'main.rs', 'main.ts', 'main.js', 'main.py', 'index.ts', 'index.js', 'app.ts',
   'app.js', 'server.ts', 'server.js'
+])
+const LOCKFILE_NAMES = new Set([
+  'package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'pnpm-lock.yml',
+  'yarn.lock', 'bun.lock', 'bun.lockb', 'cargo.lock', 'poetry.lock', 'pdm.lock',
+  'composer.lock', 'gemfile.lock', 'go.sum'
+])
+const IMPLEMENTATION_EXTENSIONS = new Set([
+  'js', 'jsx', 'ts', 'tsx', 'py', 'rs', 'go', 'java', 'cs', 'swift', 'kt',
+  'c', 'h', 'cpp', 'hpp', 'm', 'mm', 'vue', 'svelte', 'astro', 'html'
 ])
 const ALWAYS_IGNORED_DIRECTORIES = new Set([
   '.git',
@@ -514,13 +523,22 @@ function extractDeclaredSymbols(source: string): string[] {
 function baseFilePriority(relativePath: string): number {
   const name = path.posix.basename(relativePath)
   const extension = path.posix.extname(name).slice(1).toLowerCase()
+  // Lockfiles and dependency noise downgrade first so implementation files
+  // keep useful detail. Checked before the generic config-extension rule
+  // because most lockfiles use json/yaml extensions.
+  if (LOCKFILE_NAMES.has(name.toLowerCase())) {
+    return 0
+  }
   if (IMPORTANT_FILE_NAMES.has(name)) {
     return 5000
   }
   if (ENTRY_FILE_NAMES.has(name)) {
     return 4000
   }
-  if (relativePath.includes('/.github/workflows/')) {
+  if (IMPLEMENTATION_EXTENSIONS.has(extension)) {
+    return 3500
+  }
+  if (relativePath.startsWith('.github/workflows/') || relativePath.includes('/.github/workflows/')) {
     return 3000
   }
   return ['toml', 'json', 'yaml', 'yml', 'md'].includes(extension) ? 2000 : 0

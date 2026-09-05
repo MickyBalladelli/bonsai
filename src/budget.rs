@@ -272,11 +272,17 @@ pub fn file_priority_score(file: &ProcessedFile) -> usize {
     let name = path.rsplit('/').next().unwrap_or(path);
     let extension = name.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");
 
+    // Lockfiles and dependency noise downgrade first so implementation files
+    // keep useful detail. Checked before the generic config-extension rule
+    // because most lockfiles use json/yaml extensions.
+    if is_lockfile_name(name) {
+        return 0;
+    }
+
     if matches!(
         name,
         "Cargo.toml"
             | "package.json"
-            | "package-lock.json"
             | "tsconfig.json"
             | "README.md"
             | "AGENTS.md"
@@ -303,6 +309,10 @@ pub fn file_priority_score(file: &ProcessedFile) -> usize {
         return 4_000;
     }
 
+    if is_implementation_extension(extension) {
+        return 3_500;
+    }
+
     if path.starts_with(".github/workflows/") || path.contains("/.github/workflows/") {
         return 3_000;
     }
@@ -312,6 +322,51 @@ pub fn file_priority_score(file: &ProcessedFile) -> usize {
     }
 
     0
+}
+
+fn is_lockfile_name(file_name: &str) -> bool {
+    matches!(
+        file_name.to_ascii_lowercase().as_str(),
+        "package-lock.json"
+            | "npm-shrinkwrap.json"
+            | "pnpm-lock.yaml"
+            | "pnpm-lock.yml"
+            | "yarn.lock"
+            | "bun.lock"
+            | "bun.lockb"
+            | "cargo.lock"
+            | "poetry.lock"
+            | "pdm.lock"
+            | "composer.lock"
+            | "gemfile.lock"
+            | "go.sum"
+    )
+}
+
+fn is_implementation_extension(extension: &str) -> bool {
+    matches!(
+        extension.to_ascii_lowercase().as_str(),
+        "js" | "jsx"
+            | "ts"
+            | "tsx"
+            | "py"
+            | "rs"
+            | "go"
+            | "java"
+            | "cs"
+            | "swift"
+            | "kt"
+            | "c"
+            | "h"
+            | "cpp"
+            | "hpp"
+            | "m"
+            | "mm"
+            | "vue"
+            | "svelte"
+            | "astro"
+            | "html"
+    )
 }
 
 #[cfg(test)]
@@ -414,6 +469,71 @@ mod tests {
 
         assert_eq!(optimized[0].level, CompressionLevel::Full);
         assert_ne!(optimized[1].level, CompressionLevel::Full);
+    }
+
+    #[test]
+    fn downgrades_lockfile_before_implementation_file() {
+        let files = vec![
+            processed_file(
+                "copilot/bonsai-vscode/package-lock.json",
+                CompressionLevel::Full,
+                "{\"name\": \"demo\", \"version\": \"0.1.0\", \"packages\": {\"a\": {\"version\": \"1.0.0\"}}}",
+                "{\"name\": \"demo\", \"version\": \"0.1.0\"}",
+                "{\"name\": \"demo\"}",
+            ),
+            processed_file(
+                "copilot/bonsai-vscode/src/internalGenerator.ts",
+                CompressionLevel::Full,
+                "export function generate() { return run(); }",
+                "export function generate() { ... }",
+                "generate",
+            ),
+        ];
+
+        let counter = test_counter();
+        let max_tokens = count_text_tokens(
+            "{\"name\": \"demo\"}export function generate() { ... }",
+            &counter,
+        );
+
+        let optimized = optimize_budget(files, max_tokens, &counter).unwrap();
+        let by_path = |path: &str| {
+            optimized
+                .iter()
+                .find(|file| file.path == path)
+                .unwrap()
+                .level
+        };
+
+        assert_eq!(
+            by_path("copilot/bonsai-vscode/src/internalGenerator.ts"),
+            CompressionLevel::Skeleton
+        );
+        assert_eq!(
+            by_path("copilot/bonsai-vscode/package-lock.json"),
+            CompressionLevel::TreeMap
+        );
+    }
+
+    #[test]
+    fn ranks_implementation_above_config_above_lockfile() {
+        let score = |path: &str| {
+            file_priority_score(&processed_file(
+                path,
+                CompressionLevel::Full,
+                "full",
+                "skeleton",
+                "tree",
+            ))
+        };
+
+        assert!(score("src/app.rs") > score("config/settings.json"));
+        assert!(score("src/main.rs") >= score("src/app.rs"));
+        assert!(score("config/settings.json") > score("package-lock.json"));
+        assert!(score("Cargo.toml") > score("src/app.rs"));
+        assert_eq!(score("package-lock.json"), 0);
+        assert_eq!(score("Cargo.lock"), 0);
+        assert_eq!(score("yarn.lock"), 0);
     }
 
     #[test]
