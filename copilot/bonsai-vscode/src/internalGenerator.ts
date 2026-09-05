@@ -194,19 +194,21 @@ export async function generateRepository(
   const rawContext = formatContext(rawFiles, metadata, config.outputFormat, deletedFiles)
   const rawTokens = countTokens(rawContext)
   const optimizedFiles = files.map(file => ({ ...file, variants: { ...file.variants } }))
-  const { contextText: fullContextText, outputTokens, warnings } = fitBudget(
+  const { warnings: fittedWarnings } = fitBudget(
     optimizedFiles,
     metadata,
     config,
     deletedFiles
   )
-  const contextFiles = splitContextFiles(
+  const { contextFiles, emittedTokens, warnings } = splitContextFiles(
     optimizedFiles,
     metadata,
     config.outputFormat,
     deletedFiles,
-    config.outputFile
+    config.outputFile,
+    fittedWarnings
   )
+  const outputTokens = emittedTokens
   const projectMap = optimizedFiles.map(file => ({
     path: file.path,
     level: file.level,
@@ -1042,15 +1044,16 @@ function splitContextFiles(
   metadata: { generatedAt: string; repoRoot: string; maxTokens: number; compressionLevel: number; fileCount: number },
   outputFormat: 'xml' | 'json',
   deletedFiles: string[],
-  outputFile: string
-): Array<{ outputFile: string; contextText: string }> {
+  outputFile: string,
+  extraWarnings: string[] = []
+): { contextFiles: Array<{ outputFile: string; contextText: string }>; emittedTokens: number; warnings: string[] } {
   const chunks: WorkingFile[][] = []
   let current: WorkingFile[] = []
 
   for (const file of files) {
     const candidate = [...current, file]
     const candidateDeleted = chunks.length === 0 ? deletedFiles : []
-    const candidateText = formatContext(candidate, metadata, outputFormat, candidateDeleted)
+    const candidateText = formatContext(candidate, metadata, outputFormat, candidateDeleted, extraWarnings)
     if (current.length > 0 && Buffer.byteLength(candidateText, 'utf8') > MAX_CONTEXT_FILE_BYTES) {
       chunks.push(current)
       current = [file]
@@ -1062,25 +1065,37 @@ function splitContextFiles(
     chunks.push(current)
   }
 
+  const warnings = [...extraWarnings]
   const contextFiles: Array<{ outputFile: string; contextText: string }> = []
   for (const [index, chunk] of chunks.entries()) {
     const chunkDeleted = index === 0 ? deletedFiles : []
-    const contextText = fitChunkByteLimit(chunk, metadata, outputFormat, chunkDeleted)
+    const contextText = fitChunkByteLimit(chunk, metadata, outputFormat, chunkDeleted, warnings)
     contextFiles.push({
       outputFile: chunkOutputPath(outputFile, index),
       contextText
     })
   }
-  return contextFiles
+
+  // The reported count must describe the bytes actually emitted, not the
+  // pre-split estimate: chunks repeat metadata and may truncate further.
+  let emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
+  if (emittedTokens > metadata.maxTokens && !warnings.some(warning => warning.includes('above max_tokens'))) {
+    warnings.push(`Output is ${emittedTokens} tokens, above max_tokens ${metadata.maxTokens} even after maximum compression; treat this context as incomplete.`)
+    // Keep the primary artifact consistent with the reported warnings.
+    contextFiles[0].contextText = fitChunkByteLimit(chunks[0], metadata, outputFormat, deletedFiles, warnings)
+    emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
+  }
+  return { contextFiles, emittedTokens, warnings }
 }
 
 function fitChunkByteLimit(
   files: WorkingFile[],
   metadata: { generatedAt: string; repoRoot: string; maxTokens: number; compressionLevel: number; fileCount: number },
   outputFormat: 'xml' | 'json',
-  deletedFiles: string[]
+  deletedFiles: string[],
+  extraWarnings: string[] = []
 ): string {
-  let contextText = formatContext(files, metadata, outputFormat, deletedFiles)
+  let contextText = formatContext(files, metadata, outputFormat, deletedFiles, extraWarnings)
   if (metadata.compressionLevel === 1 && Buffer.byteLength(contextText, 'utf8') > MAX_CONTEXT_FILE_BYTES) {
     throw new Error('Full source exceeds the 10 MB context chunk limit. Select fewer files or explicitly choose level 2 or 3 for lossy compression. Output was not written.')
   }
@@ -1088,7 +1103,7 @@ function fitChunkByteLimit(
     if (!truncateLargestCompressibleFile(files, 0.75)) {
       break
     }
-    contextText = formatContext(files, metadata, outputFormat, deletedFiles)
+    contextText = formatContext(files, metadata, outputFormat, deletedFiles, extraWarnings)
   }
   return contextText
 }
@@ -1552,7 +1567,7 @@ function formatContext(
   deletedFiles: string[],
   extraWarnings: string[] = []
 ): string {
-  const warnings = [...contentWarnings(files), ...extraWarnings]
+  const warnings = [...new Set([...contentWarnings(files), ...extraWarnings])]
   if (outputFormat === 'json') {
     return `${JSON.stringify({
       metadata: {

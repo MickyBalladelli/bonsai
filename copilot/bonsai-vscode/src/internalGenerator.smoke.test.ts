@@ -173,6 +173,27 @@ async function verifyMinimalTopRankedFileDoesNotBlockOthers(): Promise<void> {
   })
 }
 
+async function verifyArtifactWarningsMatchReportedWarnings(): Promise<void> {
+  await withFixture(async root => {
+    await write(root, 'a/b/c/d/tiny.ts', 'export const t = 1\n')
+    const lines: string[] = []
+    for (let fn = 0; fn < 60; fn += 1) {
+      const fname = `big_${String(fn).padStart(2, '0')}`
+      lines.push(`export function ${fname}(p01: string, p02: string, p03: string, p04: string): string { return p01 + p02 + p03 + p04 }`)
+    }
+    await write(root, 'src/big.ts', `${lines.join('\n')}\n`)
+
+    const limited = config(root)
+    limited.level = 2
+    limited.maxTokens = 1500
+    const result = await generateRepository(root, limited)
+
+    assert.ok(result.warnings.length > 0)
+    const parsed = JSON.parse(result.contextText) as { warnings?: string[] }
+    assert.deepStrictEqual(parsed.warnings ?? [], result.warnings)
+  })
+}
+
 async function main(): Promise<void> {
   await verifyRustCrateDependencyAndComments()
   await verifyPythonAndCDependencies()
@@ -180,6 +201,7 @@ async function main(): Promise<void> {
   await verifyFidelityWarningsForLossyOutput()
   await verifyBudgetLoopConvergesPastTwoHundredAttempts()
   await verifyMinimalTopRankedFileDoesNotBlockOthers()
+  await verifyArtifactWarningsMatchReportedWarnings()
   console.log('internal generator smoke ok')
 }
 
