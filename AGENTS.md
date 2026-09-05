@@ -40,3 +40,4 @@ making cross-cutting changes, you MUST complete the preflight:
 This preflight is required for broad repository tasks. It may be skipped for
 narrow questions limited to a named file or symbol.
 <!-- BONSAI_CONTEXT_MANAGER_END -->
+Always mention the task you will do.
