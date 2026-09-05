@@ -163,7 +163,7 @@ run: |
 run: bash tests/release_binary_incremental_smoke.sh &quot;dist/bonsai-${{ matrix.name }}&quot;
 uses: actions/upload-artifact@v4
 with:
-name: bonsai-linux-x64
+name: bonsai-${{ matrix.name }}
 path: |
 vsix:
 name: Package VSIX
@@ -334,8 +334,8 @@ Claude answers from that context.
 &quot;@azure/core-auth&quot;: &quot;^1.10.0&quot;,
 &quot;@azure/core-rest-pipeline&quot;: &quot;^1.22.0&quot;,
 &quot;@azure/core-tracing&quot;: &quot;^1.3.0&quot;,
-&quot;@azure/core-util&quot;: &quot;^1.3.0&quot;,
 &quot;@azure/core-util&quot;: &quot;^1.13.0&quot;,
+&quot;@azure/logger&quot;: &quot;^1.3.0&quot;,
 &quot;tslib&quot;: &quot;^2.6.2&quot;
 },
 &quot;engines&quot;: {
@@ -351,9 +351,9 @@ Claude answers from that context.
 &quot;dependencies&quot;: {
 &quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
 &quot;@azure/core-auth&quot;: &quot;^1.10.0&quot;,
-&quot;@azure/core-rest-pipeline&quot;: &quot;^1.22.0&quot;,
 &quot;@azure/core-tracing&quot;: &quot;^1.3.0&quot;,
-&quot;@azure/core-util&quot;: &quot;^1.3.0&quot;,
+&quot;@azure/core-util&quot;: &quot;^1.13.0&quot;,
+&quot;@azure/logger&quot;: &quot;^1.3.0&quot;,
 &quot;@typespec/ts-http-runtime&quot;: &quot;^0.3.4&quot;,
 &quot;tslib&quot;: &quot;^2.6.2&quot;
 },
@@ -382,8 +382,7 @@ Claude answers from that context.
 &quot;license&quot;: &quot;MIT&quot;,
 &quot;dependencies&quot;: {
 &quot;@azure/abort-controller&quot;: &quot;^2.1.2&quot;,
-&quot;@azure/core-auth&quot;: &quot;^1.10.0&quot;,
-&quot;@azure/core-tracing&quot;: &quot;^1.3.0&quot;,
+&quot;@typespec/ts-http-runtime&quot;: &quot;^0.3.0&quot;,
 &quot;tslib&quot;: &quot;^2.6.2&quot;
 },
 &quot;engines&quot;: {
@@ -434,6 +433,26 @@ Claude answers from that context.
 &quot;title&quot;: &quot;Bonsai Context Manager: Generate Changed&quot;
 },
 {
+&quot;command&quot;: &quot;bonsai.previewProjectMap&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Preview Project Map&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.openContext&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Open Last Context&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.moreActions&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: More Actions&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.initAgent&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Add Agent Instructions&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.createProjectConfig&quot;,
+&quot;title&quot;: &quot;Bonsai Context Manager: Create Project Config&quot;
+},
+{
 &quot;command&quot;: &quot;bonsai.generateForRequest&quot;,
 &quot;title&quot;: &quot;Bonsai Context Manager: Generate for Request&quot;
 }
@@ -454,6 +473,18 @@ Claude answers from that context.
 },
 {
 &quot;command&quot;: &quot;bonsai.previewProjectMap&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.moreActions&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.initAgent&quot;,
+&quot;when&quot;: &quot;true&quot;
+},
+{
+&quot;command&quot;: &quot;bonsai.createProjectConfig&quot;,
 &quot;when&quot;: &quot;true&quot;
 },
 {
@@ -492,7 +523,7 @@ Claude answers from that context.
 - `Bonsai Context Manager: Generate` creates and opens the context file.
 - `Bonsai Context Manager: Generate for Request` asks what to focus on, then keeps matching modules at higher detail.
 - `Bonsai Context Manager: Generate Changed` creates and opens context from the local incremental cache.
-- `Bonsai Context Manager: Generate and Ask` creates context, then opens chat with instructions to read the generated context files.
+- `Bonsai Context Manager: Generate and Ask` creates context, then opens chat with instructions to read it.
 - `Bonsai Context Manager: Preview Project Map` shows paths, compression levels, token counts, and savings.
 - `Bonsai Context Manager: Add Agent Instructions` adds an `AGENTS.md` section telling agents to read all generated context files.
 - `Bonsai Context Manager: Create Project Config` creates and opens `.bonsai.toml`.
@@ -522,6 +553,7 @@ expo...</file>
 &quot;compilerOptions&quot;: {
 &quot;module&quot;: &quot;commonjs&quot;,
 &quot;target&quot;: &quot;ES2020&quot;,
+&quot;outDir&quot;: &quot;dist&quot;,
 &quot;lib&quot;: [
 ],
 &quot;sourceMap&quot;: true,
@@ -592,13 +624,13 @@ expo...</file>
 | Compact fallback | `.json`, `.yaml`, `.yml`, `.toml` | Configuration and manifests |</file>
 <file path="plugins/bonsai/.codex-plugin/plugin.json" level="3" tokens="155">{
 &quot;name&quot;: &quot;bonsai&quot;,
+&quot;version&quot;: &quot;0.5.30&quot;,
 &quot;description&quot;: &quot;Compress local repositories into token-budgeted XML context for Codex.&quot;,
 &quot;author&quot;: {
 &quot;name&quot;: &quot;Local developer&quot;
 },
 &quot;skills&quot;: &quot;./skills/&quot;,
 &quot;interface&quot;: {
-&quot;displayName&quot;: &quot;Bonsai&quot;,
 &quot;displayName&quot;: &quot;Bonsai&quot;,
 &quot;shortDescription&quot;: &quot;Compress repo context for Codex.&quot;,
 &quot;longDescription&quot;: &quot;Bonsai runs a local Rust CLI that parses repositories with tree-sitter, strips implementation bodies when useful, applies a token budget, and emits XML context for Codex.&quot;,
@@ -636,6 +668,7 @@ short_description: &quot;Comp...</file>
 ### Everyday output
 ## Config
 ### Output formats and prompts
+### Selection and budget
 ## Change-Focused Context
 ## Output
 ## Supported Files
@@ -660,7 +693,7 @@ impl fmt::Display for TokenizerKind {
 fn fmt(&amp;self, formatter: &amp;mut fmt::Formatter&lt;&apos;_&gt;) -&gt; fmt::Result {
 impl FromStr for TokenizerKind {
 type Err = String;
-fn from_str(value: &amp;str) -&gt; Result&lt;Self, Self::Err&gt; {
+fn from_str(value: &amp;str) -&gt; std::result::Result&lt;Self, Self::Err&gt; {
 let normalized = value.trim().to_ascii_lowercase().replace([&apos;-&apos;, &apos;.&apos;], &quot;_&quot;);
 let starts_with_any =
 if starts_with_any(&amp;[&quot;gpt_4o&quot;, &quot;gpt_4_1&quot;, &quot;gpt_5&quot;, &quot;o1&quot;, &quot;o3&quot;, &quot;o4&quot;]) {
@@ -680,7 +713,6 @@ let Some(index) = pick_downgrade_candidate(&amp;files) else {
 pub fn downgrade_largest_file(files: &amp;mut [ProcessedFile], counter: &amp;TokenCounter) -&gt; bool {
 let Some(index) = pick_downgrade_candidate(files) else {
 pub fn count_text_tokens(text: &amp;str, counter: &amp;TokenCounter) -&gt; usize {
-fn refresh_counts(files: &amp;mut [ProcessedFile], counter: &amp;TokenCounter) -&gt; bool {
 fn refresh_counts(files: &amp;mut [ProcessedFile], counter: &amp;TokenCounter) {
 fn total_tokens(files: &amp;[ProcessedFile]) -&gt; usize {
 fn count_tokens(encoder: &amp;CoreBPE, text: &amp;str) -&gt; usize {
@@ -713,6 +745,11 @@ let file = processed_file(
 let counter = test_counter();
 let max_tokens = count_text_tokens(&quot;fn main()&quot;, &amp;counter);
 let optimized = optimize_budget(vec![file], max_tokens, &amp;counter).unwrap();
+fn downgrade_order_is_stable_for_same_inputs() {
+let files = vec![
+let counter = test_counter();
+let first = optimize_budget(files.clone(), 1, &amp;counter).unwrap();
+let second = optimize_budget(files, 1, &amp;counter).unwrap();
 fn keeps_manifest_before_leaf_file_under_pressure() {
 let files = vec![
 let counter = test_counter();
@@ -731,28 +768,91 @@ use std::fs::{self, Metadata};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use anyhow::{Context, Result};
-use std::time::SystemTime;
-use anyhow::Context;
-use std::fs::File;
-use std::fs::OpenOptions;
-fn open_parse_cache(path: &amp;Path) -&gt; Result&lt;std::fs::File&gt; {
-fn append_parse_entry_to_cache(path: &amp;Path, contents: &amp;str) -&gt; Result&lt;()&gt; {
-fn cache_key(path: &amp;Path, contents: &amp;str) -&gt; Result&lt;String&gt; {
-fn load_parse_cache(path: &amp;Path) -&gt; Result&lt;std::fs::File&gt; {
-fn cache_entries(path: &amp;Path) -&gt; Result&lt;Vec&lt;String&gt;&gt; {
-fn cache_keys_equal(left: &amp;str, right: &amp;str) -&gt; bool {
-fn cache_keys_not_equal(left: &amp;str, right: &amp;str) -&gt; bool {
-fn deleted_paths(path: &amp;Path) -&gt; Vec&lt;String&gt; {
-fn use_cache_entry(path: &amp;Path) -&gt; Result&lt;bool&gt; {
-fn cache_key_matches(path: &amp;Path, contents: &amp;str) -&gt; bool {
-fn cache_hits(path: &amp;Path) -&gt; usize {
-fn cache_misses(path: &amp;Path) -&gt; usize {
-fn incremental_output(path: &amp;Path) -&gt; Result&lt;String&gt; {
-fn incremental_summary(path: &amp;Path) -&gt; Result&lt;String&gt; {
-fn deleted_files(path: &amp;Path) -&gt; Result&lt;String&gt; {
-fn evict_cache_entry(path: &amp;Path) -&gt; Result&lt;bool&gt; {
-fn evict_cache_entries(path: &amp;Path) -&gt; bool {
-fn full_file_paths(path: &amp;Path) -&gt; Result&lt;Vec&lt;String&gt;&gt; {
+... 1 more imports
+const HEADER_V1: &amp;[u8] = b&quot;BONSAI_PARSE_CACHE_V1\n&quot;;
+const HEADER_V2: &amp;[u8] = b&quot;BONSAI_PARSE_CACHE_V2\n&quot;;
+struct CacheEntry {
+impl ParseCache {
+pub fn load(path: PathBuf) -&gt; Self {
+let parsed = fs::read(&amp;path)
+pub fn get(&amp;mut self, path: &amp;Path, metadata: &amp;Metadata) -&gt; Option&lt;FileVariants&gt; {
+let key = cache_key(path);
+pub fn status(&amp;self, path: &amp;Path, metadata: &amp;Metadata) -&gt; CacheStatus {
+let key = cache_key(path);
+pub fn deleted_paths(&amp;self, root: &amp;Path) -&gt; Vec&lt;String&gt; {
+let mut paths = self
+let path = Path::new(path.as_str());
+pub fn load_required(path: PathBuf) -&gt; Result&lt;Self&gt; {
+let bytes = fs::read(&amp;path)
+let parsed = parse_cache_bytes(&amp;bytes)
+fn get_by_key(&amp;self, key: &amp;str, metadata: &amp;Metadata) -&gt; Option&lt;FileVariants&gt; {
+let entry = self.entries.get(key)?;
+return Some(entry.variants.clone());
+pub fn put(&amp;mut self, path: &amp;Path, metadata: &amp;Metadata, variants: FileVariants) {
+let key = cache_key(path);
+pub fn metadata_matches(&amp;self, metadata: &amp;CacheMetadata) -&gt; bool {
+pub fn diagnostics(&amp;self) -&gt; CacheDiagnostics {
+let stale_entry_count = self
+let Ok(metadata) = fs::metadata(path) else {
+pub fn set_metadata(&amp;mut self, metadata: CacheMetadata) {
+pub fn retain_touched(&amp;mut self) {
+let before = self.entries.len();
+pub fn save(&amp;self) -&gt; Result&lt;()&gt; {
+return Ok(());
+if let Some(parent) = self.path.parent() {
+struct ParsedCache {
+pub fn cache_path_for_root(root: &amp;Path) -&gt; PathBuf {
+fn stable_hash(path: &amp;Path) -&gt; u64 {
+let mut hash = 0xcbf29ce484222325;
+fn cache_key(path: &amp;Path) -&gt; String {
+fn modified_ns(metadata: &amp;Metadata) -&gt; u128 {
+fn format_cache_bytes(
+let mut output = HEADER_V2.to_vec();
+let mut entries = entries.iter().collect::&lt;Vec&lt;_&gt;&gt;();
+let full = entry.variants.full.as_deref();
+if let Some(full) = full {
+fn push_metadata(output: &amp;mut Vec&lt;u8&gt;, metadata: &amp;Option&lt;CacheMetadata&gt;) {
+let Some(metadata) = metadata else {
+fn push_sized_field(output: &amp;mut Vec&lt;u8&gt;, value: &amp;str) {
+fn push_field(output: &amp;mut Vec&lt;u8&gt;, value: &amp;str) {
+fn parse_cache_bytes(bytes: &amp;[u8]) -&gt; Option&lt;ParsedCache&gt; {
+let entries = parse_entries(bytes, HEADER_V1.len())?;
+let mut cursor = HEADER_V2.len();
+let metadata = parse_metadata(bytes, &amp;mut cursor)?;
+let entries = parse_entries(bytes, cursor)?;
+fn parse_metadata(bytes: &amp;[u8], cursor: &amp;mut usize) -&gt; Option&lt;CacheMetadata&gt; {
+let line = std::str::from_utf8(read_line(bytes, cursor)?).ok()?;
+let parts = line.split_whitespace().collect::&lt;Vec&lt;_&gt;&gt;();
+let respect_gitignore = match parts[1] {
+let max_file_bytes = match parts[2] {
+let include_count = parts[3].parse::&lt;usize&gt;().ok()?;
+let exclude_count = parts[4].parse::&lt;usize&gt;().ok()?;
+let exclude_generated = match parts.get(5).copied().unwrap_or(&quot;0&quot;) {
+fn read_patterns(bytes: &amp;[u8], cursor: &amp;mut usize, count: usize) -&gt; Option&lt;Vec&lt;String&gt;&gt; {
+let mut patterns = Vec::with_capacity(count);
+let length = std::str::from_utf8(read_line(bytes, cursor)?)
+fn parse_entries(bytes: &amp;[u8], mut cursor: usize) -&gt; Option&lt;HashMap&lt;String, CacheEntry&gt;&gt; {
+let mut entries = HashMap::new();
+let line = read_line(bytes, &amp;mut cursor)?;
+let parts = std::str::from_utf8(line)
+let path_len = parts[0].parse::&lt;usize&gt;().ok()?;
+let modified_ns = parts[1].parse::&lt;u128&gt;().ok()?;
+let size = parts[2].parse::&lt;u64&gt;().ok()?;
+let full_len = parts[3].parse::&lt;isize&gt;().ok()?;
+let skeleton_len = parts[4].parse::&lt;usize&gt;().ok()?;
+let tree_map_len = parts[5].parse::&lt;usize&gt;().ok()?;
+let path = read_string(bytes, &amp;mut cursor, path_len)?;
+let full = if full_len &lt; 0 {
+let skeleton = read_string(bytes, &amp;mut cursor, skeleton_len)?;
+let tree_map = read_string(bytes, &amp;mut cursor, tree_map_len)?;
+fn read_line&lt;&apos;a&gt;(bytes: &amp;&apos;a [u8], cursor: &amp;mut usize) -&gt; Option&lt;&amp;&apos;a [u8]&gt; {
+let start = *cursor;
+let rest = bytes.get(start..)?;
+let newline = rest.iter().position(|byte| *byte == b&apos;\n&apos;)?;
+fn read_string(bytes: &amp;[u8], cursor: &amp;mut usize, length: usize) -&gt; Option&lt;String&gt; {
+let start = *cursor;
+let end = start.checked_add(length)?;
+let value = String::from_utf8(bytes.get(start..end)?.to_vec()).ok()?;
 fn diagnostics_counts_stale_entries() {
 let root = std::env::temp_dir().join(format!(
 let source = root.join(&quot;lib.rs&quot;);
@@ -799,7 +899,8 @@ let item = &quot; &quot;.repeat(indent + 2);
 fn push_compact_file_map_json(
 if let Some(hash) = &amp;file.content_hash {
 struct ProjectMapDirectory&lt;&apos;a&gt; {
-fn project_map_directories(files: &amp;[ProcessedFile]) -&gt; Vec&lt;ProcessedFile&gt; {
+fn project_map_directories(files: &amp;[ProcessedFile]) -&gt; Vec&lt;ProjectMapDirectory&lt;&apos;_&gt;&gt; {
+let mut by_dir: BTreeMap&lt;String, Vec&lt;&amp;ProcessedFile&gt;&gt; = BTreeMap::new();
 fn directory_name(path: &amp;str) -&gt; &amp;str {
 fn file_name(path: &amp;str) -&gt; &amp;str {
 fn push_directory_summaries_json(
@@ -850,6 +951,16 @@ let text = format_repository_context_text(&amp;files, &amp;metadata(), &amp;opti
 fn includes_project_map_hashes_when_requested() {
 let mut file = processed_file();
 let files = vec![file];
+let options = FormatOptions {
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
+fn omits_project_map_hashes_by_default() {
+let mut file = processed_file();
+let files = vec![file];
+let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;full_options());
+let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;full_options());
+fn includes_directory_summaries() {
+let files = vec![processed_file()];
 let options = FormatOptions {
 let xml = format_repository_context_xml(&amp;files, &amp;metadata(), &amp;options);
 let json = format_repository_context_json(&amp;files, &amp;metadata(), &amp;options);
@@ -907,8 +1018,53 @@ if let Some(value) = config.include {
 if let Some(value) = config.exclude {
 if let Some(value) = config.respect_gitignore {
 if let Some(value) = config.exclude_generated {
-fn apply_preset(cli: &amp;mut Cli, args: &amp;[OsString]) -&gt; Result&lt;()&gt; {
+fn apply_preset(cli: &amp;mut Cli, args: &amp;[OsString]) {
 let Some(preset) = cli.preset else {
+fn config_path(cli: &amp;Cli, root: &amp;Path) -&gt; Result&lt;Option&lt;PathBuf&gt;&gt; {
+if let Some(path) = &amp;cli.config {
+let path = if path.is_absolute() {
+return Ok(Some(path));
+let path = root.join(&quot;.bonsai.toml&quot;);
+fn option_was_provided(args: &amp;[OsString], option: &amp;str) -&gt; bool {
+let argument = argument.to_string_lossy();
+fn parse_config(contents: &amp;str, path: &amp;Path) -&gt; Result&lt;BonsaiConfigFile&gt; {
+let mut config = BonsaiConfigFile::default();
+let line_number = line_index + 1;
+let line = strip_config_comment(raw_line).trim();
+let Some((key, value)) = line.split_once(&apos;=&apos;) else {
+let key = key.trim();
+let value = value.trim();
+fn strip_config_comment(line: &amp;str) -&gt; &amp;str {
+let mut in_quotes = false;
+let mut escaped = false;
+fn parse_config_string(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;String&gt; {
+let value = value.trim();
+let mut parsed = String::new();
+let mut characters = value[1..value.len() - 1].chars();
+while let Some(character) = characters.next() {
+let Some(escaped) = characters.next() else {
+fn parse_config_strings(
+let value = value.trim();
+let values = value[1..value.len() - 1].trim();
+return Ok(Vec::new());
+fn parse_config_bool(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;bool&gt; {
+fn parse_config_usize(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;usize&gt; {
+fn parse_config_u64(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;u64&gt; {
+fn parse_config_u8(value: &amp;str, key: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;u8&gt; {
+fn parse_config_tokenizer(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;TokenizerKind&gt; {
+let value = parse_config_string(value, &quot;tokenizer&quot;, path, line_number)?;
+fn parse_config_output(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;OutputDestination&gt; {
+let value = parse_config_string(value, &quot;output&quot;, path, line_number)?.to_ascii_lowercase();
+fn parse_config_format(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;OutputFormat&gt; {
+let value = parse_config_string(value, &quot;format&quot;, path, line_number)?.to_ascii_lowercase();
+fn parse_config_preset(value: &amp;str, path: &amp;Path, line_number: usize) -&gt; Result&lt;Preset&gt; {
+let value = parse_config_string(value, &quot;preset&quot;, path, line_number)?.to_ascii_lowercase();
+impl From&lt;ProjectMapMode&gt; for FormatProjectMapMode {
+fn from(mode: ProjectMapMode) -&gt; Self {
+fn main() -&gt; Result&lt;()&gt; {
+let raw_args = env::args_os().collect::&lt;Vec&lt;_&gt;&gt;();
+let mut cli = Cli::parse_from(raw_args.clone());
+if let Some(command) = &amp;cli.command {
 return Ok(());
 let root = fs::canonicalize(&amp;cli.path)
 let requested_level = CompressionLevel::try_from(cli.level)?;
