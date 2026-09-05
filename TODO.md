@@ -14,7 +14,7 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 ### Enforce token budgets
 
 - [x] Fix the extension's `fitBudget` loop so the 200-attempt limit cannot silently return over-budget output.
-- [ ] Keep considering other compressible files when the selected candidate reaches its minimum size.
+- [x] Keep considering other compressible files when the selected candidate reaches its minimum size.
 - [ ] Verify the final emitted token count and report clearly when the requested budget cannot be met, with consistent CLI and extension behavior.
 
 ### Align the engines

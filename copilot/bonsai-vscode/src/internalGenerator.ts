@@ -577,18 +577,54 @@ function compressionScore(file: WorkingFile): number {
   return leafScore + file.tokenCount - file.priorityScore
 }
 
+function compareCompressionCandidates(left: WorkingFile, right: WorkingFile): number {
+  const scoreDifference = compressionScore(right) - compressionScore(left)
+  if (scoreDifference !== 0) {
+    return scoreDifference
+  }
+  const tokenDifference = right.tokenCount - left.tokenCount
+  if (tokenDifference !== 0) {
+    return tokenDifference
+  }
+  return left.path.localeCompare(right.path)
+}
+
 function pickCompressionCandidate(files: WorkingFile[]): WorkingFile | undefined {
-  return files.slice().sort((left, right) => {
-    const scoreDifference = compressionScore(right) - compressionScore(left)
-    if (scoreDifference !== 0) {
-      return scoreDifference
+  return files.slice().sort(compareCompressionCandidates)[0]
+}
+
+// Truncates the highest-ranked file that can still shrink and reports whether
+// anything shrank. A file already at its minimum never blocks progress on the
+// remaining files.
+function truncateLargestCompressibleFile(files: WorkingFile[], fraction: number): boolean {
+  const ranked = files.slice().sort(compareCompressionCandidates)
+  for (const largest of ranked) {
+    if (largest.tokenCount <= 8) {
+      continue
     }
-    const tokenDifference = right.tokenCount - left.tokenCount
-    if (tokenDifference !== 0) {
-      return tokenDifference
+    const target = Math.max(8, Math.floor(largest.tokenCount * fraction))
+    const content = contentForLevel(largest.variants, largest.level, largest.includeComments)
+    const truncated = truncateText(content, target, largest.tokenCount)
+    if (truncated === content) {
+      continue
     }
-    return left.path.localeCompare(right.path)
-  })[0]
+    if (largest.level === 1) {
+      if (largest.includeComments) {
+        largest.variants.full = truncated
+      } else {
+        largest.variants.withoutComments = truncated
+      }
+    } else if (largest.level === 2) {
+      largest.variants.skeleton = truncated
+    } else {
+      largest.variants.treeMap = truncated
+    }
+    largest.tokenCount = countTokens(truncated)
+    largest.tokenCounts[largest.level] = largest.tokenCount
+    largest.truncated = true
+    return true
+  }
+  return false
 }
 
 function applyTaskPriorities(files: WorkingFile[], focusTerms: string[]): void {
@@ -983,30 +1019,9 @@ function fitBudget(
       continue
     }
 
-    const largest = pickCompressionCandidate(files)
-    if (!largest || largest.tokenCount <= 8) {
+    if (!truncateLargestCompressibleFile(files, 0.8)) {
       break
     }
-    const target = Math.max(8, Math.floor(largest.tokenCount * 0.8))
-    const content = contentForLevel(largest.variants, largest.level, largest.includeComments)
-    const truncated = truncateText(content, target, largest.tokenCount)
-    if (truncated === content) {
-      break
-    }
-    if (largest.level === 1) {
-      if (largest.includeComments) {
-        largest.variants.full = truncated
-      } else {
-        largest.variants.withoutComments = truncated
-      }
-    } else if (largest.level === 2) {
-      largest.variants.skeleton = truncated
-    } else {
-      largest.variants.treeMap = truncated
-    }
-    largest.tokenCount = countTokens(truncated)
-    largest.tokenCounts[largest.level] = largest.tokenCount
-    largest.truncated = true
   }
 
   // Still over budget with nothing left to shrink: label the output as
@@ -1070,29 +1085,9 @@ function fitChunkByteLimit(
     throw new Error('Full source exceeds the 10 MB context chunk limit. Select fewer files or explicitly choose level 2 or 3 for lossy compression. Output was not written.')
   }
   for (let attempt = 0; attempt < 100 && Buffer.byteLength(contextText, 'utf8') > MAX_CONTEXT_FILE_BYTES; attempt += 1) {
-    const largest = pickCompressionCandidate(files)
-    if (!largest || largest.tokenCount <= 8) {
+    if (!truncateLargestCompressibleFile(files, 0.75)) {
       break
     }
-    const content = contentForLevel(largest.variants, largest.level, largest.includeComments)
-    const truncated = truncateText(content, Math.max(8, Math.floor(largest.tokenCount * 0.75)), largest.tokenCount)
-    if (truncated === content) {
-      break
-    }
-    if (largest.level === 1) {
-      if (largest.includeComments) {
-        largest.variants.full = truncated
-      } else {
-        largest.variants.withoutComments = truncated
-      }
-    } else if (largest.level === 2) {
-      largest.variants.skeleton = truncated
-    } else {
-      largest.variants.treeMap = truncated
-    }
-    largest.tokenCount = countTokens(truncated)
-    largest.tokenCounts[largest.level] = largest.tokenCount
-    largest.truncated = true
     contextText = formatContext(files, metadata, outputFormat, deletedFiles)
   }
   return contextText
