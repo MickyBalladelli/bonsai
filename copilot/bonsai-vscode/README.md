@@ -2,7 +2,7 @@
 
 ## Start
 
-1. Install the VSIX.
+1. Install **Bonsai Context Manager** from the Visual Studio Marketplace.
 2. Open one or more repository folders in VS Code.
 3. Run `Bonsai Context Manager: Generate`.
 
@@ -79,13 +79,13 @@ and turn on **Generate Bonsai Context**. You can also type
 `#bonsai_generate_context` in the chat prompt. VS Code asks for confirmation
 before the tool writes context files.
 
-Install the VSIX:
+Install it from the Visual Studio Marketplace by searching for **Bonsai Context Manager**, or run:
 
 ```sh
-code --install-extension copilot/bonsai-vscode/bonsai-vscode-*.vsix
+code --install-extension MickyBalladelli.bonsai-vscode
 ```
 
-Run Command Palette:
+Then open the Command Palette:
 
 ```text
 Bonsai Context Manager: Generate
@@ -95,8 +95,3 @@ The status bar shows extension version and internal engine health after
 activation. After each run it also shows token count and file count. Hover it to
 see the output path.
 
-On some machines, `code` points to Cursor. Use the full VS Code path when you want Visual Studio Code:
-
-```sh
-"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --install-extension copilot/bonsai-vscode/bonsai-vscode-*.vsix
-```
