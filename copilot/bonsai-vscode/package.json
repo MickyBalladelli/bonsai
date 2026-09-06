@@ -2,7 +2,7 @@
   "name": "bonsai-vscode",
   "displayName": "Bonsai Context Manager",
   "description": "Bonsai context for GitHub Copilot Chat and Codex.",
-  "version": "0.5.30",
+  "version": "0.5.31",
   "publisher": "MickyBalladelli",
   "author": {
     "name": "Micky Balladelli"
