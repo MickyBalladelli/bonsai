@@ -1,4 +1,5 @@
 /target/
+*.vsix
 /tmp/NOTES.md
 NOTES.md
 .DS_Store
