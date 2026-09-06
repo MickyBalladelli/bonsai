@@ -17,6 +17,12 @@ pub struct WalkerOptions {
     pub respect_gitignore: bool,
     pub max_file_bytes: Option<u64>,
     pub exclude_generated: bool,
+    /// Absolute path of Bonsai's configured output file. The output file and
+    /// its numbered chunks (`base-2.ext`, ...) are never source input, even
+    /// when they use a scanned extension (for example `bonsai.json`) and are
+    /// not gitignored. `None` disables the exclusion (for example clipboard
+    /// runs, which write no file).
+    pub output_file: Option<PathBuf>,
 }
 
 pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<PathBuf>> {
@@ -24,6 +30,7 @@ pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<Pa
     let filters = Arc::new(PathFilters::new(&options.include, &options.exclude)?);
     let max_file_bytes = options.max_file_bytes;
     let exclude_generated = options.exclude_generated;
+    let output_file = options.output_file.clone();
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(false)
@@ -38,11 +45,18 @@ pub fn collect_code_files(root: &Path, options: &WalkerOptions) -> Result<Vec<Pa
     builder.build_parallel().run(|| {
         let files = &files;
         let filters = Arc::clone(&filters);
+        let output_file = &output_file;
         Box::new(move |result| {
             let entry = match result {
                 Ok(entry) => entry,
                 Err(_) => return WalkState::Continue,
             };
+
+            if let Some(output) = output_file {
+                if is_bonsai_output_artifact(root, entry.path(), output) {
+                    return WalkState::Continue;
+                }
+            }
 
             if is_target_file(&entry)
                 && fits_size_limit(&entry, max_file_bytes)
@@ -80,6 +94,59 @@ pub fn is_supported_path(path: &Path) -> bool {
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase)
         .is_some_and(|extension| TARGET_EXTENSIONS.contains(&extension.as_str()))
+}
+
+/// True when `path` is Bonsai's configured output file or one of its numbered
+/// chunks (`base-2.ext`, `base-3.ext`, ...) in the same directory. Both paths
+/// are compared relative to `root`; an output file outside `root` never
+/// matches. Only the output's own stem and extension match, so unrelated
+/// files such as `other.json` or `bonsai-notes.md` are kept.
+pub fn is_bonsai_output_artifact(root: &Path, path: &Path, output: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    let Ok(output_relative) = output.strip_prefix(root) else {
+        return false;
+    };
+    if relative == output_relative {
+        return true;
+    }
+    if relative.parent() != output_relative.parent() {
+        return false;
+    }
+    let (Some(output_name), Some(candidate_name)) = (
+        output_relative.file_name().and_then(|name| name.to_str()),
+        relative.file_name().and_then(|name| name.to_str()),
+    ) else {
+        return false;
+    };
+    is_numbered_chunk_name(output_name, candidate_name)
+}
+
+/// True when `candidate` is `output` with `-N` (N >= 2) inserted before the
+/// extension, mirroring the extension's chunk naming (`base-2.ext`).
+fn is_numbered_chunk_name(output_name: &str, candidate: &str) -> bool {
+    let (output_stem, output_extension) = split_file_name(output_name);
+    let (candidate_stem, candidate_extension) = split_file_name(candidate);
+    if output_extension != candidate_extension {
+        return false;
+    }
+    let Some(suffix) = candidate_stem.strip_prefix(output_stem) else {
+        return false;
+    };
+    let Some(digits) = suffix.strip_prefix('-') else {
+        return false;
+    };
+    !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && digits.parse::<u32>().is_ok_and(|chunk| chunk >= 2)
+}
+
+fn split_file_name(name: &str) -> (&str, Option<&str>) {
+    match name.rsplit_once('.') {
+        Some((stem, extension)) => (stem, Some(extension)),
+        None => (name, None),
+    }
 }
 
 pub fn matches_path_filters(
@@ -325,6 +392,7 @@ mod tests {
                 respect_gitignore: true,
                 max_file_bytes: Some(1_048_576),
                 exclude_generated: false,
+                output_file: None,
             },
         )
         .unwrap();
@@ -348,6 +416,7 @@ mod tests {
                 respect_gitignore: false,
                 max_file_bytes: Some(1_048_576),
                 exclude_generated: false,
+                output_file: None,
             },
         )
         .unwrap();
@@ -370,6 +439,7 @@ mod tests {
                 respect_gitignore: true,
                 max_file_bytes: Some(12),
                 exclude_generated: false,
+                output_file: None,
             },
         )
         .unwrap();
@@ -400,6 +470,7 @@ mod tests {
                 respect_gitignore: true,
                 max_file_bytes: Some(1_048_576),
                 exclude_generated: true,
+                output_file: None,
             },
         )
         .unwrap();
@@ -423,6 +494,7 @@ mod tests {
                 respect_gitignore: true,
                 max_file_bytes: Some(1_048_576),
                 exclude_generated: true,
+                output_file: None,
             },
         )
         .unwrap();

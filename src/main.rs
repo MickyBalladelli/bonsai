@@ -950,6 +950,7 @@ fn main() -> Result<()> {
             respect_gitignore: cli.respect_gitignore,
             max_file_bytes: max_file_bytes(&cli),
             exclude_generated: cli.exclude_generated,
+            output_file: output_exclusion(&cli),
         },
     )?;
     if paths.is_empty() {
@@ -1703,6 +1704,30 @@ fn max_file_tokens(cli: &Cli) -> Option<usize> {
     cli.max_file_tokens.filter(|tokens| *tokens > 0)
 }
 
+/// Absolute path of the artifact Bonsai is about to write, so source scans
+/// never ingest their own output (including unignored `bonsai.json` files)
+/// or its numbered chunks. Clipboard runs write no file, so nothing is
+/// excluded and a same-named source file stays visible.
+fn output_exclusion(cli: &Cli) -> Option<PathBuf> {
+    if !matches!(cli.output, OutputDestination::File) {
+        return None;
+    }
+    Some(resolved_output_path(&cli.output_file))
+}
+
+fn resolved_output_path(output_file: &Path) -> PathBuf {
+    if output_file.is_absolute() {
+        return output_file.to_path_buf();
+    }
+    match env::current_dir()
+        .ok()
+        .and_then(|dir| fs::canonicalize(dir).ok())
+    {
+        Some(dir) => dir.join(output_file),
+        None => output_file.to_path_buf(),
+    }
+}
+
 fn validate_delta_options(cli: &Cli) -> Result<()> {
     if cli.changed_since.is_some() && (cli.incremental || cli.incremental_base.is_some()) {
         bail!(
@@ -2361,15 +2386,9 @@ fn render_final_context(
     final_metadata.file_count = files.len();
     maybe_wrap_prompt(
         match cli.format {
-            OutputFormat::Json => {
-                format_repository_context_json(files, &final_metadata, &options)
-            }
-            OutputFormat::Text => {
-                format_repository_context_text(files, &final_metadata, &options)
-            }
-            OutputFormat::Xml => {
-                format_repository_context_xml(files, &final_metadata, &options)
-            }
+            OutputFormat::Json => format_repository_context_json(files, &final_metadata, &options),
+            OutputFormat::Text => format_repository_context_text(files, &final_metadata, &options),
+            OutputFormat::Xml => format_repository_context_xml(files, &final_metadata, &options),
         },
         cli,
     )
