@@ -2071,6 +2071,7 @@ fn deleted_files(
                     respect_gitignore: cli.respect_gitignore,
                     max_file_bytes: max_file_bytes(cli),
                     exclude_generated: cli.exclude_generated,
+                    output_file: output_exclusion(cli),
                 },
             )?;
             let mut deleted = relative_path_set(base_root, &base_paths)

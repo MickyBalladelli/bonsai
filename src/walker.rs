@@ -536,6 +536,7 @@ mod tests {
             respect_gitignore: true,
             max_file_bytes: Some(1_048_576),
             exclude_generated: false,
+            output_file: None,
         }
     }
 }
