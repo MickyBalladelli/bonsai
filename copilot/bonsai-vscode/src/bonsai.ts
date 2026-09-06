@@ -148,6 +148,13 @@ export function buildSuccessMessage(outputFile: string, report: RunReport, nextS
   const fileText = report.filesIncluded !== undefined
     ? `, ${report.filesIncluded} files`
     : ''
+  const overBudget = report.shrunkTokens !== undefined
+    && report.outputTokensBudget !== undefined
+    && report.shrunkTokens > report.outputTokensBudget
+
+  if (overBudget) {
+    return `Bonsai wrote ${outputFile} (${tokenText}${savedText}${fileText}): over budget even after maximum compression; treat this context as incomplete. ${nextStep}`
+  }
 
   return `Bonsai wrote ${outputFile} (${tokenText}${savedText}${fileText}). ${nextStep}`
 }
@@ -159,6 +166,13 @@ export function buildStatusText(report: RunReport): string {
   const fileText = report.filesIncluded !== undefined
     ? `${report.filesIncluded} files`
     : 'files unknown'
+  const overBudget = report.shrunkTokens !== undefined
+    && report.outputTokensBudget !== undefined
+    && report.shrunkTokens > report.outputTokensBudget
+
+  if (overBudget) {
+    return `Bonsai: ${tokenText}, ${fileText} (over budget)`
+  }
 
   return `Bonsai: ${tokenText}, ${fileText}`
 }

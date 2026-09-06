@@ -275,7 +275,13 @@ async function generateContext(
     await fs.writeFile(output.outputFile, output.contextText, 'utf8')
   }
   await context.workspaceState.update(stateKey, generated.signatures)
-  appendOutput(`Generated ${generated.contextFiles.length} context file${generated.contextFiles.length === 1 ? '' : 's'} with the internal engine`)
+  appendOutput(`Generated ${generated.contextFiles.length} context file${generated.contextFiles.length === 1 ? '' : 's'} with the internal engine (${generated.report.outputTokens ?? generated.report.shrunkTokens ?? '?'} / ${generated.report.outputTokensBudget ?? '?'} tokens)`)
+  for (const warning of generated.warnings) {
+    appendOutput(`WARNING: ${warning}`)
+  }
+  if (isOverBudget(generated.report)) {
+    appendOutput(`WARNING: Output is ${generated.report.shrunkTokens} tokens, above max_tokens ${generated.report.outputTokensBudget} even after maximum compression; treat this context as incomplete.`)
+  }
 
   const result = {
     contextText: generated.contextFiles[0].contextText,
@@ -288,6 +294,12 @@ async function generateContext(
   }
   updateStatus(result)
   return result
+}
+
+function isOverBudget(report: RunReport): boolean {
+  return report.shrunkTokens !== undefined
+    && report.outputTokensBudget !== undefined
+    && report.shrunkTokens > report.outputTokensBudget
 }
 
 function normalizePlanPath(value: string): string {
@@ -399,7 +411,16 @@ function showSuccessMessage(generated: GeneratedContext, nextStep: string): void
   if (generated.outputFiles.length > 1) {
     nextStep = `${nextStep} Output split across ${generated.outputFiles.length} files under 10 MB each.`
   }
-  vscode.window.showInformationMessage(buildSuccessMessage(generated.outputFile, generated.report, nextStep))
+  const message = buildSuccessMessage(generated.outputFile, generated.report, nextStep)
+  if (isOverBudget(generated.report)) {
+    void vscode.window.showWarningMessage(message, 'Show Bonsai Output').then(choice => {
+      if (choice === 'Show Bonsai Output') {
+        outputChannel?.show(true)
+      }
+    })
+    return
+  }
+  vscode.window.showInformationMessage(message)
 }
 
 function buildGeneratedPrompt(generated: GeneratedContext, includeContent = false): string {

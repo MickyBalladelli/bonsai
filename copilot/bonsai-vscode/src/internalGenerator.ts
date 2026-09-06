@@ -1027,16 +1027,33 @@ function fitBudget(
   }
 
   // Still over budget with nothing left to shrink: label the output as
-  // incomplete evidence instead of returning it silently.
+  // incomplete evidence instead of returning it silently. The embedded token
+  // number must describe the bytes actually emitted, so stabilize the warning
+  // text against the final recount (adding the warning itself costs tokens).
   warnings = contentWarnings(files)
   if (outputTokens > metadata.maxTokens) {
-    warnings.push(`Output is ${outputTokens} tokens, above max_tokens ${metadata.maxTokens} even after maximum compression; treat this context as incomplete.`)
-  }
-  if (warnings.length > 0) {
+    let reported = outputTokens
+    for (let pass = 0; pass < 5; pass += 1) {
+      warnings = [
+        ...contentWarnings(files),
+        overBudgetWarning(reported, metadata.maxTokens)
+      ]
+      contextText = formatContext(files, metadata, config.outputFormat, deletedFiles, warnings)
+      outputTokens = countTokens(contextText)
+      if (outputTokens === reported) {
+        break
+      }
+      reported = outputTokens
+    }
+  } else if (warnings.length > 0) {
     contextText = formatContext(files, metadata, config.outputFormat, deletedFiles, warnings)
     outputTokens = countTokens(contextText)
   }
   return { contextText, outputTokens, warnings }
+}
+
+function overBudgetWarning(outputTokens: number, maxTokens: number): string {
+  return `Output is ${outputTokens} tokens, above max_tokens ${maxTokens} even after maximum compression; treat this context as incomplete.`
 }
 
 function splitContextFiles(
@@ -1065,7 +1082,7 @@ function splitContextFiles(
     chunks.push(current)
   }
 
-  const warnings = [...extraWarnings]
+  let warnings = [...extraWarnings]
   const contextFiles: Array<{ outputFile: string; contextText: string }> = []
   for (const [index, chunk] of chunks.entries()) {
     const chunkDeleted = index === 0 ? deletedFiles : []
@@ -1078,13 +1095,31 @@ function splitContextFiles(
 
   // The reported count must describe the bytes actually emitted, not the
   // pre-split estimate: chunks repeat metadata and may truncate further.
+  // Adding the over-budget notice itself costs tokens, so stabilize the
+  // warning text against the final recount the same way fitBudget does.
+  // Always re-stabilize when over budget: fittedWarnings may already contain
+  // a pre-split over-budget notice with a stale count.
   let emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
-  if (emittedTokens > metadata.maxTokens && !warnings.some(warning => warning.includes('above max_tokens'))) {
-    warnings.push(`Output is ${emittedTokens} tokens, above max_tokens ${metadata.maxTokens} even after maximum compression; treat this context as incomplete.`)
-    // Keep the primary artifact consistent with the reported warnings.
-    contextFiles[0].contextText = fitChunkByteLimit(chunks[0], metadata, outputFormat, deletedFiles, warnings)
-    emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
+  if (emittedTokens > metadata.maxTokens) {
+    let reported = emittedTokens
+    for (let pass = 0; pass < 5; pass += 1) {
+      const withoutOverBudget = warnings.filter(warning => !warning.includes('above max_tokens'))
+      warnings = [...withoutOverBudget, overBudgetWarning(reported, metadata.maxTokens)]
+      // Keep every emitted artifact consistent with the reported warnings.
+      for (const [index, chunk] of chunks.entries()) {
+        const chunkDeleted = index === 0 ? deletedFiles : []
+        contextFiles[index].contextText = fitChunkByteLimit(chunk, metadata, outputFormat, chunkDeleted, warnings)
+      }
+      emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
+      if (emittedTokens === reported) {
+        break
+      }
+      reported = emittedTokens
+    }
   }
+  // Final verification: the reported count is always a recount of the exact
+  // bytes emitted across all chunks.
+  emittedTokens = contextFiles.reduce((sum, chunk) => sum + countTokens(chunk.contextText), 0)
   return { contextFiles, emittedTokens, warnings }
 }
 

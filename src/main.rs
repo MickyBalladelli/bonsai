@@ -1079,14 +1079,27 @@ fn main() -> Result<()> {
     } else {
         optimize_budget(files, content_budget, &token_counter)?
     };
-    let (mut optimized, context, output_tokens, dropped_paths) =
+    let (mut optimized, context, fitted_tokens, dropped_paths) =
         fit_formatted_context(optimized, &metadata, &cli, &token_counter, &deleted_files)?;
     sort_files(&mut optimized, cli.sort);
+    // Verify the final emitted document: recount exactly what will be written
+    // so the reported count, embedded warnings, and stderr notices agree.
+    let output_tokens = count_text_tokens(&context, &token_counter);
+    debug_assert_eq!(
+        fitted_tokens, output_tokens,
+        "fitted token count must match the final emitted document"
+    );
     let warnings = final_warnings(&optimized, &dropped_paths, output_tokens, cli.max_tokens);
     if !warnings.is_empty() && !cli.quiet {
         for warning in &warnings {
             eprintln!("warning: {warning}");
         }
+    }
+    if output_tokens > cli.max_tokens && !cli.quiet {
+        eprintln!(
+            "warning: output is {output_tokens} tokens, above --max-tokens {}; treat this context as incomplete",
+            cli.max_tokens
+        );
     }
     let run_stats = RunStats::new(
         &cli,
@@ -2063,6 +2076,7 @@ struct RunStats {
     shrunk_tokens: usize,
     tokens_saved: Option<usize>,
     saving_percent: Option<f64>,
+    over_budget: bool,
 }
 
 impl RunStats {
@@ -2096,6 +2110,7 @@ impl RunStats {
             shrunk_tokens,
             tokens_saved,
             saving_percent,
+            over_budget: shrunk_tokens > cli.max_tokens,
         })
     }
 }
@@ -2317,28 +2332,84 @@ fn fit_formatted_context(
         }
 
         // Still over budget with nothing left to shrink: label the output as
-        // incomplete evidence instead of returning it silently.
-        let extra = vec![over_budget_warning(output_tokens, cli.max_tokens)];
-        let options = format_options(&files, cli, deleted_files, &dropped_paths, &extra);
-        let mut final_metadata = metadata.clone();
-        final_metadata.file_count = files.len();
-        let context = maybe_wrap_prompt(
-            match cli.format {
-                OutputFormat::Json => {
-                    format_repository_context_json(&files, &final_metadata, &options)
-                }
-                OutputFormat::Text => {
-                    format_repository_context_text(&files, &final_metadata, &options)
-                }
-                OutputFormat::Xml => {
-                    format_repository_context_xml(&files, &final_metadata, &options)
-                }
-            },
+        // incomplete evidence instead of returning it silently. The embedded
+        // token number must describe the bytes actually emitted, so stabilize
+        // the warning text against the final recount.
+        return Ok(finalize_over_budget_context(
+            files,
+            metadata,
             cli,
-        );
-        let output_tokens = count_text_tokens(&context, counter);
-        return Ok((files, context, output_tokens, dropped_paths));
+            counter,
+            deleted_files,
+            dropped_paths,
+            output_tokens,
+        ));
     }
+}
+
+/// Render the final document with the given extra warnings applied.
+fn render_final_context(
+    files: &[ProcessedFile],
+    metadata: &RepositoryMetadata,
+    cli: &Cli,
+    deleted_files: &[String],
+    dropped_paths: &[String],
+    extra_warnings: &[String],
+) -> String {
+    let options = format_options(files, cli, deleted_files, dropped_paths, extra_warnings);
+    let mut final_metadata = metadata.clone();
+    final_metadata.file_count = files.len();
+    maybe_wrap_prompt(
+        match cli.format {
+            OutputFormat::Json => {
+                format_repository_context_json(files, &final_metadata, &options)
+            }
+            OutputFormat::Text => {
+                format_repository_context_text(files, &final_metadata, &options)
+            }
+            OutputFormat::Xml => {
+                format_repository_context_xml(files, &final_metadata, &options)
+            }
+        },
+        cli,
+    )
+}
+
+/// Emit over-budget output whose embedded warning reports the final verified
+/// token count. Adding the warning itself costs tokens, so reformat until the
+/// reported number matches the recount (digit-width changes converge in one
+/// or two passes; five attempts bound pathological growth).
+fn finalize_over_budget_context(
+    files: Vec<ProcessedFile>,
+    metadata: &RepositoryMetadata,
+    cli: &Cli,
+    counter: &TokenCounter,
+    deleted_files: &[String],
+    dropped_paths: Vec<String>,
+    initial_tokens: usize,
+) -> (Vec<ProcessedFile>, String, usize, Vec<String>) {
+    let mut reported = initial_tokens;
+    let mut context = String::new();
+    let mut output_tokens = initial_tokens;
+
+    for _ in 0..5 {
+        let extra = vec![over_budget_warning(reported, cli.max_tokens)];
+        context = render_final_context(
+            &files,
+            metadata,
+            cli,
+            deleted_files,
+            &dropped_paths,
+            &extra,
+        );
+        output_tokens = count_text_tokens(&context, counter);
+        if output_tokens == reported {
+            break;
+        }
+        reported = output_tokens;
+    }
+
+    (files, context, output_tokens, dropped_paths)
 }
 
 fn drop_lowest_priority_file(files: &mut Vec<ProcessedFile>) -> Option<String> {
@@ -2506,6 +2577,20 @@ fn write_output_file(path: &Path, context: &str, quiet: bool) -> Result<()> {
 }
 
 fn print_success(stats: &RunStats) {
+    if stats.over_budget {
+        match stats.output_target.as_str() {
+            "clipboard" => println!(
+                "Bonsai copied context to the clipboard ({} files, {} / {} tokens): over budget even after maximum compression; treat this context as incomplete.",
+                stats.files_scanned, stats.shrunk_tokens, stats.max_tokens
+            ),
+            output => println!(
+                "Bonsai wrote {} ({} files, {} / {} tokens): over budget even after maximum compression; treat this context as incomplete.",
+                output, stats.files_scanned, stats.shrunk_tokens, stats.max_tokens
+            ),
+        }
+        return;
+    }
+
     match stats.output_target.as_str() {
         "clipboard" => println!(
             "Bonsai copied context to the clipboard ({} files, {} tokens).",
@@ -2561,6 +2646,13 @@ fn print_summary(stats: &RunStats) {
         "  output_tokens: {} / {}",
         stats.shrunk_tokens, stats.max_tokens
     );
+    println!("  over_budget: {}", stats.over_budget);
+    if stats.over_budget {
+        println!(
+            "  budget_note: output is {} tokens, above max-tokens {} even after maximum compression",
+            stats.shrunk_tokens, stats.max_tokens
+        );
+    }
 }
 
 fn print_stats(stats: &RunStats) {
