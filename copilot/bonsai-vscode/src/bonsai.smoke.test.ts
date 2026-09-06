@@ -2,6 +2,7 @@ import * as assert from 'assert'
 
 import {
   buildBonsaiArgs,
+  buildContextPrompt,
   buildProjectMapDecisionLines,
   buildProjectMapText,
   buildStatusText,
@@ -107,5 +108,42 @@ const decisionLines = buildProjectMapDecisionLines(
 assert.strictEqual(decisionLines.length, 41)
 assert.ok(decisionLines[39].includes('src/file-39.ts'))
 assert.strictEqual(decisionLines[40], '- ...2 more decisions are in the generated project map.')
+
+const promptWithoutContent = buildContextPrompt('/tmp/context.xml')
+assert.ok(promptWithoutContent.includes('/tmp/context.xml'))
+assert.ok(!promptWithoutContent.includes('compressed repository context before answering'))
+
+const promptWithContent = buildContextPrompt('/tmp/context.xml', '<context>hi</context>')
+assert.ok(promptWithContent.includes('<context>hi</context>'))
+
+const overBudgetReport = { ...report, shrunkTokens: 15000, outputTokensBudget: 12000 }
+const overBudgetMessage = buildSuccessMessage('/tmp/context.xml', overBudgetReport, 'Next.')
+assert.ok(overBudgetMessage.includes('over budget'))
+assert.ok(overBudgetMessage.includes('incomplete'))
+assert.strictEqual(
+  buildStatusText(overBudgetReport),
+  'Bonsai: 15000/12000 tokens, 3 files (over budget)'
+)
+assert.strictEqual(buildStatusText({}), 'Bonsai: tokens unknown, files unknown')
+
+const xmlMapWithReason = extractProjectMap(
+  `<project_map>
+<entry path="src/main.rs" level="1" tokens="50" reason="task match" hash="abc" />
+</project_map>`,
+  'xml'
+)
+assert.deepStrictEqual(xmlMapWithReason, [
+  { path: 'src/main.rs', level: 1, tokens: 50, reason: 'task match' }
+])
+
+const partialReport = parseRunReport('nothing matches here\n')
+assert.strictEqual(partialReport.filesIncluded, undefined)
+assert.strictEqual(partialReport.savingPercent, undefined)
+
+const filteredDecisions = buildProjectMapDecisionLines([
+  { path: 'src/app.ts', level: 1, tokens: 100, reason: 'task match' },
+  { path: 'package-lock.json', level: 3, tokens: 900, reason: 'background module' }
+])
+assert.deepStrictEqual(filteredDecisions, ['- L1 src/app.ts (task match)'])
 
 console.log('bonsai extension smoke ok')

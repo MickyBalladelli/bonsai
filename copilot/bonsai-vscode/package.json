@@ -246,7 +246,7 @@
   "scripts": {
     "sync-version": "ruby ../../scripts/sync-version.rb",
     "compile": "npm run sync-version && tsc -p ./",
-    "test": "npm run compile && node dist/bonsai.smoke.test.js && node dist/internalGenerator.smoke.test.js",
+    "test": "npm run compile && node dist/bonsai.smoke.test.js && node dist/internalGenerator.smoke.test.js && node dist/projectConfig.test.js",
     "watch": "tsc -watch -p ./",
     "package": "npm run sync-version && vsce package --dependencies"
   },

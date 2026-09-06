@@ -108,8 +108,9 @@ below plus conformance tests is the maintained parity mechanism.
 
 - Rust: `cargo test` parser cases cover TS skeleton, TSX component
   skeleton, Rust/Python skeletons, and import collapsing.
-- Extension: `npm test` runs `bonsai.smoke.test` and
-  `internalGenerator.smoke.test`, covering budget convergence, warning
-  fidelity, dependency-aware levels, and artifact/report agreement.
+- Extension: `npm test` runs `bonsai.smoke.test`,
+  `internalGenerator.smoke.test`, and `projectConfig.test`, covering budget
+  convergence, warning fidelity, dependency-aware levels, artifact/report
+  agreement, and project-config parsing.
 - When changing either engine, update this file and the corresponding
   conformance test in the same change.
