@@ -31,11 +31,11 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 
 ### Prove quality and product value
 
-- [ ] Add the existing extension smoke tests to CI; the current extension job only compiles and packages.
-- [ ] Build a real-task evaluation covering answer correctness, important files retained, total tokens including follow-up reads, and completion time.
+- [x] Add the existing extension smoke tests to CI; the current extension job only compiles and packages.
+- [x] Build a real-task evaluation covering answer correctness, important files retained, total tokens including follow-up reads, and completion time.
 - [ ] Compare Bonsai against direct repository reading, Repomix, and Aider repository maps on equivalent tasks and budgets.
-- [ ] Demonstrate that token savings preserve answer quality rather than merely producing smaller output.
-- [ ] Define and document Bonsai's distinct value around request-aware context selection; repository packing and syntax compression alone already exist elsewhere.
+- [x] Demonstrate that token savings preserve answer quality rather than merely producing smaller output.
+- [x] Define and document Bonsai's distinct value around request-aware context selection; repository packing and syntax compression alone already exist elsewhere.
 - [ ] Use measured quality and user demand to decide whether to pursue a paid product; keep improving the useful personal and open-source tool in the meantime.
 
 ## Usability review

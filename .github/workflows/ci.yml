@@ -38,7 +38,7 @@ jobs:
           path: target/release/bonsai
 
   vscode:
-    name: Package VSIX
+    name: Extension test and package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,8 +50,8 @@ jobs:
       - name: Install extension dependencies
         run: npm ci
         working-directory: copilot/bonsai-vscode
-      - name: Compile extension
-        run: npm run compile
+      - name: Extension smoke tests
+        run: npm test
         working-directory: copilot/bonsai-vscode
       - name: Package VSIX
         run: npm run package

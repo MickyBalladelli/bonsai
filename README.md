@@ -691,7 +691,10 @@ npm run package
 ```
 
 Maintenance notes and the release checklist live in
-[docs/maintenance.md](docs/maintenance.md).
+[docs/maintenance.md](docs/maintenance.md). What Bonsai is for is defined in
+[docs/distinct-value.md](docs/distinct-value.md), and how we measure quality
+in [docs/evaluation.md](docs/evaluation.md) (run with
+`BONSAI_BIN=target/release/bonsai python3 tests/eval/run.py`).
 
 ## Names
 
