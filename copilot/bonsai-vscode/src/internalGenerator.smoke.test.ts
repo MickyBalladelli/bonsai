@@ -4,7 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 
 import { BonsaiConfig, ProjectMapEntry } from './bonsai'
-import { generateRepository, InternalGenerationResult } from './internalGenerator'
+import { generateRepository, InternalGenerationResult, removeStaleChunks } from './internalGenerator'
 
 function config(root: string): BonsaiConfig {
   return {
@@ -210,6 +210,45 @@ async function verifyMultilineSignaturesStripBodies(): Promise<void> {
   })
 }
 
+async function verifyOutputArtifactsExcludedFromInput(): Promise<void> {
+  await withFixture(async root => {
+    await write(root, 'src/app.ts', 'export const app = 1\n')
+    await write(root, 'other.json', '{"keep":true}\n')
+    await write(root, 'bonsai-notes.md', '# notes\n')
+    await write(root, 'bonsai.json', '{"stale":"output"}\n')
+    await write(root, 'bonsai-2.json', '{"stale":"chunk"}\n')
+
+    const result = await generateRepository(root, config(root))
+    const paths = result.projectMap.map(entry => entry.path)
+
+    assert.ok(paths.includes('src/app.ts'))
+    assert.ok(paths.includes('other.json'))
+    assert.ok(paths.includes('bonsai-notes.md'))
+    assert.ok(!paths.includes('bonsai.json'), 'configured output must not be scanned')
+    assert.ok(!paths.includes('bonsai-2.json'), 'numbered chunks must not be scanned')
+  })
+}
+
+async function verifyStaleChunksRetiredWithoutTouchingUnrelatedFiles(): Promise<void> {
+  await withFixture(async root => {
+    const output = path.join(root, 'bonsai.json')
+    await write(root, 'bonsai.json', 'base')
+    await write(root, 'bonsai-2.json', 'stale')
+    await write(root, 'bonsai-3.json', 'stale')
+    await write(root, 'other.json', 'keep')
+    await write(root, 'bonsai-notes.md', 'keep')
+
+    const removed = await removeStaleChunks(output, [output])
+
+    assert.deepStrictEqual(removed, [path.join(root, 'bonsai-2.json'), path.join(root, 'bonsai-3.json')])
+    await assert.rejects(fs.stat(path.join(root, 'bonsai-2.json')))
+    await assert.rejects(fs.stat(path.join(root, 'bonsai-3.json')))
+    await fs.stat(output)
+    await fs.stat(path.join(root, 'other.json'))
+    await fs.stat(path.join(root, 'bonsai-notes.md'))
+  })
+}
+
 async function main(): Promise<void> {
   await verifyRustCrateDependencyAndComments()
   await verifyPythonAndCDependencies()
@@ -219,6 +258,8 @@ async function main(): Promise<void> {
   await verifyMinimalTopRankedFileDoesNotBlockOthers()
   await verifyArtifactWarningsMatchReportedWarnings()
   await verifyMultilineSignaturesStripBodies()
+  await verifyOutputArtifactsExcludedFromInput()
+  await verifyStaleChunksRetiredWithoutTouchingUnrelatedFiles()
   console.log('internal generator smoke ok')
 }
 

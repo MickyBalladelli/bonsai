@@ -13,7 +13,7 @@ import {
   ProjectMapEntry,
   RunReport
 } from './bonsai'
-import { generateRepository } from './internalGenerator'
+import { generateRepository, removeStaleChunks } from './internalGenerator'
 import {
   BONSAI_CONTEXT_TOOL_NAME,
   BonsaiGenerateContextTool
@@ -273,6 +273,16 @@ async function generateContext(
   for (const output of generated.contextFiles) {
     await fs.mkdir(path.dirname(output.outputFile), { recursive: true })
     await fs.writeFile(output.outputFile, output.contextText, 'utf8')
+  }
+  // Regeneration may produce fewer chunks than the previous run. Retire only
+  // numbered chunks of this output (base-2.ext, ...); unrelated files are
+  // never touched.
+  const retired = await removeStaleChunks(
+    config.outputFile,
+    generated.contextFiles.map(output => output.outputFile)
+  )
+  for (const stale of retired) {
+    appendOutput(`Removed stale context chunk ${stale}`)
   }
   await context.workspaceState.update(stateKey, generated.signatures)
   appendOutput(`Generated ${generated.contextFiles.length} context file${generated.contextFiles.length === 1 ? '' : 's'} with the internal engine (${generated.report.outputTokens ?? generated.report.shrunkTokens ?? '?'} / ${generated.report.outputTokensBudget ?? '?'} tokens)`)

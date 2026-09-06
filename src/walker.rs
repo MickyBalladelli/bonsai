@@ -123,23 +123,92 @@ pub fn is_bonsai_output_artifact(root: &Path, path: &Path, output: &Path) -> boo
     is_numbered_chunk_name(output_name, candidate_name)
 }
 
+/// Absolute path of numbered chunk `index` (0-based) for `output`.
+/// Index 0 is the output itself; index N >= 1 is `base-(N+1).ext`,
+/// mirroring `chunkOutputPath` in the VS Code extension.
+pub fn numbered_chunk_path(output: &Path, index: usize) -> PathBuf {
+    if index == 0 {
+        return output.to_path_buf();
+    }
+    let file_name = output
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    let (stem, extension) = split_file_name(file_name);
+    let chunk_name = match extension {
+        Some(extension) => format!("{}-{}.{}", stem, index + 1, extension),
+        None => format!("{}-{}", stem, index + 1),
+    };
+    match output.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.join(chunk_name),
+        _ => PathBuf::from(chunk_name),
+    }
+}
+
+/// Delete numbered chunks of `output` at positions `>= keep_chunks`.
+///
+/// Only files matching the output's own stem and extension
+/// (`base-2.ext`, `base-3.ext`, ...) are removed; unrelated files such as
+/// `other.json` or `bonsai-notes.md` are never touched. The base output
+/// itself is never removed. Missing directories and unreadable entries are
+/// ignored, and per-file removal errors are skipped so cleanup never fails
+/// generation. Returns the paths that were removed.
+pub fn retire_stale_chunks(output: &Path, keep_chunks: usize) -> Vec<PathBuf> {
+    let directory: &Path = match output.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    let output_name = output
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return Vec::new();
+    };
+    let mut removed = Vec::new();
+    for entry in entries.flatten() {
+        let candidate_path = entry.path();
+        let Some(candidate_name) = candidate_path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if candidate_name == output_name {
+            continue;
+        }
+        let Some(chunk_number) = chunk_number_for(output_name, candidate_name) else {
+            continue;
+        };
+        if (chunk_number as usize) <= keep_chunks {
+            continue;
+        }
+        if std::fs::remove_file(&candidate_path).is_ok() {
+            removed.push(candidate_path);
+        }
+    }
+    removed.sort();
+    removed
+}
+
 /// True when `candidate` is `output` with `-N` (N >= 2) inserted before the
 /// extension, mirroring the extension's chunk naming (`base-2.ext`).
 fn is_numbered_chunk_name(output_name: &str, candidate: &str) -> bool {
+    chunk_number_for(output_name, candidate).is_some()
+}
+
+/// Chunk number N when `candidate` is `output` with `-N` (N >= 2) inserted
+/// before the extension; `None` for unrelated files.
+fn chunk_number_for(output_name: &str, candidate: &str) -> Option<u32> {
     let (output_stem, output_extension) = split_file_name(output_name);
     let (candidate_stem, candidate_extension) = split_file_name(candidate);
     if output_extension != candidate_extension {
-        return false;
+        return None;
     }
-    let Some(suffix) = candidate_stem.strip_prefix(output_stem) else {
-        return false;
-    };
-    let Some(digits) = suffix.strip_prefix('-') else {
-        return false;
-    };
-    !digits.is_empty()
-        && digits.bytes().all(|byte| byte.is_ascii_digit())
-        && digits.parse::<u32>().is_ok_and(|chunk| chunk >= 2)
+    let suffix = candidate_stem.strip_prefix(output_stem)?;
+    let digits = suffix.strip_prefix('-')?;
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let chunk: u32 = digits.parse().ok()?;
+    (chunk >= 2).then_some(chunk)
 }
 
 fn split_file_name(name: &str) -> (&str, Option<&str>) {
@@ -501,6 +570,99 @@ mod tests {
         let names = relative_names(&root, files);
 
         assert_eq!(names, vec!["src/generated/types.ts"]);
+    }
+
+    #[test]
+    fn excludes_configured_output_and_numbered_chunks() {
+        let root = temp_dir();
+        fs::create_dir_all(root.join("src")).unwrap();
+        write_file(&root, "src/app.rs", "");
+        write_file(&root, "bonsai.json", "{}");
+        write_file(&root, "bonsai-2.json", "{}");
+        write_file(&root, "bonsai-3.json", "{}");
+        write_file(&root, "other.json", "{}");
+        write_file(&root, "bonsai-notes.md", "");
+
+        let output = root.join("bonsai.json");
+        let files = collect_code_files(
+            &root,
+            &WalkerOptions {
+                include: Vec::new(),
+                exclude: Vec::new(),
+                respect_gitignore: false,
+                max_file_bytes: Some(1_048_576),
+                exclude_generated: false,
+                output_file: Some(output),
+            },
+        )
+        .unwrap();
+        let names = relative_names(&root, files);
+
+        assert!(names.contains(&"src/app.rs".to_owned()));
+        assert!(names.contains(&"other.json".to_owned()));
+        assert!(names.contains(&"bonsai-notes.md".to_owned()));
+        assert!(!names.contains(&"bonsai.json".to_owned()));
+        assert!(!names.contains(&"bonsai-2.json".to_owned()));
+        assert!(!names.contains(&"bonsai-3.json".to_owned()));
+    }
+
+    #[test]
+    fn output_exclusion_cannot_be_overridden_by_include() {
+        let root = temp_dir();
+        write_file(&root, "bonsai.json", "{}");
+
+        let output = root.join("bonsai.json");
+        let files = collect_code_files(
+            &root,
+            &WalkerOptions {
+                include: vec!["bonsai.json".to_owned()],
+                exclude: Vec::new(),
+                respect_gitignore: false,
+                max_file_bytes: Some(1_048_576),
+                exclude_generated: false,
+                output_file: Some(output),
+            },
+        )
+        .unwrap();
+
+        assert!(relative_names(&root, files).is_empty());
+    }
+
+    #[test]
+    fn retire_stale_chunks_keeps_active_chunks_and_unrelated_files() {
+        let root = temp_dir();
+        let output = root.join("bonsai.json");
+        write_file(&root, "bonsai.json", "base");
+        write_file(&root, "bonsai-2.json", "stale");
+        write_file(&root, "bonsai-3.json", "stale");
+        write_file(&root, "other.json", "keep");
+        write_file(&root, "bonsai-notes.md", "keep");
+
+        let removed = retire_stale_chunks(&output, 1);
+
+        assert_eq!(
+            removed,
+            vec![root.join("bonsai-2.json"), root.join("bonsai-3.json")]
+        );
+        assert!(output.is_file());
+        assert!(!root.join("bonsai-2.json").exists());
+        assert!(!root.join("bonsai-3.json").exists());
+        assert!(root.join("other.json").is_file());
+        assert!(root.join("bonsai-notes.md").is_file());
+    }
+
+    #[test]
+    fn numbered_chunk_paths_mirror_extension_naming() {
+        let output = PathBuf::from("/tmp/out/bonsai.xml");
+        assert_eq!(numbered_chunk_path(&output, 0), output);
+        assert_eq!(
+            numbered_chunk_path(&output, 1),
+            PathBuf::from("/tmp/out/bonsai-2.xml")
+        );
+        assert_eq!(
+            numbered_chunk_path(&output, 2),
+            PathBuf::from("/tmp/out/bonsai-3.xml")
+        );
     }
 
     fn temp_dir() -> PathBuf {

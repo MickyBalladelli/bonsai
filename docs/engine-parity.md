@@ -93,6 +93,13 @@ below plus conformance tests is the maintained parity mechanism.
 - CLI writes one output file (plus stdout/summary/stats modes). Extension
   splits output into numbered chunks under 10 MB each and recounts the sum
   across all chunks.
+- Both engines keep generated output out of source scans: the configured
+  output file and its numbered chunks (`base-2.ext`, ...) are excluded even
+  when unignored (for example `bonsai.json`), and explicit include filters
+  cannot override the exclusion. Clipboard runs exclude nothing.
+- Both engines retire stale numbered chunks on regeneration (CLI keeps its
+  single file, the extension keeps its current chunk count), removing only
+  the output's own `base-N.ext` names so unrelated files are never touched.
 - Over-budget wording differs by surface only: CLI says `max-tokens`,
   extension says `max_tokens`. Both carry token count, budget, and the
   incomplete-evidence notice.

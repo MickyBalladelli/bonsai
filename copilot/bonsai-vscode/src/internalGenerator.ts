@@ -303,6 +303,13 @@ async function collectFiles(root: string, config: BonsaiConfig): Promise<FileCan
         continue
       }
 
+      // Bonsai's configured output and its numbered chunks are never source
+      // input, even when they use a scanned extension (for example
+      // `bonsai.json`) and are not gitignored. Explicit include filters
+      // cannot override this exclusion.
+      if (isBonsaiOutputArtifact(root, absolutePath, config.outputFile)) {
+        continue
+      }
       if (!entry.isFile() || !isSupportedFile(relativePath) || isIgnored(relativePath, false, rules)) {
         continue
       }
@@ -440,6 +447,94 @@ function isSupportedFile(relativePath: string): boolean {
 
 function toRelativePath(root: string, value: string): string {
   return path.relative(root, value).split(path.sep).join('/')
+}
+
+function splitFileName(name: string): { stem: string; extension: string | undefined } {
+  const dot = name.lastIndexOf('.')
+  if (dot === -1) {
+    return { stem: name, extension: undefined }
+  }
+  return { stem: name.slice(0, dot), extension: name.slice(dot + 1) }
+}
+
+function chunkNumberFor(outputName: string, candidate: string): number | undefined {
+  const output = splitFileName(outputName)
+  const other = splitFileName(candidate)
+  if (output.extension !== other.extension) {
+    return undefined
+  }
+  if (!candidate.startsWith(output.stem)) {
+    return undefined
+  }
+  const suffix = other.stem.slice(output.stem.length)
+  if (!suffix.startsWith('-')) {
+    return undefined
+  }
+  const digits = suffix.slice(1)
+  if (!digits || !/^\d+$/.test(digits)) {
+    return undefined
+  }
+  const chunk = Number(digits)
+  return chunk >= 2 ? chunk : undefined
+}
+
+function isBonsaiOutputArtifact(root: string, absolutePath: string, outputFile: string): boolean {
+  const relative = toRelativePath(root, absolutePath)
+  if (relative === '..' || relative.startsWith('../') || path.isAbsolute(relative)) {
+    return false
+  }
+  const outputRelative = toRelativePath(root, outputFile)
+  if (outputRelative === '..' || outputRelative.startsWith('../') || path.isAbsolute(outputRelative)) {
+    return false
+  }
+  if (relative === outputRelative) {
+    return true
+  }
+  if (path.posix.dirname(relative) !== path.posix.dirname(outputRelative)) {
+    return false
+  }
+  return chunkNumberFor(path.posix.basename(outputRelative), path.posix.basename(relative)) !== undefined
+}
+
+/**
+ * Delete numbered chunks of `outputFile` at positions beyond `activeFiles`.
+ * Only files matching the output's own stem and extension (`base-2.ext`,
+ * ...) are removed; unrelated files are never touched and the base output
+ * itself is never removed. Returns the removed absolute paths.
+ */
+export async function removeStaleChunks(outputFile: string, activeFiles: string[]): Promise<string[]> {
+  const active = new Set(activeFiles.map(file => path.resolve(file)))
+  const outputName = path.basename(outputFile)
+  let entries
+  try {
+    entries = await fs.readdir(path.dirname(outputFile), { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const removed: string[] = []
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue
+    }
+    const candidate = path.join(path.dirname(outputFile), entry.name)
+    if (path.resolve(candidate) === path.resolve(outputFile)) {
+      continue
+    }
+    const chunk = chunkNumberFor(outputName, entry.name)
+    if (chunk === undefined || chunk <= activeFiles.length) {
+      continue
+    }
+    if (active.has(path.resolve(candidate))) {
+      continue
+    }
+    try {
+      await fs.unlink(candidate)
+      removed.push(candidate)
+    } catch {
+      continue
+    }
+  }
+  return removed.sort()
 }
 
 function buildVariants(relativePath: string, source: string): FileVariants {

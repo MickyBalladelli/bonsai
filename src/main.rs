@@ -30,8 +30,8 @@ use formatter::{
 };
 use parser::{compress_file, parser_support_for_extension, CompressionLevel, ParserMode};
 use walker::{
-    collect_code_files, is_supported_path, matches_path_filters, supported_extensions,
-    WalkerOptions,
+    collect_code_files, is_supported_path, matches_path_filters, retire_stale_chunks,
+    supported_extensions, WalkerOptions,
 };
 
 const DEFAULT_MAX_TOKENS: usize = 12000;
@@ -2587,7 +2587,16 @@ fn write_output_file(path: &Path, context: &str, quiet: bool) -> Result<()> {
         eprintln!("warning: replacing existing output file {}", path.display());
     }
 
-    fs::write(path, context).with_context(|| format!("cannot write {}", path.display()))
+    fs::write(path, context).with_context(|| format!("cannot write {}", path.display()))?;
+    // The CLI writes a single file, so any numbered chunk from an earlier
+    // chunked run (base-2.ext, ...) with the same stem is stale. Remove only
+    // those chunk names; unrelated files are never touched.
+    for stale in retire_stale_chunks(path, 1) {
+        if !quiet {
+            eprintln!("warning: removed stale output chunk {}", stale.display());
+        }
+    }
+    Ok(())
 }
 
 fn print_success(stats: &RunStats) {

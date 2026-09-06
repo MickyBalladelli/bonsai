@@ -26,8 +26,8 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 
 ### Keep generated output out of input
 
-- [ ] Exclude Bonsai's configured output and numbered chunks from source scans, including unignored `bonsai.json` files.
-- [ ] Retire stale numbered chunks when regeneration produces fewer files, without touching unrelated files.
+- [x] Exclude Bonsai's configured output and numbered chunks from source scans, including unignored `bonsai.json` files.
+- [x] Retire stale numbered chunks when regeneration produces fewer files, without touching unrelated files.
 
 ### Prove quality and product value
 
