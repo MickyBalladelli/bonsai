@@ -188,6 +188,7 @@ fn extension(path: &Path) -> Option<String> {
 enum SyntaxKind {
     JavaScript,
     TypeScript,
+    Tsx,
     Python,
     Rust,
     Go,
@@ -213,7 +214,8 @@ impl SyntaxKind {
     fn from_extension(extension: &str) -> Result<Self> {
         match Some(extension) {
             Some("js" | "jsx") => Ok(Self::JavaScript),
-            Some("ts" | "tsx") => Ok(Self::TypeScript),
+            Some("ts") => Ok(Self::TypeScript),
+            Some("tsx") => Ok(Self::Tsx),
             Some("py") => Ok(Self::Python),
             Some("rs") => Ok(Self::Rust),
             Some("go") => Ok(Self::Go),
@@ -235,6 +237,7 @@ impl SyntaxKind {
         match self {
             Self::JavaScript => Some(tree_sitter_javascript::language()),
             Self::TypeScript => Some(tree_sitter_typescript::language_typescript()),
+            Self::Tsx => Some(tree_sitter_typescript::language_tsx()),
             Self::Python => Some(tree_sitter_python::language()),
             Self::Rust => Some(tree_sitter_rust::language()),
             Self::Go => Some(tree_sitter_go::language()),
@@ -287,7 +290,7 @@ fn collect_body_replacements(node: Node, syntax: SyntaxKind, replacements: &mut 
 
 fn body_replacement(node: Node, syntax: SyntaxKind) -> Option<Replacement> {
     match syntax {
-        SyntaxKind::JavaScript | SyntaxKind::TypeScript => {
+        SyntaxKind::JavaScript | SyntaxKind::TypeScript | SyntaxKind::Tsx => {
             let kind = node.kind();
             if kind == "statement_block" && node.parent().is_some_and(is_js_callable) {
                 Some(Replacement {
@@ -520,7 +523,7 @@ fn push_collapsed_import_run(output: &mut Vec<String>, lines: &[&str]) {
 
 fn is_import_like_line(line: &str, syntax: SyntaxKind) -> bool {
     match syntax {
-        SyntaxKind::JavaScript | SyntaxKind::TypeScript => {
+        SyntaxKind::JavaScript | SyntaxKind::TypeScript | SyntaxKind::Tsx => {
             line.starts_with("import ") || line.starts_with("import{")
         }
         SyntaxKind::Python => line.starts_with("import ") || line.starts_with("from "),
@@ -572,7 +575,7 @@ fn should_emit_tree_map_node(node: Node, syntax: SyntaxKind) -> bool {
                 | "lexical_declaration"
                 | "variable_declaration"
         ),
-        SyntaxKind::TypeScript => matches!(
+        SyntaxKind::TypeScript | SyntaxKind::Tsx => matches!(
             kind,
             "import_statement"
                 | "export_statement"
@@ -1628,6 +1631,34 @@ export function greet(user: User): string {
             .contains("export function greet(user: User): string { ... }"));
         assert!(variants.skeleton.contains("export type User"));
         assert!(!variants.skeleton.contains("return `hello"));
+    }
+
+    #[test]
+    fn tsx_uses_tsx_grammar_for_components() {
+        let path = write_temp_source(
+            "tsx",
+            r#"
+import React from 'react'
+
+export type Props = { name: string }
+
+export function Greeting({ name }: Props) {
+    return <div className="hi">hello {name}</div>
+}
+"#,
+        );
+
+        let variants = compress_file(&path, CompressionLevel::Skeleton).unwrap();
+
+        assert!(
+            variants
+                .skeleton
+                .contains("export function Greeting({ name }: Props) { ... }"),
+            "tsx skeleton kept body or misparsed JSX: {}",
+            variants.skeleton
+        );
+        assert!(variants.skeleton.contains("export type Props"));
+        assert!(!variants.skeleton.contains("hello {name}"));
     }
 
     #[test]

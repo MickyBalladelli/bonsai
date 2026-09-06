@@ -194,6 +194,22 @@ async function verifyArtifactWarningsMatchReportedWarnings(): Promise<void> {
   })
 }
 
+async function verifyMultilineSignaturesStripBodies(): Promise<void> {
+  await withFixture(async root => {
+    await write(root, 'src/multi.ts', 'export function greet(\n  user: string,\n  count: number\n): string {\n  return `${user}:${count}`\n}\n')
+
+    const skeleton = config(root)
+    skeleton.level = 2
+    skeleton.maxTokens = 12000
+    const result = await generateRepository(root, skeleton)
+    const parsed = JSON.parse(result.contextText) as { files: Array<{ path: string; content: string }> }
+    const content = parsed.files.find(file => file.path === 'src/multi.ts')?.content ?? ''
+
+    assert.ok(content.includes('{ ... }'), `multiline body was not stripped: ${content}`)
+    assert.ok(!content.includes('return `${user}'), `multiline body leaked: ${content}`)
+  })
+}
+
 async function main(): Promise<void> {
   await verifyRustCrateDependencyAndComments()
   await verifyPythonAndCDependencies()
@@ -202,6 +218,7 @@ async function main(): Promise<void> {
   await verifyBudgetLoopConvergesPastTwoHundredAttempts()
   await verifyMinimalTopRankedFileDoesNotBlockOthers()
   await verifyArtifactWarningsMatchReportedWarnings()
+  await verifyMultilineSignaturesStripBodies()
   console.log('internal generator smoke ok')
 }
 

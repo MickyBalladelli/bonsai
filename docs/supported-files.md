@@ -6,7 +6,8 @@ without a language parser.
 
 | Mode | Extensions | Languages and file types |
 | --- | --- | --- |
-| Tree-sitter | `.js`, `.jsx`, `.ts`, `.tsx` | JavaScript and TypeScript |
+| Tree-sitter | `.js`, `.jsx`, `.ts` | JavaScript and TypeScript (`.ts` uses the TypeScript grammar) |
+| Tree-sitter | `.tsx` | TypeScript with JSX (uses the TSX grammar) |
 | Tree-sitter | `.py` | Python |
 | Tree-sitter | `.rs` | Rust |
 | Tree-sitter | `.go` | Go |

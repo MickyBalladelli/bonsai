@@ -2394,14 +2394,8 @@ fn finalize_over_budget_context(
 
     for _ in 0..5 {
         let extra = vec![over_budget_warning(reported, cli.max_tokens)];
-        context = render_final_context(
-            &files,
-            metadata,
-            cli,
-            deleted_files,
-            &dropped_paths,
-            &extra,
-        );
+        context =
+            render_final_context(&files, metadata, cli, deleted_files, &dropped_paths, &extra);
         output_tokens = count_text_tokens(&context, counter);
         if output_tokens == reported {
             break;

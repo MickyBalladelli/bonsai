@@ -1305,19 +1305,65 @@ function stripCallableBodies(source: string, extension: string): string {
     return stripPythonBodies(source)
   }
 
+  // Syntax-aware scan: only braces in real code open a body, and the
+  // signature check looks backwards across lines so multiline parameter
+  // lists, return types, and generics still match.
   const replacements: Array<{ start: number; end: number }> = []
+  let quote = ''
+  let lineComment = false
+  let blockComment = false
   let index = 0
   while (index < source.length) {
-    if (source[index] === '{') {
-      const lineStart = source.lastIndexOf('\n', index - 1) + 1
-      const prefix = source.slice(lineStart, index).trim()
-      if (isCallablePrefix(prefix, extension)) {
-        const end = findMatchingBrace(source, index)
-        if (end !== undefined) {
-          replacements.push({ start: index, end: end + 1 })
-          index = end + 1
-          continue
-        }
+    const character = source[index]
+    const next = source[index + 1]
+    if (lineComment) {
+      if (character === '\n') {
+        lineComment = false
+      }
+      index += 1
+      continue
+    }
+    if (blockComment) {
+      if (character === '*' && next === '/') {
+        blockComment = false
+        index += 2
+        continue
+      }
+      index += 1
+      continue
+    }
+    if (quote) {
+      if (character === '\\') {
+        index += 2
+        continue
+      }
+      if (character === quote) {
+        quote = ''
+      }
+      index += 1
+      continue
+    }
+    if (character === '/' && next === '/') {
+      lineComment = true
+      index += 2
+      continue
+    }
+    if (character === '/' && next === '*') {
+      blockComment = true
+      index += 2
+      continue
+    }
+    if (character === '"' || character === "'" || character === '`') {
+      quote = character
+      index += 1
+      continue
+    }
+    if (character === '{' && isCallableBody(source, index, extension)) {
+      const end = findMatchingBrace(source, index)
+      if (end !== undefined) {
+        replacements.push({ start: index, end: end + 1 })
+        index = end + 1
+        continue
       }
     }
     index += 1
@@ -1375,6 +1421,85 @@ function stripPythonBodies(source: string): string {
     }
   }
   return output.join('\n')
+}
+
+function isCallableBody(source: string, braceIndex: number, extension: string): boolean {
+  return isCallablePrefix(signatureTextBeforeBrace(source, braceIndex), extension)
+}
+
+// Text before `{` with strings/comments blanked, cut back to the current
+// statement boundary, and collapsed to one line. Multiline signatures such
+// as `function foo(\n a: string\n) : Result {` then match the same trailing
+// `)`, `=>`, or keyword rules as single-line signatures.
+function signatureTextBeforeBrace(source: string, braceIndex: number): string {
+  const windowStart = Math.max(0, braceIndex - 2000)
+  const raw = source.slice(windowStart, braceIndex)
+  const cleaned = blankStringsAndComments(raw)
+  let depth = 0
+  let boundary = -1
+  for (let index = cleaned.length - 1; index >= 0; index -= 1) {
+    const character = cleaned[index]
+    if (character === ')') {
+      depth += 1
+    } else if (character === '(') {
+      depth = Math.max(0, depth - 1)
+    } else if (depth === 0 && (character === ';' || character === '{' || character === '}')) {
+      boundary = index
+      break
+    }
+  }
+  const statement = cleaned.slice(boundary + 1)
+  return statement.replace(/\s+/g, ' ').trim().slice(-500)
+}
+
+function blankStringsAndComments(text: string): string {
+  let output = ''
+  let quote = ''
+  let index = 0
+  while (index < text.length) {
+    const character = text[index]
+    const next = text[index + 1] ?? ''
+    if (quote) {
+      if (character === '\\') {
+        output += '  '
+        index += 2
+        continue
+      }
+      if (character === quote) {
+        quote = ''
+      }
+      output += character === '\n' ? '\n' : ' '
+      index += 1
+      continue
+    }
+    if (character === '/' && next === '/') {
+      while (index < text.length && text[index] !== '\n') {
+        output += ' '
+        index += 1
+      }
+      continue
+    }
+    if (character === '/' && next === '*') {
+      output += '  '
+      index += 2
+      while (index < text.length && !(text[index] === '*' && text[index + 1] === '/')) {
+        output += text[index] === '\n' ? '\n' : ' '
+        index += 1
+      }
+      output += '  '
+      index += 2
+      continue
+    }
+    if (character === '"' || character === "'" || character === '`') {
+      quote = character
+      output += ' '
+      index += 1
+      continue
+    }
+    output += character
+    index += 1
+  }
+  return output
 }
 
 function isCallablePrefix(prefix: string, extension: string): boolean {

@@ -19,10 +19,10 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 
 ### Align the engines
 
-- [ ] Choose a shared compression core or define and maintain explicit behavior parity between the Rust CLI and TypeScript extension.
-- [ ] Replace fragile extension body-scanning rules with syntax-aware handling, including multiline function signatures.
-- [ ] Parse `.tsx` with the Tree-sitter TSX grammar instead of the TypeScript grammar.
-- [ ] Document remaining engine differences in parsing, selection, configuration, and budget handling.
+- [x] Choose a shared compression core or define and maintain explicit behavior parity between the Rust CLI and TypeScript extension.
+- [x] Replace fragile extension body-scanning rules with syntax-aware handling, including multiline function signatures.
+- [x] Parse `.tsx` with the Tree-sitter TSX grammar instead of the TypeScript grammar.
+- [x] Document remaining engine differences in parsing, selection, configuration, and budget handling.
 
 ### Keep generated output out of input
 
