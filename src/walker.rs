@@ -123,28 +123,6 @@ pub fn is_bonsai_output_artifact(root: &Path, path: &Path, output: &Path) -> boo
     is_numbered_chunk_name(output_name, candidate_name)
 }
 
-/// Absolute path of numbered chunk `index` (0-based) for `output`.
-/// Index 0 is the output itself; index N >= 1 is `base-(N+1).ext`,
-/// mirroring `chunkOutputPath` in the VS Code extension.
-pub fn numbered_chunk_path(output: &Path, index: usize) -> PathBuf {
-    if index == 0 {
-        return output.to_path_buf();
-    }
-    let file_name = output
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("");
-    let (stem, extension) = split_file_name(file_name);
-    let chunk_name = match extension {
-        Some(extension) => format!("{}-{}.{}", stem, index + 1, extension),
-        None => format!("{}-{}", stem, index + 1),
-    };
-    match output.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent.join(chunk_name),
-        _ => PathBuf::from(chunk_name),
-    }
-}
-
 /// Delete numbered chunks of `output` at positions `>= keep_chunks`.
 ///
 /// Only files matching the output's own stem and extension
@@ -649,20 +627,6 @@ mod tests {
         assert!(!root.join("bonsai-3.json").exists());
         assert!(root.join("other.json").is_file());
         assert!(root.join("bonsai-notes.md").is_file());
-    }
-
-    #[test]
-    fn numbered_chunk_paths_mirror_extension_naming() {
-        let output = PathBuf::from("/tmp/out/bonsai.xml");
-        assert_eq!(numbered_chunk_path(&output, 0), output);
-        assert_eq!(
-            numbered_chunk_path(&output, 1),
-            PathBuf::from("/tmp/out/bonsai-2.xml")
-        );
-        assert_eq!(
-            numbered_chunk_path(&output, 2),
-            PathBuf::from("/tmp/out/bonsai-3.xml")
-        );
     }
 
     fn temp_dir() -> PathBuf {
