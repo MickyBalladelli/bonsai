@@ -52,6 +52,9 @@ step "Extension tests"
 
 step "Package VSIX"
 (cd copilot/bonsai-vscode && npm run package)
-ls copilot/bonsai-vscode/bonsai-vscode-*.vsix
+for vsix in copilot/bonsai-vscode/bonsai-vscode-*.vsix; do
+  mv "$vsix" "$repo_root/$(basename "$vsix")"
+done
+ls "$repo_root"/bonsai-vscode-*.vsix
 
-printf '\nAll tests passed and the VSIX is built.\n'
+printf '\nAll tests passed and the VSIX is moved to the repo root.\n'
