@@ -6,7 +6,10 @@
 # and the Homebrew tag, and docs/cli-options.md is regenerated.
 #
 # Usage:
-#   ./bump-version.sh 0.5.31 [--commit]
+#   ./bump-version.sh [<version>] [--commit]
+#
+# With no <version>, reads the current version from Cargo.toml and bumps
+# the patch number (e.g. 0.5.30 -> 0.5.31).
 #
 # With --commit, the version files are committed as "Bump version to X".
 # The working tree must be clean before running.
@@ -19,16 +22,41 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 usage() {
-  printf 'usage: ./bump-version.sh <version> [--commit]\n' >&2
+  printf 'usage: ./bump-version.sh [<version>] [--commit]\n' >&2
+  printf '  With no <version>, bumps the patch number from Cargo.toml.\n' >&2
   exit 1
 }
 
-version="${1:-}"
+version=""
 commit=""
-if [[ "${2:-}" == "--commit" ]]; then
-  commit=1
-elif [[ $# -gt 1 ]]; then
-  usage
+for arg in "$@"; do
+  case "$arg" in
+    --commit)
+      commit=1
+      ;;
+    -h|--help)
+      usage
+      ;;
+    -*)
+      usage
+      ;;
+    *)
+      if [[ -n "$version" ]]; then
+        usage
+      fi
+      version="$arg"
+      ;;
+  esac
+done
+
+if [[ -z "$version" ]]; then
+  current="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+  if ! [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)([-+][0-9A-Za-z.-]+)?$ ]]; then
+    printf 'could not detect current version from Cargo.toml: %s\n' "$current" >&2
+    exit 1
+  fi
+  version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+  printf 'Current version is %s, bumping to %s.\n' "$current" "$version"
 fi
 
 if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then

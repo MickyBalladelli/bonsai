@@ -34,6 +34,5 @@ shrinks the background first, and says clearly when the result is incomplete.
 
 - Not a whole-repo packer: packing everything maximizes tokens, not answers.
 - Not a static map: maps show structure; Bonsai ships the relevant bodies.
-- Not a paid product today: that decision waits on measured quality from
-  `docs/evaluation.md` and real user demand. Until then it stays a useful
-  personal and open-source tool.
+- Free and open-source: Bonsai stays a free and open-source tool. Use measured quality from
+  `docs/evaluation.md` and real user demand to guide improvements.

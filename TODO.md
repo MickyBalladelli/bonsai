@@ -36,7 +36,7 @@ Prioritize context quality, budget enforcement, and engine consistency before ad
 - [ ] Compare Bonsai against direct repository reading, Repomix, and Aider repository maps on equivalent tasks and budgets.
 - [x] Demonstrate that token savings preserve answer quality rather than merely producing smaller output.
 - [x] Define and document Bonsai's distinct value around request-aware context selection; repository packing and syntax compression alone already exist elsewhere.
-- [ ] Use measured quality and user demand to decide whether to pursue a paid product; keep improving the useful personal and open-source tool in the meantime.
+- [ ] Use measured quality and user demand to guide improvements; keep it a useful free and open-source tool.
 
 ## Usability review
 
